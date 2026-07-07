@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ assessment.company_name }}融资诊断报告</title>
+  <style>
+    body{font-family:"Microsoft YaHei",sans-serif;color:#172338;line-height:1.7;margin:0;background:#fff}
+    .print-page{max-width:920px;margin:0 auto;padding:36px}
+    .cover{min-height:620px;display:flex;flex-direction:column;justify-content:center;border-bottom:4px solid #c9a45c}
+    .cover small{color:#9a7432;letter-spacing:.18em}.cover h1{font-size:42px;line-height:1.3}.meta{display:grid;gap:8px;color:#617083}
+    .toolbar{position:fixed;right:20px;top:20px}.toolbar button{padding:12px 20px;border:0;background:#0c2747;color:#fff;cursor:pointer}
+    .chapter{page-break-before:always;padding-top:24px}.chapter h2{font-size:27px;border-bottom:2px solid #c9a45c;padding-bottom:10px}
+    .conclusion{padding:18px;border-left:4px solid #c9a45c;background:#f7f3e9}.block{margin:22px 0}.block h3{font-size:17px;color:#0c2747}
+    .bank{display:grid;grid-template-columns:1fr 1fr;gap:14px}.bank>div{padding:14px;border:1px solid #dfe5ec}
+    @media print{.toolbar{display:none}.print-page{max-width:none;padding:0 12mm}@page{size:A4;margin:14mm}}
+  </style>
+</head>
+<body>
+  <div class="toolbar"><button onclick="window.print()">打印 / 保存为PDF</button></div>
+  <main class="print-page">
+    <section class="cover">
+      <small>沪上银 · 内部保密</small>
+      <h1>{{ assessment.company_name }}<br>企业融资顾问诊断报告</h1>
+      <div class="meta">
+        <span>报告编号：HSY-{{ "%06d"|format(assessment.id) }}</span>
+        <span>企业评分：{{ assessment.score }}分 / {{ assessment.grade }}级</span>
+        <span>模拟审批概率：{{ "%.0f"|format(report.bank_approval.approval_probability * 100) }}%</span>
+        <span>预计额度：{{ report.bank_approval.estimated_credit_limit }}</span>
+      </div>
+    </section>
+    {% for chapter in report.chapters %}
+    <section class="chapter">
+      <h2>{{ "%02d"|format(loop.index) }} {{ chapter.title }}</h2>
+      <div class="conclusion"><strong>本章结论</strong><p>{{ chapter.conclusion }}</p></div>
+      <div class="block"><h3>关键问题</h3><ul>{% for item in chapter.key_issues %}<li>{{ item }}</li>{% endfor %}</ul></div>
+      <div class="block"><h3>银行视角判断</h3><p>{{ chapter.bank_view }}</p></div>
+      <div class="block"><h3>老板应该怎么做</h3><ul>{% for item in chapter.owner_actions %}<li>{{ item }}</li>{% endfor %}</ul></div>
+      <div class="block"><h3>下一步行动建议</h3><ol>{% for item in chapter.next_actions %}<li>{{ item }}</li>{% endfor %}</ol></div>
+      {% if loop.index in [1,5,10] %}
+      <div class="bank">
+        <div><strong>可能被拒原因</strong>{% for item in report.bank_approval.likely_rejection_reasons %}<p>• {{ item }}</p>{% endfor %}</div>
+        <div><strong>推荐银行类型</strong>{% for item in report.bank_approval.bank_preference %}<p>• {{ item }}</p>{% endfor %}</div>
+      </div>
+      {% endif %}
+    </section>
+    {% endfor %}
+    <section class="chapter"><h2>合规声明</h2><div class="conclusion">{{ report.compliance_disclaimer }}</div></section>
+  </main>
+</body>
+</html>

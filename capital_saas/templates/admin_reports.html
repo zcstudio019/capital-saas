@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}报告管理｜沪上银{% endblock %}
+{% block content %}
+<section class="admin-shell container"><div class="admin-top"><div><div class="eyebrow">报告管理</div><h1>报告管理</h1></div><div class="admin-links"><a href="/admin">总览</a><a href="/admin/leads">线索</a><a href="/admin/follow-tasks">任务</a><a class="active" href="/admin/reports">报告</a>{% if current_user.role != 'sales' %}<a href="/admin/orders">订单</a>{% endif %}</div></div>
+<div class="card table-card"><table><thead><tr><th>ID</th><th>企业</th><th>评分</th><th>生成状态</th><th>审核状态</th><th>公开链接</th><th>创建时间</th><th>操作</th></tr></thead><tbody>{% for x in reports %}<tr><td>#{{ x.id }}</td><td>{{ x.assessment.company_name }}</td><td>{{ x.assessment.score }} / {{ x.assessment.grade }}级</td><td><span class="badge {{ 'paid' if x.full_report_json else '' }}">{{ '已生成' if x.full_report_json else '免费版' }}</span></td><td>{{ x.review_status }}</td><td>{{ '有效' if x.public_token and x.token_expired_at else '-' }}</td><td>{{ x.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><a href="/admin/reports/{{ x.id }}">详情</a></td></tr>{% else %}<tr><td colspan="8" class="empty">暂无报告</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

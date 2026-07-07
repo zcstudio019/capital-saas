@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}生产初始化向导{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <h1>生产数据初始化向导</h1>
+  <p class="muted">按步骤完成真实业务配置。完成状态只作为上线准备记录，不会阻断本地开发。</p>
+  <section class="card">
+    {% for step in steps %}
+    <div class="client-row">
+      <div><b>{{ loop.index }}. {{ step.title }}</b><p class="muted">状态：{{ step.status }}{% if step.completed_at %} · {{ step.completed_at }}{% endif %}</p></div>
+      <div class="actions">
+        <a class="btn" href="{{ step.url }}">去配置</a>
+        <form method="post" action="/admin/setup-wizard/mark-step" style="display:inline">
+          <input type="hidden" name="step_key" value="{{ step.step_key }}">
+          <input type="hidden" name="status" value="completed">
+          <button class="btn btn-primary" type="submit">标记完成</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+</section>
+{% endblock %}

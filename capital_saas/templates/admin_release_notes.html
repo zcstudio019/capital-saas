@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}发布说明{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <h1>发布说明</h1>
+  <section class="card">
+    <div class="client-row"><b>当前版本</b><span>{{ version }}</span></div>
+    <div class="client-row"><b>最近启动</b><span>{{ started_at }}</span></div>
+    <div class="client-row"><b>路由数量</b><span>{{ route_count }}</span></div>
+    <div class="client-row"><b>Git Commit</b><span>{{ git_commit }}</span></div>
+  </section>
+  <section class="card"><h2>CHANGELOG</h2><pre style="white-space:pre-wrap">{{ changelog }}</pre></section>
+</section>
+{% endblock %}

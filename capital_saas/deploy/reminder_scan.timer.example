@@ -1,0 +1,11 @@
+﻿[Unit]
+Description=Run Capital SaaS reminder scan every 10 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+Unit=reminder_scan.service
+
+[Install]
+WantedBy=timers.target
+

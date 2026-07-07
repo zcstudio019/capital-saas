@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}订单状态｜沪上银{% endblock %}
+{% block content %}
+<section class="section"><div class="container"><div class="card payment-result">
+  {% if order.status == 'paid' %}
+  <div class="result-symbol success">✓</div><h1>支付成功</h1>
+  <p>订单 #{{ order.id }} 已支付，报告已解锁。</p>
+  <a class="btn btn-primary" href="/report/{{ order.assessment_id }}">查看完整报告</a>
+  {% elif payment_mode == 'manual_transfer' %}
+  <div class="result-symbol pending">¥</div><h1>订单已创建，等待转账确认</h1>
+  <p>请通过运营人员提供的银行账户或微信收款方式完成转账，并备注订单号 <strong>#{{ order.id }}</strong>。</p>
+  <div class="manual-transfer-box"><span>应付金额</span><strong>¥{{ "%.2f"|format(order.amount) }}</strong><p>转账后请联系运营人员，后台确认到账后将自动解锁报告。</p>{% if contact_phone %}<p>电话：{{ contact_phone }}</p>{% endif %}{% if contact_wechat %}<p>微信：{{ contact_wechat }}</p>{% endif %}</div>
+  {% else %}
+  <div class="result-symbol pending">…</div><h1>订单处理中</h1><p>当前订单状态：{{ order.status|zh }}</p>
+  {% endif %}
+</div></div></section>
+{% endblock %}

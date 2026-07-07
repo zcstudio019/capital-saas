@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}融资产品服务｜沪上银{% endblock %}
+{% block content %}
+<section class="page-hero compact">
+  <div class="container">
+    <div class="eyebrow">产品服务</div>
+    <h1>从诊断到融资结构落地</h1>
+    <p>按企业当前阶段选择服务，先看清问题，再设计路径。</p>
+  </div>
+</section>
+<section class="section">
+  <div class="container">
+    <div class="product-grid">
+      {% set product_labels = {'299_report': '基础诊断报告', '699_bank_match': '银行匹配报告', '1999_structure_plan': '融资结构方案'} %}
+      {% for code, item in products.items() %}
+      <article class="card product-card {{ 'featured' if code == '699_bank_match' else '' }}">
+        {% if code == '699_bank_match' %}<span class="product-ribbon">推荐</span>{% endif %}
+        <div class="eyebrow">{{ product_labels[code] }}</div>
+        <h2>{{ item.name }}</h2>
+        <p>{{ item.description }}</p>
+        <div class="product-price"><small>一次性服务</small><strong>¥{{ item.price }}</strong></div>
+        <a class="btn {{ 'btn-primary' if code != '1999_structure_plan' else 'btn-gold' }} btn-block" href="/assessment">先完成免费测评</a>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

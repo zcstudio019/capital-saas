@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}免费诊断结果｜{{ assessment.company_name }}{% endblock %}
+{% block content %}
+<section class="page-hero result-hero">
+  <div class="container result-head">
+    <div>
+      <div class="eyebrow">测评结果</div>
+      <h1>{{ assessment.company_name }}</h1>
+      <p>企业资本战略初步诊断已完成</p>
+    </div>
+    <div class="score-ring">
+      <strong>{{ result.score }}</strong><span>/ 100</span>
+      <small>{{ result.grade }}级</small>
+    </div>
+  </div>
+</section>
+<section class="section">
+  <div class="container result-layout">
+    <div class="result-main">
+      <div class="overview-grid">
+        <div class="card stat"><span>综合等级</span><strong>{{ result.grade }}级</strong><small>{{ result.grade_text }}</small></div>
+        <div class="card stat"><span>银行风险</span><strong class="risk-{{ result.risk_level }}">{{ result.risk_level|zh }}</strong><small>银行授信视角</small></div>
+        <div class="card stat"><span>融资可行性</span><strong>{{ result.funding_probability|zh }}</strong><small>{{ result.finance_now }}</small></div>
+      </div>
+      <div class="card insight danger">
+        <div class="insight-icon">!</div><div><span>核心风险提示</span><h3>{{ result.core_risk }}</h3></div>
+      </div>
+      <div class="card insight">
+        <div class="insight-icon gold">¥</div><div><span>财商短板提示</span><h3>{{ result.financial_literacy_gap }}</h3></div>
+      </div>
+      <div class="card locked-preview">
+        <div class="locked-overlay"><span class="lock">◆</span><h3>深度分析内容已隐藏</h3><p>银行通过率、贷款额度、融资组合和行动方案将在完整报告中展示。</p></div>
+        <div class="blur-lines"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+    <aside class="card paywall">
+      <div class="eyebrow">??你将获得</div>
+      <h2>完整报告已生成，解锁后可查看银行视角融资路径。</h2>
+      {% if variant == 'variant_a' %}
+      <div class="ab-message risk-message"><span>风险提示型诊断</span><h3>现在盲目申请，可能留下多次征信查询并被银行压低额度。</h3><p>{{ conversion_copy }}</p></div>
+      {% else %}
+      <div class="ab-message opportunity-message"><span>机会收益型诊断</span><h3>优化申请顺序和融资结构，有机会提升额度并降低综合资金成本。</h3><p>{{ conversion_copy }}</p></div>
+      {% endif %}
+      <ul class="check-list">
+        <li>银行通过率与额度区间</li><li>10章企业资本诊断</li><li>短中长期融资组合</li><li>30/90/365天行动方案</li>
+      </ul>
+      <div class="price"><span>完整解锁</span><strong>¥299</strong><del>¥599</del></div>
+      <a class="btn btn-primary btn-block" href="/checkout/{{ assessment.id }}">解锁完整AI诊断报告 299元</a>
+      <small class="safe-note">?? 支付演示 · 不会产生真实扣款</small>
+    </aside>
+  </div>
+</section>
+{% endblock %}

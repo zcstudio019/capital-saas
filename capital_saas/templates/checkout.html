@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}确认购买｜沪上银{% endblock %}
+{% block content %}
+<section class="page-hero compact">
+  <div class="container">
+    <div class="eyebrow">安全收银台</div>
+    <h1>确认购买服务</h1>
+    <p>{{ assessment.company_name }} · 测评编号 #{{ assessment.id }}</p>
+  </div>
+</section>
+<section class="section">
+  <div class="container checkout-grid">
+    <div class="card order-product">
+      <span class="tag">企业融资商业服务</span>
+      <h2>{{ product.name }}</h2>
+      <p>{{ product.description }}</p>
+      {% if product_code == '299_report' %}
+      <ol class="content-list">
+        <li>企业融资能力评分</li><li>银行通过率判断</li><li>可贷款额度区间</li><li>现金流风险分析</li><li>财商短板分析</li>
+        <li>融资结构优化建议</li><li>资金投放建议</li><li>贷后管理建议</li><li>长期资本路径建议</li><li>下一步行动方案</li>
+      </ol>
+      {% elif product_code == '699_bank_match' %}
+      <ol class="content-list">
+        <li>银行准入条件匹配</li><li>贷款额度区间预测</li><li>产品优先级排序</li><li>申请顺序建议</li><li>拒贷风险提示</li><li>资料准备清单</li>
+      </ol>
+      {% else %}
+      <ol class="content-list">
+        <li>融资工具组合设计</li><li>额度与期限结构规划</li><li>融资成本优化</li><li>债务置换路径</li><li>分阶段执行方案</li><li>顾问沟通建议</li>
+      </ol>
+      {% endif %}
+    </div>
+    <div class="card payment-box">
+      <div class="payment-row"><span>商品金额</span><strong>¥{{ product.price }}</strong></div>
+      <div class="payment-row muted"><span>优惠</span><span>¥0</span></div>
+      <div class="divider"></div>
+      <div class="payment-total"><span>应付金额</span><strong>¥{{ product.price }}</strong></div>
+      <div class="??-notice">
+        {% if payment_mode == '??' %}<strong>演示支付环境</strong><p>点击按钮会创建已支付订单，不会发生真实扣款。</p>
+        {% elif payment_mode == 'manual_transfer' %}<strong>人工转账</strong><p>下单后展示转账说明，由后台确认到账并解锁报告。</p>
+        {% else %}<strong>支付接口预留模式</strong><p>当前渠道尚未正式接入，将生成待处理订单。</p>{% endif %}
+      </div>
+      <form action="/payment/??-pay/{{ assessment.id }}?product={{ product_code }}" method="post" data-loading-form>
+        <button class="btn btn-primary btn-block btn-lg" type="submit">模拟支付 ¥{{ product.price }}</button>
+      </form>
+      <a class="text-link" href="/products">查看其他产品</a>
+      <p class="compliance-note">本服务用于企业融资规划参考，不构成贷款承诺、授信承诺、投资建议或法律意见；不保证额度、利率及审批结果。</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

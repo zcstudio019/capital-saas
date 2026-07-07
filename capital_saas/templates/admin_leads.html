@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}销售线索｜沪上银{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top"><div><div class="eyebrow">销售线索</div><h1>销售线索管理</h1></div><div class="admin-links"><a href="/admin">总览</a><a class="active" href="/admin/leads">线索</a><a href="/admin/follow-tasks">任务</a><a href="/admin/reports">报告</a>{% if current_user.role != 'sales' %}<a href="/admin/orders">订单</a>{% endif %}</div></div>
+  <form class="card filter-bar" method="get">
+    <label>线索等级<select name="lead_grade"><option value="">全部</option>{% for grade in ['S','A','B','C','D'] %}<option value="{{ grade }}" {{ 'selected' if filters.lead_grade == grade else '' }}>{{ grade }}级</option>{% endfor %}</select></label>
+    <label>跟进状态<select name="follow_status"><option value="">全部</option>{% for status in ['待联系','已联系','跟进中','已付款','暂缓','无效'] %}<option value="{{ status }}" {{ 'selected' if filters.follow_status == status else '' }}>{{ status }}</option>{% endfor %}</select></label>
+    <label>推荐产品<select name="recommended_product"><option value="">全部</option>{% for code, label in product_labels.items() %}<option value="{{ code }}" {{ 'selected' if filters.recommended_product == code else '' }}>{{ label }}</option>{% endfor %}</select></label>
+    <label>渠道<select name="source_channel"><option value="">全部</option>{% for channel in channels %}<option value="{{ channel }}" {{ 'selected' if filters.source_channel == channel else '' }}>{{ channel }}</option>{% endfor %}</select></label>
+    <label>标签<select name="tag_id"><option value="0">全部</option>{% for tag in tags %}<option value="{{ tag.id }}" {{ 'selected' if filters.tag_id == tag.id else '' }}>{{ tag.name }}</option>{% endfor %}</select></label>
+    <button class="btn btn-primary">筛选</button><a class="text-link inline" href="/admin/leads">重置</a>
+  </form>
+  {% if current_user.role == 'admin' %}<div class="admin-toolbar"><a class="btn" href="/admin/export/leads.csv">导出线索CSV</a></div>{% endif %}
+  <div class="card table-card"><table class="wide-table"><thead><tr><th>ID</th><th>企业</th><th>联系人</th><th>渠道</th><th>企业评分</th><th>线索等级</th><th>标签</th><th>推荐产品</th><th>跟进状态</th><th>下一步最佳动作</th><th>操作</th></tr></thead><tbody>
+  {% for x in leads %}<tr data-company-name="{{ x.company_name }}">
+    <td>#{{ x.id }}</td><td>{{ x.company_name|display_company_name }}</td>
+    <td>{{ x.contact_name }}<br><small>{{ contacts[x.id].phone }} · {{ contacts[x.id].wechat or '-' }} · {{ x.city or '-' }}</small></td>
+    <td>{{ x.source_channel or 'direct' }}<br><small>{{ x.utm_campaign or x.source_campaign }}</small></td>
+    <td>{{ x.assessment.score }} / {{ x.assessment.grade }}</td><td><span class="badge grade-{{ x.lead_grade|lower }}">{{ x.lead_grade }}</span></td>
+    <td>{% for link in x.tag_links %}<span class="lead-tag" style="--tag-color:{{ link.tag.color }}">{{ link.tag.name }}</span>{% else %}-{% endfor %}</td>
+    <td>{{ product_labels.get(x.recommended_product, x.recommended_product) }}</td><td>{{ x.follow_status|zh }}</td>
+    <td><strong>{{ next_actions[x.id].next_action }}</strong><br><small>{{ next_actions[x.id].reason }}</small></td><td><a href="/admin/leads/{{ x.id }}">详情/跟进</a></td>
+  </tr>{% else %}<tr><td colspan="11" class="empty">暂无符合条件的线索</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endblock %}

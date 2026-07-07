@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}系统设置｜沪上银{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top"><div><div class="eyebrow">系统配置</div><h1>运营设置中心</h1></div><a class="btn" href="/admin">返回后台</a></div>
+  <form class="card detail-card settings-form" method="post" action="/admin/settings">
+    <h2>基础运营配置</h2>
+    <label>网站名称<input name="site_name" value="{{ settings.site_name }}"></label>
+    <label>公司名称<input name="company_name" value="{{ settings.company_name }}"></label>
+    <label>联系电话<input name="contact_phone" value="{{ settings.contact_phone }}"></label>
+    <label>联系微信<input name="contact_wechat" value="{{ settings.contact_wechat }}"></label>
+    <label>299产品价格<input name="report_price_299" type="number" min="0" value="{{ settings.report_price_299 }}"></label>
+    <label>699产品价格<input name="report_price_699" type="number" min="0" value="{{ settings.report_price_699 }}"></label>
+    <label>1999产品价格<input name="report_price_1999" type="number" min="0" value="{{ settings.report_price_1999 }}"></label>
+    <label>智能报告模式<select name="ai_mode"><option value="mock" {{ 'selected' if settings.ai_mode == 'mock' else '' }}>模拟模式</option><option value="openai" {{ 'selected' if settings.ai_mode == 'openai' else '' }}>在线智能模型</option></select></label>
+    <label>智能模型名称<input name="openai_model" value="{{ settings.openai_model }}"></label>
+    <label>支付模式<select name="payment_mode">{% for mode in ['mock','manual_transfer','wechat_pay','alipay'] %}<option value="{{ mode }}" {{ 'selected' if settings.payment_mode == mode else '' }}>{{ mode|zh }}</option>{% endfor %}</select></label>
+    <label>允许注册<select name="enable_registration"><option value="false" {{ 'selected' if settings.enable_registration != 'true' else '' }}>关闭</option><option value="true" {{ 'selected' if settings.enable_registration == 'true' else '' }}>开启</option></select></label>
+    <label>报告人工审核<select name="report_review_required"><option value="false" {{ 'selected' if settings.report_review_required != 'true' else '' }}>关闭</option><option value="true" {{ 'selected' if settings.report_review_required == 'true' else '' }}>开启</option></select></label>
+    <label>单文件上传上限（兆字节）<input name="upload_max_mb" type="number" min="1" max="100" value="{{ settings.upload_max_mb }}"></label>
+    <button class="btn btn-primary" type="submit">保存配置</button>
+  </form>
+</section>
+{% endblock %}

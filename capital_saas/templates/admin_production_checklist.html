@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}生产上线检查清单{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="section-title"><h1>生产上线检查清单</h1><a class="btn" href="/admin/production-checklist">重新执行上线检查</a></div>
+  {% if groups %}
+    {% for group, items in groups.items() %}
+    <section class="card">
+      <h2>{{ group }}</h2>
+      {% for item in items %}
+      <div class="client-row">
+        <div><b>{{ item.name }}</b><p class="muted">{{ item.message }}</p></div>
+        <span class="badge {{ item.status|zh }}">{{ item.status|zh }}</span>
+      </div>
+      {% endfor %}
+    </section>
+    {% endfor %}
+  {% else %}
+  <section class="card">
+    {% for item in checks %}
+      <div class="client-row"><b>{{ item.group }} · {{ item.name }}</b><span class="badge {{ item.status|zh }}">{{ item.status|zh }}</span></div>
+    {% endfor %}
+  </section>
+  {% endif %}
+  <p class="muted">上线前建议全部 fail 处理为 pass，warning 逐项确认风险 owner。</p>
+</section>
+{% endblock %}

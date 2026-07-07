@@ -1,0 +1,15 @@
+[Unit]
+Description=Capital SaaS FastAPI Backend
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/capital-saas/capital_saas
+EnvironmentFile=/opt/capital-saas/.env
+ExecStart=/opt/capital-saas/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8001 --workers 2
+Restart=always
+RestartSec=5
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

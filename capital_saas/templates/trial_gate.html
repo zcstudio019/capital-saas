@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}试运营访问验证{% endblock %}
+{% block content %}
+<section class="container section">
+  <div class="card center">
+    <h1>当前处于灰度试运营</h1>
+    <p class="muted">请输入试运营访问码后继续测评。后台、客户门户不受影响。</p>
+    {% if error %}<div class="alert danger">{{ error }}</div>{% endif %}
+    <form method="get" action="/assessment" class="form-grid">
+      <label>访问码<input name="trial_code" required placeholder="请输入访问码"></label>
+      <button class="btn btn-primary" type="submit">进入测评</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

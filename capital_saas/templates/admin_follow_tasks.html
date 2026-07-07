@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}跟进任务｜沪上银{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top"><div><div class="eyebrow">跟进任务</div><h1>销售跟进任务</h1></div><div class="admin-links"><a href="/admin">总览</a><a href="/admin/leads">线索</a><a class="active" href="/admin/follow-tasks">任务</a><a href="/admin/reports">报告</a>{% if current_user.role != 'sales' %}<a href="/admin/orders">订单</a>{% endif %}</div></div>
+  <form class="card filter-bar" method="get">
+    <label>状态<select name="status"><option value="">全部</option>{% for item in ['pending','done','cancelled'] %}<option value="{{ item }}" {{ 'selected' if filters.status == item else '' }}>{{ item|task_status_label }}</option>{% endfor %}</select></label>
+    <label>优先级<select name="priority"><option value="">全部</option>{% for item in ['high','medium','low'] %}<option value="{{ item }}" {{ 'selected' if filters.priority == item else '' }}>{{ item|task_priority_label }}</option>{% endfor %}</select></label>
+    <label>线索等级<select name="lead_grade"><option value="">全部</option>{% for item in ['S','A','B','C','D'] %}<option value="{{ item }}" {{ 'selected' if filters.lead_grade == item else '' }}>{{ item }}级</option>{% endfor %}</select></label>
+    <button class="btn btn-primary">筛选</button>
+  </form>
+  {% if current_user.role == 'admin' %}<div class="admin-toolbar"><a class="btn" href="/admin/export/follow-tasks.csv">导出任务表格</a></div>{% endif %}
+  <div class="card table-card"><table class="wide-table"><thead><tr><th>编号</th><th>企业</th><th>联系人</th><th>手机号</th><th>等级</th><th>类型</th><th>标题</th><th>优先级</th><th>到期时间</th><th>状态</th><th>操作</th></tr></thead><tbody>
+  {% for task in tasks %}
+  <tr class="{{ 'overdue-row' if task.status == 'pending' and task.due_time < now else '' }}">
+    <td>#{{ task.id }}</td><td><a href="/admin/leads/{{ task.lead_id }}">{{ task.lead.company_name|display_company_name }}</a></td><td>{{ task.lead.contact_name }}</td><td>{{ task.lead.phone }}</td><td>{{ task.lead.lead_grade }}</td>
+    <td>{{ task.task_type|task_type_label }}</td><td>{{ task.task_title or (task.task_type|task_type_label) }}</td><td><span class="priority-{{ task.priority }}">{{ task.priority|task_priority_label }}</span></td><td>{{ task.due_time.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ task.status|task_status_label }}</td>
+    <td>{% if task.status == 'pending' and can_edit %}<div class="task-actions"><form method="post" action="/admin/follow-tasks/{{ task.id }}/done"><input type="hidden" name="next_url" value="/admin/follow-tasks"><button>完成</button></form><form method="post" action="/admin/follow-tasks/{{ task.id }}/cancel"><input type="hidden" name="next_url" value="/admin/follow-tasks"><button class="muted-button">取消</button></form></div>{% else %}-{% endif %}</td>
+  </tr>
+  {% else %}<tr><td colspan="11" class="empty">暂无跟进任务</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endblock %}

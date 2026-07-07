@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}上线试运营看板{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <h1>上线试运营看板</h1>
+  <div class="stats-grid">
+    {% for key, value in metrics.items() %}
+    <div class="stat-card"><span>{{ key }}</span><strong>{{ value }}</strong></div>
+    {% endfor %}
+  </div>
+  <section class="card"><h2>Worker / Backup 状态</h2>
+    {% for name, item in workers.items() %}<div class="client-row"><b>{{ name }}</b><span>{{ item.run_status if item else '暂无运行记录' }}</span></div>{% endfor %}
+    <div class="client-row"><b>最近备份</b><span>{{ backups[0].name if backups else '暂无备份' }}</span></div>
+  </section>
+  <section class="card"><h2>最近关键事件</h2>
+    {% for item in events %}<div class="client-row"><b>{{ item.event_type|event_label }}</b><span>{{ item|event_target_label }} · {{ item.created_at }}</span></div>{% else %}<p class="muted">暂无事件</p>{% endfor %}
+  </section>
+  <section class="card"><h2>最近错误/拦截</h2>
+    {% for item in errors %}<div class="client-row"><b>{{ item.event_type|event_label }}</b><span>{{ item|event_target_label }} · {{ item.created_at }}</span></div>{% else %}<p class="muted">暂无错误</p>{% endfor %}
+  </section>
+  <section class="card"><h2>高优先级试运营问题</h2>
+    {% for item in high_issues %}<div class="client-row"><b><a href="/admin/issues/{{ item.id }}">{{ item.title }}</a></b><span>{{ item.severity|zh }} · {{ item.status|zh }}</span></div>{% else %}<p class="muted">暂无高优先级问题</p>{% endfor %}
+  </section>
+</section>
+{% endblock %}

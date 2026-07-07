@@ -1,0 +1,11 @@
+﻿[Unit]
+Description=Run Capital SaaS daily backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+Unit=daily_backup.service
+
+[Install]
+WantedBy=timers.target
+

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}反馈详情{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <h1>{{ item.title }}</h1>
+  <section class="card">
+    <p>{{ item.content }}</p>
+    <p class="muted">{{ item.feedback_type|zh }} · {{ item.rating }}分 · {{ item.page_url }}</p>
+    {% if can_edit %}
+    <form method="post" action="/admin/feedback/{{ item.id }}/update" class="form-grid">
+      <label>状态
+        <select name="status">
+          <option value="new">新反馈</option>
+          <option value="reviewing">处理中</option>
+          <option value="resolved">已解决</option>
+          <option value="ignored">已忽略</option>
+        </select>
+      </label>
+      <label class="full">处理备注<textarea name="handled_note">{{ item.handled_note }}</textarea></label>
+      <button class="btn">保存</button>
+    </form>
+    <form method="post" action="/admin/feedback/{{ item.id }}/convert-issue">
+      <select name="severity">
+        <option value="medium">中</option>
+        <option value="high">高</option>
+        <option value="critical">严重</option>
+        <option value="low">低</option>
+      </select>
+      <button class="btn btn-primary">转为问题</button>
+    </form>
+    {% endif %}
+  </section>
+  {% if lead %}
+  <p><a class="btn" href="/admin/leads/{{ lead.id }}/journey">查看客户旅程</a></p>
+  {% endif %}
+</section>
+{% endblock %}

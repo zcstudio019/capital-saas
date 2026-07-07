@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}问题与需求池{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <h1>问题与需求池</h1>
+  {% if can_edit %}
+  <section class="card">
+    <form method="post" action="/admin/issues/create" class="form-grid">
+      <label>类型
+        <select name="issue_type">
+          <option value="bug">Bug问题</option>
+          <option value="feature_request">需求建议</option>
+          <option value="data_issue">数据问题</option>
+          <option value="payment_issue">支付问题</option>
+          <option value="report_issue">报告问题</option>
+          <option value="operation_issue">运营问题</option>
+        </select>
+      </label>
+      <label>严重度
+        <select name="severity">
+          <option value="medium">中</option>
+          <option value="high">高</option>
+          <option value="critical">严重</option>
+          <option value="low">低</option>
+        </select>
+      </label>
+      <label class="full">标题<input name="title" required></label>
+      <label class="full">描述<textarea name="description"></textarea></label>
+      <label>关联线索ID<input name="related_lead_id" type="number" value="0"></label>
+      <label>分配给
+        <select name="assigned_to">
+          <option value="0">未分配</option>
+          {% for u in users %}
+          <option value="{{ u.id }}">{{ u.username }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="btn btn-primary">新增问题</button>
+    </form>
+  </section>
+  {% endif %}
+  <section class="card">
+    {% for item in items %}
+    <div class="client-row">
+      <div>
+        <b><a href="/admin/issues/{{ item.id }}">{{ item.title }}</a></b>
+        <p class="muted">{{ item.issue_type|zh }} · {{ item.severity|zh }} · {{ item.status|zh }}</p>
+      </div>
+      <span>{{ item.created_at }}</span>
+    </div>
+    {% else %}
+    <p class="muted">暂无问题</p>
+    {% endfor %}
+  </section>
+</section>
+{% endblock %}

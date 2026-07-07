@@ -1,0 +1,143 @@
+"""后台展示层标签：只转换显示文案，不修改数据库原始 code。"""
+
+import json
+import re
+
+PRODUCT_LABELS = {
+    "299_report": "基础诊断报告（299元）", "699_bank_match": "银行匹配报告（699元）",
+    "1999_structure_plan": "融资结构优化方案（1999元）", "high_ticket_consulting": "顾问服务", "free_nurture": "免费培育",
+}
+EVENT_LABELS = {
+    "audit_log_created": "审计日志已创建", "unhandled_exception": "系统异常", "assessment_page_viewed": "测评页面被访问",
+    "assessment_submitted": "已提交测评", "free_result_viewed": "已查看免费结果", "checkout_viewed": "已进入支付页",
+    "payment_success": "支付成功", "report_viewed": "报告已查看", "client_report_viewed": "客户查看报告",
+    "client_document_uploaded": "客户已上传资料", "customer_logged_in": "客户已登录", "notification_sent": "通知已发送",
+    "notification_failed": "通知发送失败", "login_success": "登录成功", "login_failed": "登录失败",
+    "financing_project_created": "已创建融资项目", "funding_application_created": "已创建资金申请",
+    "funding_application_approved": "资金申请已批复", "funding_application_rejected": "资金申请未通过",
+    "funding_application_disbursed": "已放款", "daily_report_generated": "已生成日报", "weekly_report_generated": "已生成周报",
+    "customer_feedback_submitted": "客户已提交反馈", "operation_issue_created": "已创建运营问题", "operation_issue_resolved": "运营问题已解决",
+    "launch_dashboard_viewed": "试运营看板已查看", "setup_wizard_viewed": "初始化向导已查看",
+    "setup_step_completed": "初始化步骤已完成", "release_notes_viewed": "发布说明已查看",
+    "production_checklist_viewed": "生产检查清单已查看", "preflight_check_run": "上线前检查已执行",
+    "route_manifest_generated": "路由清单已生成", "demo_data_created": "演示数据已创建",
+    "demo_data_cleared": "演示数据已清理", "load_test_run": "基础压测已执行",
+    "trial_gate_passed": "试运营访问已通过", "trial_gate_blocked": "试运营访问被拦截",
+    "public_legal_page_viewed": "法律页面已查看", "sitemap_viewed": "站点地图已查看", "robots_viewed": "搜索引擎规则文件已查看",
+    "pilot_batch_created": "试运营批次已创建", "pilot_batch_started": "试运营批次已启动",
+    "pilot_batch_completed": "试运营批次已完成", "lead_assigned_to_pilot": "线索已加入试运营",
+    "pilot_invite_code_created": "试运营邀请码已创建", "pilot_invite_used": "试运营邀请码已使用",
+    "feedback_converted_to_issue": "反馈已转为问题", "dropoff_analysis_generated": "掉点分析已生成",
+    "pilot_sop_viewed": "试运营标准流程已查看", "customer_journey_viewed": "客户旅程已查看",
+    "pilot_export_downloaded": "试运营数据已导出",
+    "sales_workbench_viewed": "销售工作台已查看", "growth_dashboard_viewed": "增长看板已查看",
+    "delivery_dashboard_viewed": "融资交付看板已查看", "city_dashboard_viewed": "城市经营看板已查看",
+    "team_performance_viewed": "团队业绩看板已查看", "hq_dashboard_viewed": "总部经营总览已查看",
+    "notification_dashboard_viewed": "通知看板已查看", "system_health_viewed": "系统健康页已查看",
+    "pilot_dashboard_viewed": "试运营看板已查看", "audit_logs_viewed": "审计日志已查看",
+}
+
+EVENT_SUBJECT_LABELS = {
+    "sales_workbench": "销售工作台", "launch_dashboard": "试运营看板", "pilot_dashboard": "试运营看板",
+    "growth_dashboard": "增长看板", "delivery_dashboard": "融资交付看板", "city_dashboard": "城市经营看板",
+    "team_performance": "团队业绩", "hq_dashboard": "总部经营总览", "notification_dashboard": "通知看板",
+    "customer_journey": "客户旅程", "assessment_page": "测评页面", "free_result": "免费结果", "checkout": "支付页",
+    "report": "报告", "payment": "支付", "document": "资料", "customer": "客户", "lead": "线索", "order": "订单",
+    "audit_log": "审计日志", "notification": "通知", "financing_project": "融资项目", "funding_application": "资金申请",
+    "daily_report": "运营日报", "weekly_report": "运营周报", "operation_issue": "运营问题", "customer_feedback": "客户反馈",
+}
+EVENT_ACTION_LABELS = {
+    "viewed": "已查看", "created": "已创建", "updated": "已更新", "deleted": "已删除", "submitted": "已提交",
+    "generated": "已生成", "uploaded": "已上传", "downloaded": "已下载", "failed": "失败", "success": "成功",
+    "approved": "已批复", "rejected": "未通过", "disbursed": "已放款", "completed": "已完成", "cancelled": "已取消",
+}
+TASK_STATUS_LABELS = {"pending": "待跟进", "done": "已完成", "cancelled": "已取消"}
+TASK_PRIORITY_LABELS = {"high": "高优先级", "medium": "中优先级", "low": "低优先级"}
+TASK_TYPE_LABELS = {
+    "call": "电话联系", "wechat": "微信跟进", "send_report": "发送报告", "payment_follow": "付款跟进",
+    "upsell": "升级跟进", "revisit": "回访", "collect_documents": "补充资料", "verify_documents": "资料核验",
+    "client_clarification": "客户补充说明", "repayment_reminder": "还款提醒", "post_loan_check": "贷后检查",
+    "renewal_prepare": "续贷准备", "cashflow_review": "现金流复查",
+}
+
+def _label(mapping, code):
+    if code is None:
+        return ""
+    value = str(code)
+    return mapping.get(value, value)
+
+def get_product_label(code): return _label(PRODUCT_LABELS, code)
+def get_event_label(code):
+    value = "" if code is None else str(code)
+    if value in EVENT_LABELS:
+        return EVENT_LABELS[value]
+    for suffix, action in EVENT_ACTION_LABELS.items():
+        marker = f"_{suffix}"
+        if value.endswith(marker):
+            subject = value[:-len(marker)]
+            return f"{EVENT_SUBJECT_LABELS.get(subject, subject)}{action}"
+    return value
+def get_task_status_label(code): return _label(TASK_STATUS_LABELS, code)
+def get_task_priority_label(code): return _label(TASK_PRIORITY_LABELS, code)
+def get_task_type_label(code): return _label(TASK_TYPE_LABELS, code)
+
+
+def get_display_company_name(company_name):
+    """隐藏历史阶段测试前缀，不改动原始企业名称。"""
+    if not company_name:
+        return "未命名企业"
+    value = str(company_name).strip()
+    value = re.sub(r"^Phase(?:[6-9]|1[0-4])(?:[-_\s]*)", "", value, flags=re.IGNORECASE)
+    if "测试企业" in value:
+        return "测试客户"
+    if re.search(r"demo|演示", value, flags=re.IGNORECASE):
+        return "演示客户"
+    return value.strip() or "测试企业"
+
+
+DEMO_TEST_KEYWORDS = ("phase", "demo", "测试", "演示", "smoke", "验收", "回归")
+
+
+def is_demo_or_test_record(value):
+    """递归检查企业名称、备注、标签等展示数据，仅用于看板过滤。"""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        lowered = value.lower()
+        return any(keyword in lowered for keyword in DEMO_TEST_KEYWORDS)
+    if isinstance(value, dict):
+        return any(is_demo_or_test_record(item) for item in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return any(is_demo_or_test_record(item) for item in value)
+    for attr in ("company_name", "note", "pilot_note", "task_title", "task_content"):
+        if is_demo_or_test_record(getattr(value, attr, None)):
+            return True
+    return False
+
+
+def get_event_target_label(event):
+    """生成事件所属对象的业务化说明。"""
+    if event is None:
+        return "系统"
+    lead = getattr(event, "lead", None)
+    assessment = getattr(event, "assessment", None)
+    company_name = getattr(lead, "company_name", "") or getattr(assessment, "company_name", "")
+    if not company_name:
+        try:
+            payload = json.loads(getattr(event, "event_data_json", "{}") or "{}")
+            company_name = payload.get("company_name", "")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            company_name = ""
+    if company_name:
+        return f"企业：{get_display_company_name(company_name)}"
+    assessment_id = getattr(event, "assessment_id", None)
+    if assessment_id:
+        return f"测评 #{assessment_id}"
+    event_type = str(getattr(event, "event_type", "") or "")
+    if event_type == "audit_log_created":
+        return "系统记录"
+    if event_type.startswith(("client_", "customer_")):
+        return "客户行为"
+    if event_type.endswith("_viewed") or event_type in {"setup_step_completed", "preflight_check_run", "route_manifest_generated", "load_test_run"}:
+        return "后台操作"
+    return "系统"

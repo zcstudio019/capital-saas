@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}企业融资服务中心{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="client-body">
+  <header class="client-header">
+    <a href="/client/dashboard"><strong>沪上银</strong><span>企业融资服务中心</span></a>
+    <nav>
+      <a href="/client/dashboard">首页</a><a href="/client/reports">报告</a><a href="/client/documents">资料</a>
+      <a href="/client/projects">项目</a><a href="/client/tasks">待办</a><a href="/client/messages">消息</a>
+      <a href="/client/feedback">反馈</a><a href="/client/legal">协议授权</a><a href="/client/preferences">通知设置</a><a href="/client/logout">退出</a>
+    </nav>
+  </header>
+  <main class="client-main">{% block content %}{% endblock %}</main>
+  <footer class="client-footer">本平台信息仅用于企业融资规划与服务协同，实际审批结果以金融机构为准。 · <a href="/client/feedback">提交反馈/遇到问题</a></footer>
+</body>
+</html>

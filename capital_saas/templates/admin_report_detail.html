@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}报告详情｜{{ assessment.company_name }}{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top"><div><div class="eyebrow">?? #{{ report_item.id }}</div><h1>{{ assessment.company_name }}</h1></div><div class="admin-links"><a href="/admin/reports/{{ report_item.id }}/versions">历史版本</a><a class="btn" href="/admin/reports">返回报告</a></div></div>
+  <section class="card detail-card"><div class="detail-data">
+    <div><span>联系人</span><strong>{{ assessment.contact_name }}</strong></div>
+    <div><span>企业评分</span><strong>{{ assessment.score }} / {{ assessment.grade }}级</strong></div>
+    <div><span>线索等级</span><strong>{{ lead.lead_grade if lead else '-' }}</strong></div>
+    <div><span>交付状态</span><strong>{{ report_item.review_status|zh }}</strong></div>
+    <div><span>当前版本</span><strong>V{{ versions[0].version_no if versions else '-' }}</strong></div>
+    <div><span>质量评分</span><strong>{{ report.quality.quality_score if report and report.quality else '-' }}</strong></div>
+    <div><span>已购产品</span><strong>{% for order in paid_orders %}{{ order.product_name }}{% if not loop.last %}、{% endif %}{% else %}-{% endfor %}</strong></div>
+    <div><span>打印报告</span><strong>{% if report %}<a href="/report/{{ assessment.id }}/print" target="_blank">打开打印版</a>{% else %}-{% endif %}</strong></div>
+  </div></section>
+
+  {% if current_user.role == 'admin' %}
+  <section class="card detail-card"><div class="task-section-head"><h2>生成与人工审核</h2><span>{{ report_item.review_status|zh }}</span></div>
+    <div class="action-row">
+      <form method="post" action="/admin/reports/{{ report_item.id }}/regenerate"><button class="btn">重新生成报告</button></form>
+      <form method="post" action="/admin/reports/{{ report_item.id }}/approve"><input name="review_note" placeholder="审核备注（可选）"><button class="btn btn-primary">审核通过</button></form>
+      <form method="post" action="/admin/reports/{{ report_item.id }}/reject"><input name="review_note" required placeholder="驳回原因"><button class="btn btn-danger">驳回</button></form>
+    </div>
+    {% if report_item.review_note %}<p>审核备注：{{ report_item.review_note }}</p>{% endif %}
+  </section>
+  {% endif %}
+
+  <section class="card detail-card"><h2>公开报告链接</h2>
+    {% if report_item.public_token and report_item.token_expired_at %}<p><a href="{{ site_base_url }}/public/report/{{ report_item.public_token }}" target="_blank">{{ site_base_url }}/public/report/{{ report_item.public_token }}</a></p><p>有效期至：{{ report_item.token_expired_at.strftime('%Y-%m-%d %H:%M') }}</p>{% else %}<p>尚未生成公开链接。</p>{% endif %}
+    {% if current_user.role == 'admin' and paid_orders and report_item.review_status == 'approved' %}<form method="post" action="/admin/reports/{{ report_item.id }}/generate-token"><button class="btn btn-primary">{{ '重新生成7天链接' if report_item.public_token else '生成7天公开链接' }}</button></form>{% elif report_item.review_status != 'approved' %}<p class="safe-note">审核通过后才可生成客户公开链接。</p>{% endif %}
+  </section>
+
+  {% if report %}<section class="card detail-card"><h2>报告预览</h2><div class="report-preview">{% for chapter in report.chapters %}<h3>{{ loop.index }}. {{ chapter.title }}</h3><p>{{ chapter.conclusion }}</p>{% endfor %}</div></section>{% endif %}
+  <section class="card detail-card"><h2>AI生成日志</h2><div class="table-card"><table><thead><tr><th>章节</th><th>模式/模型</th><th>Prompt</th><th>状态</th><th>质量</th><th>时间</th></tr></thead><tbody>{% for log in ai_logs %}<tr><td>{{ log.section_name }}</td><td>{{ log.ai_mode }} / {{ log.model_name }}</td><td>{{ log.prompt_name }}</td><td>{{ log.status }}{% if log.error_message %}<small>{{ log.error_message }}</small>{% endif %}</td><td>{{ log.quality_score }}</td><td>{{ log.created_at.strftime('%m-%d %H:%M') }}</td></tr>{% else %}<tr><td colspan="6" class="empty">暂无生成日志</td></tr>{% endfor %}</tbody></table></div></section>
+</section>
+{% endblock %}

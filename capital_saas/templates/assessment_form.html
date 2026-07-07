@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}企业免费测评｜沪上银{% endblock %}
+{% block content %}
+<section class="page-hero compact">
+  <div class="container">
+    <div class="eyebrow">免费企业测评</div>
+    <h1>企业资本能力免费测评</h1>
+    <p>请按真实经营情况填写。金额单位均为人民币元。</p>
+  </div>
+</section>
+<section class="section form-section">
+  <form class="container assessment-form" action="/assessment/submit" method="post" data-loading-form>
+    <div class="card form-card">
+      <div class="form-title"><span>00</span><div><h2>联系人信息</h2><p>用于发送诊断结果和后续融资方案沟通</p></div></div>
+      <div class="form-grid">
+        <label>联系人姓名<input name="contact_name" required maxlength="100" placeholder="请输入联系人姓名"></label>
+        <label>手机号<input name="phone" type="tel" required maxlength="30" pattern="^[0-9+\-\s]{6,30}$" placeholder="请输入手机号"></label>
+        <label>微信号<input name="wechat_id" maxlength="100" placeholder="选填"></label>
+        <label>所在城市<input name="city" maxlength="100" placeholder="选填，如：上海"></label>
+      </div>
+    </div>
+    <div class="card form-card">
+      <div class="form-title"><span>01</span><div><h2>企业基础信息</h2><p>用于判断经营稳定性、还款来源和融资条件</p></div></div>
+      <div class="form-grid">
+        <label class="wide">企业名称<input name="company_name" required maxlength="200" placeholder="请输入企业全称"></label>
+        <label>所属行业<input name="industry" required placeholder="如：制造业"></label>
+        <label>经营年限<input name="years" type="number" min="0" required placeholder="年"></label>
+        <label>员工人数<input name="employee_count" type="number" min="0" required placeholder="人"></label>
+        <label>年营业收入<input name="annual_revenue" type="number" min="0" step="0.01" required placeholder="元"></label>
+        <label>净利润<input name="net_profit" type="number" step="0.01" required placeholder="元，可为负数"></label>
+        <label>月均现金流<input name="monthly_cashflow" type="number" step="0.01" required placeholder="元"></label>
+        <label>总负债<input name="debt_total" type="number" min="0" step="0.01" required placeholder="元"></label>
+        <label>短期负债<input name="short_debt" type="number" min="0" step="0.01" required placeholder="元"></label>
+        <label>应收账款周期<input name="receivable_days" type="number" min="0" required placeholder="天"></label>
+        <label>融资需求金额<input name="funding_need" type="number" min="0" step="0.01" required placeholder="元"></label>
+        <label class="wide">融资用途<textarea name="funding_purpose" required maxlength="300" placeholder="如：采购原材料、扩充产能、置换短期债务"></textarea></label>
+        <label>是否有抵押物<select name="has_collateral" required><option value="">请选择</option><option value="true">是</option><option value="false">否</option></select></label>
+        <label>纳税是否正常<select name="tax_status" required><option value="">请选择</option><option value="true">正常</option><option value="false">异常/不连续</option></select></label>
+        <label>征信是否正常<select name="credit_status" required><option value="">请选择</option><option value="true">正常</option><option value="false">有逾期/异常</option></select></label>
+      </div>
+    </div>
+    <div class="card form-card">
+      <div class="form-title"><span>02</span><div><h2>财商认知信息</h2><p>用于判断老板的资金管理与杠杆决策能力</p></div></div>
+      <div class="form-grid">
+        <label>清楚现金流和利润区别<select name="knows_cashflow" required><option value="">请选择</option><option value="true">清楚</option><option value="false">不太清楚</option></select></label>
+        <label>是否有现金流预算<select name="has_budget" required><option value="">请选择</option><option value="true">有</option><option value="false">没有</option></select></label>
+        <label>杠杆态度<select name="leverage_attitude" required><option value="">请选择</option><option>保守</option><option>适中</option><option>激进</option></select></label>
+        <label>资产效率<select name="asset_efficiency" required><option value="">请选择</option><option>低</option><option>中</option><option>高</option></select></label>
+        <label>是否有资金使用计划<select name="fund_usage_plan" required><option value="">请选择</option><option value="true">有</option><option value="false">没有</option></select></label>
+      </div>
+    </div>
+    <div class="submit-bar">
+      <div><strong>提交后立即生成评分</strong><span>数据仅用于本次诊断演示</span></div>
+      <button class="btn btn-primary btn-lg" type="submit">生成免费诊断结果</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

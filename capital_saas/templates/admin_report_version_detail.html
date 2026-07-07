@@ -1,0 +1,3 @@
+{% extends "base.html" %}
+{% block title %}报告V{{ version.version_no }}{% endblock %}
+{% block content %}<section class="admin-shell container"><div class="admin-top"><div><div class="eyebrow">VERSION {{ version.version_no }}</div><h1>{{ report_item.assessment.company_name }}</h1><p>{{ version.product_code }} · 质量分 {{ version.quality_score }} · {{ version.generator_mode|zh }}</p></div><a class="btn" href="/admin/reports/{{ report_item.id }}/versions">返回版本</a></div>{% for chapter in report.chapters %}<section class="card detail-card"><h2>{{ loop.index }}. {{ chapter.title }}</h2><p>{{ chapter.conclusion }}</p><strong>银行视角</strong><p>{{ chapter.bank_view }}</p></section>{% endfor %}</section>{% endblock %}

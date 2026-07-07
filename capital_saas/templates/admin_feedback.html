@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}客户反馈{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <h1>客户反馈</h1>
+  <form class="form-inline">
+    <select name="status">
+      <option value="">全部状态</option>
+      <option value="new">新反馈</option>
+      <option value="reviewing">处理中</option>
+      <option value="resolved">已解决</option>
+      <option value="ignored">已忽略</option>
+    </select>
+    <button class="btn">筛选</button>
+  </form>
+  <section class="card">
+    {% for item in items %}
+    <div class="client-row">
+      <div>
+        <b><a href="/admin/feedback/{{ item.id }}">{{ item.title }}</a></b>
+        <p class="muted">{{ item.feedback_type|zh }} · {{ item.rating }}分 · {{ item.status|zh }}</p>
+      </div>
+      <span>{{ item.created_at }}</span>
+    </div>
+    {% else %}
+    <p class="muted">暂无反馈</p>
+    {% endfor %}
+  </section>
+</section>
+{% endblock %}

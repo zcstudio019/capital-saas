@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}对照测试｜沪上银{% endblock %}
+{% block content %}
+<section class="admin-shell container"><div class="admin-top"><div><div class="eyebrow">对照测试</div><h1>转化实验</h1></div><a class="btn" href="/admin/growth">增长看板</a></div>
+<div class="card table-card"><table><thead><tr><th>实验</th><th>版本</th><th>说明</th><th>分配人数</th><th>支付人数</th><th>转化率</th><th>收入</th></tr></thead><tbody>
+{% for x in rows %}<tr data-experiment-key="{{ x.experiment_key }}"><td>{{ x.experiment_key|zh }}</td><td>{{ x.variant|zh }}</td><td>{{ x.description }}</td><td>{{ x.assigned }}</td><td>{{ x.paid }}</td><td>{{ x.conversion_rate }}%</td><td>¥{{ x.revenue }}</td></tr>{% else %}<tr><td colspan="7">暂无实验数据</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

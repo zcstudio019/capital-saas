@@ -1,0 +1,16 @@
+[Unit]
+Description=Capital SaaS Notification Worker
+After=network.target capital-saas-backend.service
+
+[Service]
+WorkingDirectory=/opt/capital-saas/capital_saas
+EnvironmentFile=/opt/capital-saas/.env
+ExecStart=/opt/capital-saas/.venv/bin/python scripts/run_notification_worker.py
+Restart=always
+RestartSec=30
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target
+

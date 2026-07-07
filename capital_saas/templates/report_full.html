@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}完整资本诊断报告｜{{ assessment.company_name }}{% endblock %}
+{% block content %}
+<section class="report-cover">
+  <div class="container">
+    <div class="eyebrow">企业融资顾问报告 · 内部保密</div>
+    <h1>{{ assessment.company_name }}<br><span>企业融资顾问诊断报告</span></h1>
+    <div class="cover-meta">
+      <span>报告编号：HSY-{{ "%06d"|format(assessment.id) }}</span>
+      <span>企业等级：{{ assessment.grade }}级</span>
+      <span>银行模拟通过率：{{ "%.0f"|format(report.bank_approval.approval_probability * 100) }}%</span>
+      <span>交付版本：{{ report.delivery_scope.level }}（{{ current_product }}）</span>
+      <span>质量评分：{{ report.quality.quality_score }} / 100</span>
+    </div>
+    <a class="btn btn-gold print-entry" href="/report/{{ assessment.id }}/print" target="_blank">导出PDF报告</a>
+  </div>
+</section>
+<div class="container report-layout">
+  <aside class="report-nav card">
+    <strong>报告目录</strong>
+    {% for chapter in report.chapters %}
+    <a href="#chapter-{{ loop.index }}">{{ "%02d"|format(loop.index) }} {{ chapter.title }}</a>
+    {% endfor %}
+  </aside>
+  <article class="report-content">
+    {% for chapter in report.chapters %}
+    <section class="report-chapter card" id="chapter-{{ loop.index }}">
+      <div class="chapter-no">{{ "%02d"|format(loop.index) }}</div>
+      <h2>{{ chapter.title }}</h2>
+      <div class="consultant-conclusion">
+        <span>本章结论</span>
+        <p>{{ chapter.conclusion }}</p>
+      </div>
+      {% if loop.index == 1 or loop.index == 5 or loop.index == 10 %}
+      <div class="bank-approval-panel">
+        <div><span>模拟通过概率</span><strong>{{ "%.0f"|format(report.bank_approval.approval_probability * 100) }}%</strong></div>
+        <div><span>预计可贷额度</span><strong>{{ report.bank_approval.estimated_credit_limit }}</strong></div>
+      </div>
+      {% endif %}
+      <div class="chapter-structure">
+        <div>
+          <h3>关键问题</h3>
+          <ul>{% for item in chapter.key_issues %}<li>{{ item }}</li>{% endfor %}</ul>
+        </div>
+        <div>
+          <h3>银行视角判断</h3>
+          <p>{{ chapter.bank_view }}</p>
+        </div>
+        <div>
+          <h3>老板应该怎么做</h3>
+          <ul>{% for item in chapter.owner_actions %}<li>{{ item }}</li>{% endfor %}</ul>
+        </div>
+        <div>
+          <h3>下一步行动建议</h3>
+          <ol>{% for item in chapter.next_actions %}<li>{{ item }}</li>{% endfor %}</ol>
+        </div>
+        <div class="risk-message">
+          <h3>风险与合规提示</h3>
+          <p>{{ chapter.risk_warning }}</p>
+        </div>
+      </div>
+      {% if loop.index == 1 or loop.index == 5 or loop.index == 10 %}
+      <div class="bank-detail-grid">
+        <div><h3>可能被拒原因</h3>{% for item in report.bank_approval.likely_rejection_reasons %}<p>• {{ item }}</p>{% endfor %}</div>
+        <div><h3>推荐银行与产品</h3>{% for item in report.bank_approval.bank_preference %}<p>• {{ item }}</p>{% endfor %}</div>
+        <div><h3>建议申请顺序</h3>{% for item in report.bank_approval.application_order %}<p>{{ loop.index }}. {{ item }}</p>{% endfor %}</div>
+        <div><h3>提升通过率动作</h3>{% for item in report.bank_approval.improvement_actions %}<p>• {{ item }}</p>{% endfor %}</div>
+      </div>
+      {% endif %}
+    </section>
+    {% endfor %}
+    <section class="report-chapter card">
+      <div class="chapter-no">+</div><h2>银行产品匹配</h2>
+      {% for item in report.bank_product_matches.matched_products %}
+      <article class="match-item"><div class="task-section-head"><h3>{{ item.product_name }}</h3><span>匹配度 {{ item.match_score }}</span></div><p>{{ item.reason }}</p><small>{{ item.bank_type }} · {{ item.estimated_amount }} · {{ item.interest_rate_range }}</small><p class="safe-note">{{ item.risk_notes }}</p></article>
+      {% else %}<p>暂无匹配产品。</p>{% endfor %}
+      {% if report.bank_product_matches.preview_only %}<div class="locked-panel"><strong>当前为基础版预览</strong><p>升级699版本可查看完整产品匹配、申请顺序和额度预测。</p></div>{% endif %}
+    </section>
+    <section class="report-chapter card">
+      <div class="chapter-no">+</div><h2>融资资料准备清单</h2>
+      {% for group in report.document_checklist.required_documents %}
+        {% if group is mapping %}<h3>{{ group.category }}</h3><p>{{ group['items']|join('、') }}</p>{% else %}<p>• {{ group }}</p>{% endif %}
+      {% endfor %}
+      {% for risk in report.document_checklist.missing_risk %}<p class="risk-message">{{ risk }}</p>{% endfor %}
+      {% if current_product != '1999_structure_plan' %}<div class="locked-panel"><strong>高级交付内容</strong><p>1999结构优化方案提供完整逐项资料清单、优先级与30/90/180天执行计划。</p></div>{% endif %}
+    </section>
+    <section class="upgrade-card">
+      <div>
+        <span>融资结构升级</span>
+        <h2>你的问题不是缺钱，而是融资结构还没有设计好。</h2>
+        <p>从一次申请，升级为额度、成本、期限和银行顺序的系统设计。</p>
+      </div>
+      {% if current_product == '299_report' %}
+      <a class="btn btn-gold btn-lg" href="/checkout/{{ assessment.id }}?product=699_bank_match&from_product=299_report&upgrade=1">升级银行匹配与额度预测报告 699元</a>
+      {% elif current_product == '699_bank_match' %}
+      <a class="btn btn-gold btn-lg" href="/checkout/{{ assessment.id }}?product=1999_structure_plan&from_product=699_bank_match&upgrade=1">升级企业融资结构优化方案 1999元</a>
+      {% else %}
+      <button class="btn btn-gold btn-lg" type="button" data-consult>预约1对1融资顾问服务</button>
+      {% endif %}
+    </section>
+    <section class="compliance-card"><strong>合规声明</strong><p>{{ report.compliance_disclaimer }}</p></section>
+  </article>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}后台登录｜沪上银{% endblock %}
+{% block content %}
+<section class="login-shell">
+  <form class="card login-card" method="post" action="/login">
+    <div class="eyebrow">安全后台</div>
+    <h1>后台登录</h1>
+    <p>登录后管理线索、任务、报告和订单。</p>
+    {% if error %}<div class="form-error">{{ error }}</div>{% endif %}
+    <input type="hidden" name="next_url" value="{{ next_url }}">
+    <label>用户名<input name="username" required autocomplete="username"></label>
+    <label>密码<input name="password" type="password" required autocomplete="current-password"></label>
+    <button class="btn btn-primary btn-block btn-lg" type="submit">登录后台</button>
+  </form>
+</section>
+{% endblock %}
+

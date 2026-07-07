@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}订单管理｜沪上银{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top"><div><div class="eyebrow">ORDERS</div><h1>订单管理</h1></div><div class="admin-links"><a href="/admin">总览</a><a href="/admin/leads">线索</a><a href="/admin/follow-tasks">任务</a><a href="/admin/reports">报告</a><a class="active" href="/admin/orders">订单</a></div></div>
+  {% if current_user.role == 'admin' %}<div class="admin-toolbar"><a class="btn" href="/admin/export/orders.csv">导出订单CSV</a></div>{% endif %}
+  <form class="card filter-bar" method="get"><label>渠道<select name="source_channel"><option value="">全部</option>{% for channel in channels %}<option value="{{ channel }}" {{ 'selected' if source_channel == channel else '' }}>{{ channel }}</option>{% endfor %}</select></label><button class="btn btn-primary">筛选</button></form>
+  <div class="card table-card"><table><thead><tr><th>ID</th><th>企业</th><th>来源</th><th>产品</th><th>金额</th><th>支付渠道</th><th>状态</th><th>支付时间</th><th>操作</th></tr></thead><tbody>{% for x in orders %}<tr><td>#{{ x.id }}</td><td>{{ x.assessment.company_name }}</td><td>{{ x.source_channel or 'direct' }}</td><td>{{ x.product_name }}</td><td>¥{{ "%.2f"|format(x.amount) }}</td><td>{{ x.pay_channel }}</td><td><span class="badge {{ 'paid' if x.status == 'paid' else '' }}">{{ x.status }}</span></td><td>{{ x.paid_at.strftime('%Y-%m-%d %H:%M') if x.paid_at else '-' }}</td><td><a href="/admin/orders/{{ x.id }}">详情</a></td></tr>{% else %}<tr><td colspan="9" class="empty">暂无订单</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% endblock %}

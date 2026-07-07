@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}运营增长分析｜沪上银{% endblock %}
+{% block content %}
+<section class="admin-shell container"><div class="admin-top"><div><div class="eyebrow">增长分析</div><h1>运营增长看板</h1></div><a class="btn" href="/admin">返回后台</a></div>
+{% macro table(title, headers, rows) %}<section class="card table-card growth-table"><h2>{{ title }}</h2><table><thead><tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead><tbody>{{ rows|safe }}</tbody></table></section>{% endmacro %}
+<section class="card table-card growth-table"><h2>渠道效果</h2><table><thead><tr><th>渠道</th><th>测评</th><th>线索</th><th>订单</th><th>收入</th><th>转化率</th><th>客单价</th></tr></thead><tbody>{% for x in growth.channels %}<tr><td>{{ x.name }}</td><td>{{ x.assessments }}</td><td>{{ x.leads }}</td><td>{{ x.orders }}</td><td>¥{{ x.revenue }}</td><td>{{ x.conversion_rate }}%</td><td>¥{{ x.average_order_value }}</td></tr>{% else %}<tr><td colspan="7">暂无数据</td></tr>{% endfor %}</tbody></table></section>
+<section class="card table-card growth-table"><h2>落地页效果</h2><table><thead><tr><th>落地页</th><th>测评</th><th>线索</th><th>订单</th><th>收入</th><th>转化率</th></tr></thead><tbody>{% for x in growth.landing_pages %}<tr><td>{{ x.path }}</td><td>{{ x.assessments }}</td><td>{{ x.leads }}</td><td>{{ x.orders }}</td><td>¥{{ x.revenue }}</td><td>{{ x.conversion_rate }}%</td></tr>{% endfor %}</tbody></table></section>
+<div class="analytics-grid"><section class="card analytics-card"><h2>产品转化</h2>{% for x in growth.products %}<div class="revenue-row"><span>{{ x.code }}（{{ x.orders }}单）</span><strong>¥{{ x.revenue }}</strong></div>{% endfor %}</section><section class="card analytics-card"><h2>线索等级转化</h2>{% for x in growth.grades %}<div class="revenue-row"><span>{{ x.grade }}级 {{ x.paid }}/{{ x.leads }}</span><strong>{{ x.conversion_rate }}%</strong></div>{% endfor %}</section></div>
+<section class="card table-card growth-table"><h2>A/B测试效果</h2><table><thead><tr><th>实验</th><th>版本</th><th>分配</th><th>支付</th><th>转化率</th><th>收入</th></tr></thead><tbody>{% for x in growth.ab_tests %}<tr><td>{{ x.experiment_key|zh }}</td><td>{{ x.variant|zh }}</td><td>{{ x.assigned }}</td><td>{{ x.paid }}</td><td>{{ x.conversion_rate }}%</td><td>¥{{ x.revenue }}</td></tr>{% endfor %}</tbody></table></section>
+</section>
+{% endblock %}

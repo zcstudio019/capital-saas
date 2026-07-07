@@ -1,0 +1,10 @@
+{% extends 'base.html' %}{% block title %}试运营批次{% endblock %}
+{% block content %}<section class="admin-shell container"><h1>试运营批次</h1>
+{% if can_edit %}<section class="card"><h2>新增批次</h2><form method="post" action="/admin/pilot-batches/create" class="form-grid">
+<label>批次名称<input name="batch_name" required></label><label>开始日期<input name="start_date" type="date"></label><label>结束日期<input name="end_date" type="date"></label>
+<label>目标客户数<input name="target_customer_count" type="number" value="50"></label><label>目标付费数<input name="target_paid_count" type="number" value="10"></label><label>目标收入<input name="target_revenue" type="number" value="0"></label>
+<label>目标上传资料数<input name="target_document_upload_count" type="number" value="10"></label><label>目标立项数<input name="target_project_count" type="number" value="3"></label>
+<label>负责人<select name="owner_user_id"><option value="0">当前用户</option>{% for u in users %}<option value="{{u.id}}">{{u.username}}</option>{% endfor %}</select></label>
+<label class="full">备注<textarea name="note"></textarea></label><button class="btn btn-primary">创建批次</button></form></section>{% endif %}
+<section class="card"><h2>批次列表</h2>{% for item in items %}<div class="client-row"><div><b><a href="/admin/pilot-batches/{{item.id}}">{{item.batch_name}}</a></b><p class="muted">{{item.batch_status}} · 目标客户 {{item.target_customer_count}}</p></div><span>{{ item.created_at }}</span></div>{% else %}<p class="muted">暂无试运营批次</p>{% endfor %}</section>
+</section>{% endblock %}
