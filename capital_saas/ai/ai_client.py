@@ -10,13 +10,10 @@ class AIClient:
 
     def __init__(self, db=None):
         self.api_key = settings.openai_api_key
+        self.base_url = settings.openai_base_url
         self.model = settings.openai_model
         self.mode = settings.ai_mode
-        if db is not None:
-            from services.settings_service import get_setting
 
-            self.model = get_setting(db, "openai_model", self.model)
-            self.mode = get_setting(db, "ai_mode", self.mode).lower()
 
     def generate_json(self, prompt: str, data: dict) -> dict[str, Any]:
         fallback = self._mock_result(prompt, data)
@@ -25,15 +22,26 @@ class AIClient:
         try:
             from openai import OpenAI
 
-            client = OpenAI(api_key=self.api_key)
-            response = client.responses.create(
+            client_kwargs = {"api_key": self.api_key}
+            if self.base_url:
+                client_kwargs["base_url"] = self.base_url
+            client = OpenAI(**client_kwargs)
+            response = client.chat.completions.create(
                 model=self.model,
-                instructions=(
-                    "你是严谨的中国中小企业融资顾问。只返回合法JSON，不承诺贷款必然获批。"
-                ),
-                input=f"{prompt}\n\n企业数据：{json.dumps(data, ensure_ascii=False)}",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "你是严谨的中国中小企业融资顾问。只返回合法JSON，不承诺贷款必然获批。",
+                    },
+                    {
+                        "role": "user",
+                        "content": f"{prompt}\n\n企业数据：{json.dumps(data, ensure_ascii=False)}",
+                    },
+                ],
+                response_format={"type": "json_object"},
             )
-            payload = json.loads(response.output_text)
+            content = response.choices[0].message.content or "{}"
+            payload = json.loads(content)
             if isinstance(payload, dict):
                 payload.setdefault("provider", "openai")
                 payload.setdefault("model", self.model)

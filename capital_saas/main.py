@@ -61,6 +61,12 @@ async def lifespan(_: FastAPI):
         if settings.admin_default_password == "admin123":
             logger.warning("生产环境默认管理员密码配置仍为 admin123。")
     logger.info(
+        "AI配置 mode=%s model=%s base_url_configured=%s",
+        settings.ai_mode,
+        settings.openai_model,
+        bool(settings.openai_base_url),
+    )
+    logger.info(
         "应用启动 env=%s database=%s admin=%s migrated=%s",
         settings.app_env,
         settings.database_url,
