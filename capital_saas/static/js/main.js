@@ -68,7 +68,6 @@ if (location.pathname.startsWith("/admin") || location.pathname.startsWith("/sal
     report_issue: "报告问题", operation_issue: "运营问题", new: "新反馈", reviewing: "处理中", ignored: "已忽略"
   };
   const terms = {
-    "??客户资料": "客户资料中心", "A/B??": "对照测试", "已启用（??）": "已启用（模拟）",
     "PRODUCTS": "产品服务", "ORDERS": "订单管理", "ORDER": "订单", "PROJECT": "融资项目",
     "ORGANIZATION": "组织机构", "VERSION": "版本", "CHANGELOG": "更新记录",
     "AI": "智能系统", "A/B": "对照测试", "Prompt": "生成指令", "prompt": "生成指令",

@@ -2,7 +2,7 @@
 {% block title %}报告详情｜{{ assessment.company_name }}{% endblock %}
 {% block content %}
 <section class="admin-shell container">
-  <div class="admin-top"><div><div class="eyebrow">?? #{{ report_item.id }}</div><h1>{{ assessment.company_name }}</h1></div><div class="admin-links"><a href="/admin/reports/{{ report_item.id }}/versions">历史版本</a><a class="btn" href="/admin/reports">返回报告</a></div></div>
+  <div class="admin-top"><div><div class="eyebrow">报告 #{{ report_item.id }}</div><h1>{{ assessment.company_name }}</h1></div><div class="admin-links"><a href="/admin/reports/{{ report_item.id }}/versions">历史版本</a><a class="btn" href="/admin/reports">返回报告</a></div></div>
   <section class="card detail-card"><div class="detail-data">
     <div><span>联系人</span><strong>{{ assessment.contact_name }}</strong></div>
     <div><span>企业评分</span><strong>{{ assessment.score }} / {{ assessment.grade }}级</strong></div>

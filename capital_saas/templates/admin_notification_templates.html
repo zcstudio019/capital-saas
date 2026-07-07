@@ -5,7 +5,7 @@
   <div class="task-section-head"><h2>{{ x.template_name }}</h2><code>{{ x.template_key }}</code></div>
   <label>名称<input name="template_name" value="{{ x.template_name }}" required></label>
   <label>受众<select name="audience_type">{% for v in ['customer','sales','consultant','admin','finance','partner'] %}<option {{ 'selected' if x.audience_type==v else '' }}>{{ v }}</option>{% endfor %}</select></label>
-  <label>通道<select name="channel">{% for v in ['in_app','??','email','sms','wecom_webhook'] %}<option {{ 'selected' if x.channel==v else '' }}>{{ v }}</option>{% endfor %}</select></label>
+  <label>通道<select name="channel">{% for v in ['in_app','mock','email','sms','wecom_webhook'] %}<option {{ 'selected' if x.channel==v else '' }}>{{ v }}</option>{% endfor %}</select></label>
   <label>分类<select name="category"><option {{ 'selected' if x.category=='service' else '' }}>service</option><option {{ 'selected' if x.category=='marketing' else '' }}>marketing</option></select></label>
   <label><input type="checkbox" name="is_active" value="true" {{ 'checked' if x.is_active else '' }}> 启用</label>
   <label class="wide">标题<input name="title_template" value="{{ x.title_template }}" required></label>
@@ -15,7 +15,7 @@
 {% if can_edit %}<form class="card detail-card" method="post" action="/admin/notification-templates/create"><h2>新增模板</h2>
 <label>模板标识<input name="template_key" required></label><label>名称<input name="template_name" required></label>
 <label>受众<select name="audience_type">{% for x in ['customer','sales','consultant','admin','finance','partner'] %}<option>{{ x }}</option>{% endfor %}</select></label>
-<label>通道<select name="channel">{% for x in ['in_app','??','email','sms','wecom_webhook'] %}<option>{{ x }}</option>{% endfor %}</select></label>
+<label>通道<select name="channel">{% for x in ['in_app','mock','email','sms','wecom_webhook'] %}<option>{{ x }}</option>{% endfor %}</select></label>
 <label>分类<select name="category"><option>service</option><option>marketing</option></select></label>
 <label class="wide">标题模板<input name="title_template" required></label><label class="wide">内容模板<textarea name="content_template" required></textarea></label>
 <button class="btn btn-primary">保存模板</button></form>{% endif %}

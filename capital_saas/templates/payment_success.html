@@ -3,7 +3,7 @@
 {% block content %}
 <section class="section"><div class="container"><div class="card payment-result">
   {% if order.status == 'paid' %}
-  <div class="result-symbol success">✓</div><h1>支付成功</h1>
+  <div class="result-symbol success">完成</div><h1>支付成功</h1>
   <p>订单 #{{ order.id }} 已支付，报告已解锁。</p>
   <a class="btn btn-primary" href="/report/{{ order.assessment_id }}">查看完整报告</a>
   {% elif payment_mode == 'manual_transfer' %}

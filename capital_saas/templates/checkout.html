@@ -34,12 +34,12 @@
       <div class="payment-row muted"><span>优惠</span><span>¥0</span></div>
       <div class="divider"></div>
       <div class="payment-total"><span>应付金额</span><strong>¥{{ product.price }}</strong></div>
-      <div class="??-notice">
-        {% if payment_mode == '??' %}<strong>演示支付环境</strong><p>点击按钮会创建已支付订单，不会发生真实扣款。</p>
+      <div class="mock-notice">
+        {% if payment_mode == 'mock' %}<strong>支付说明</strong><p>支付演示：当前为模拟支付，不会产生真实扣款。</p>
         {% elif payment_mode == 'manual_transfer' %}<strong>人工转账</strong><p>下单后展示转账说明，由后台确认到账并解锁报告。</p>
         {% else %}<strong>支付接口预留模式</strong><p>当前渠道尚未正式接入，将生成待处理订单。</p>{% endif %}
       </div>
-      <form action="/payment/??-pay/{{ assessment.id }}?product={{ product_code }}" method="post" data-loading-form>
+      <form action="/payment/mock-pay/{{ assessment.id }}?product={{ product_code }}" method="post" data-loading-form>
         <button class="btn btn-primary btn-block btn-lg" type="submit">模拟支付 ¥{{ product.price }}</button>
       </form>
       <a class="text-link" href="/products">查看其他产品</a>
