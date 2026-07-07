@@ -7,6 +7,7 @@ from ai.pipelines.section_generator import SectionGenerator
 from core.bank_approval_engine import simulate_bank_approval
 from core.bank_product_matcher import match_bank_products
 from core.document_checklist_engine import generate_document_checklist
+from utils.report_formatters import normalize_report_action_steps
 
 
 class ReportPipeline:
@@ -60,6 +61,7 @@ class ReportPipeline:
             attempts += 1
         report["quality"] = quality
         report["rewrite_attempts"] = attempts
+        normalize_report_action_steps(report)
         report["compliance_disclaimer"] = (
             "本报告基于用户提交信息及系统模型生成，仅用于企业融资规划参考，不构成贷款承诺、"
             "授信承诺、投资建议或法律意见。实际融资结果以银行、金融机构及相关审批结果为准。"

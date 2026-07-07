@@ -5,6 +5,7 @@ from typing import Any
 from ai.ai_client import AIClient
 from core.config import BASE_DIR
 from db.models import AIGenerationLog
+from utils.report_formatters import format_action_steps
 
 
 SECTION_PROMPTS = [
@@ -29,18 +30,37 @@ REQUIRED_KEYS = (
 def normalize_section(section: dict[str, Any], title: str) -> dict[str, Any]:
     key_findings = section.get("key_findings") or section.get("key_issues") or []
     boss_action = section.get("boss_action") or section.get("owner_actions") or []
-    next_steps = section.get("next_steps") or section.get("next_actions") or []
+    next_steps = (
+        section.get("next_steps")
+        or section.get("action_steps")
+        or section.get("action_plan")
+        or section.get("recommendations")
+        or section.get("timeline_plan")
+        or section.get("next_actions")
+        or []
+    )
+    formatted_action_steps = format_action_steps(
+        section.get("formatted_action_steps") or next_steps
+    )
+    safe_next_steps = (
+        next_steps
+        if isinstance(next_steps, list)
+        else [step["action"] for step in formatted_action_steps if step.get("action")]
+    )
     normalized = {
         "section_title": section.get("section_title") or section.get("title") or title,
         "conclusion": section.get("conclusion") or "本章需结合企业经营数据进一步核验。",
         "key_findings": key_findings if isinstance(key_findings, list) else [str(key_findings)],
         "bank_view": section.get("bank_view") or "银行将结合流水、纳税、征信与还款来源综合判断。",
         "boss_action": boss_action if isinstance(boss_action, list) else [str(boss_action)],
-        "next_steps": next_steps if isinstance(next_steps, list) else [str(next_steps)],
+        "next_steps": safe_next_steps,
         "risk_warning": section.get("risk_warning") or "本结论不构成授信承诺，实际结果以金融机构审批为准。",
         "upsell_hint": section.get("upsell_hint") or "如需进一步落地，可升级银行匹配或融资结构优化服务。",
         "details": section.get("details") or {},
     }
+    if title == "行动建议" or "行动建议" in normalized["section_title"]:
+        normalized["formatted_action_steps"] = formatted_action_steps
+
     # 兼容 Phase 1-5 模板和测试。
     normalized.update({
         "title": normalized["section_title"],

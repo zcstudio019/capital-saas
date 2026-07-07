@@ -13,6 +13,7 @@
     .chapter{page-break-before:always;padding-top:24px}.chapter h2{font-size:27px;border-bottom:2px solid #c9a45c;padding-bottom:10px}
     .conclusion{padding:18px;border-left:4px solid #c9a45c;background:#f7f3e9}.block{margin:22px 0}.block h3{font-size:17px;color:#0c2747}
     .bank{display:grid;grid-template-columns:1fr 1fr;gap:14px}.bank>div{padding:14px;border:1px solid #dfe5ec}
+    .action-step-list{display:grid;gap:12px}.action-step-card{padding:16px;border:1px solid #dfe5ec;border-radius:8px;background:#fff}.action-step-card h4{margin:0 0 8px;color:#0c2747}.action-step-card p{margin:4px 0}
     @media print{.toolbar{display:none}.print-page{max-width:none;padding:0 12mm}@page{size:A4;margin:14mm}}
   </style>
 </head>
@@ -36,7 +37,21 @@
       <div class="block"><h3>关键问题</h3><ul>{% for item in chapter.key_issues %}<li>{{ item }}</li>{% endfor %}</ul></div>
       <div class="block"><h3>银行视角判断</h3><p>{{ chapter.bank_view }}</p></div>
       <div class="block"><h3>老板应该怎么做</h3><ul>{% for item in chapter.owner_actions %}<li>{{ item }}</li>{% endfor %}</ul></div>
-      <div class="block"><h3>下一步行动建议</h3><ol>{% for item in chapter.next_actions %}<li>{{ item }}</li>{% endfor %}</ol></div>
+      <div class="block"><h3>下一步行动建议</h3>
+        {% if chapter.formatted_action_steps %}
+        <div class="action-step-list">
+          {% for step in chapter.formatted_action_steps %}
+          <div class="action-step-card">
+            <h4>{{ step.period }}</h4>
+            {% if step.owner %}<p><strong>负责人：</strong>{{ step.owner }}</p>{% endif %}
+            {% if step.action %}<p><strong>行动：</strong>{{ step.action }}</p>{% endif %}
+            {% if step.goal %}<p><strong>目标：</strong>{{ step.goal }}</p>{% endif %}
+            {% if step.note %}<p><strong>说明：</strong>{{ step.note }}</p>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}<ol>{% for item in chapter.next_actions %}<li>{{ item }}</li>{% endfor %}</ol>{% endif %}
+      </div>
       {% if loop.index in [1,5,10] %}
       <div class="bank">
         <div><strong>可能被拒原因</strong>{% for item in report.bank_approval.likely_rejection_reasons %}<p>• {{ item }}</p>{% endfor %}</div>

@@ -52,7 +52,21 @@
         </div>
         <div>
           <h3>下一步行动建议</h3>
+          {% if chapter.formatted_action_steps %}
+          <div class="action-step-list">
+            {% for step in chapter.formatted_action_steps %}
+            <div class="action-step-card">
+              <h4>{{ step.period }}</h4>
+              {% if step.owner %}<p><strong>负责人：</strong>{{ step.owner }}</p>{% endif %}
+              {% if step.action %}<p><strong>行动：</strong>{{ step.action }}</p>{% endif %}
+              {% if step.goal %}<p><strong>目标：</strong>{{ step.goal }}</p>{% endif %}
+              {% if step.note %}<p><strong>说明：</strong>{{ step.note }}</p>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
           <ol>{% for item in chapter.next_actions %}<li>{{ item }}</li>{% endfor %}</ol>
+          {% endif %}
         </div>
         <div class="risk-message">
           <h3>风险与合规提示</h3>

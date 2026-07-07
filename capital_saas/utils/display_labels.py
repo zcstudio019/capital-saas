@@ -37,6 +37,28 @@ EVENT_LABELS = {
     "pilot_dashboard_viewed": "试运营看板已查看", "audit_logs_viewed": "审计日志已查看",
 }
 
+EVENT_LABELS.update({
+    "landing_page_viewed": "落地页已查看", "ab_assigned": "A/B测试已分组",
+    "notification_job_created": "通知任务已创建", "notification_job_sent": "通知任务已发送",
+    "notification_job_failed": "通知任务发送失败", "notification_job_cancelled": "通知任务已取消",
+    "notification_template_created": "通知模板已创建", "notification_template_updated": "通知模板已更新",
+    "notification_sent": "通知已发送", "notification_failed": "通知发送失败",
+    "notification_retried": "通知已重试", "notification_cancelled": "通知已取消",
+    "reminder_scan_run": "提醒扫描已执行", "notification_worker_run": "通知任务Worker已执行",
+    "audit_log_created": "审计日志已创建", "assessment_page_viewed": "测评页面已查看",
+    "assessment_submitted": "测评已提交", "free_result_viewed": "免费结果已查看",
+    "checkout_viewed": "支付页已查看", "payment_success": "支付成功", "payment_failed": "支付失败",
+    "report_viewed": "报告已查看", "client_report_viewed": "客户已查看报告",
+    "client_document_uploaded": "客户已上传资料", "customer_logged_in": "客户已登录",
+    "sales_workbench_viewed": "销售工作台已查看", "launch_dashboard_viewed": "试运营看板已查看",
+    "pilot_dashboard_viewed": "试运营看板已查看", "growth_dashboard_viewed": "增长看板已查看",
+    "system_health_viewed": "系统健康页已查看", "production_checklist_viewed": "生产检查清单已查看",
+    "customer_journey_viewed": "客户旅程已查看", "financing_project_created": "融资项目已创建",
+    "funding_application_created": "资金申请已创建", "funding_application_approved": "资金申请已批复",
+    "funding_application_rejected": "资金申请未通过", "funding_application_disbursed": "已放款",
+    "customer_feedback_submitted": "客户反馈已提交", "operation_issue_created": "运营问题已创建",
+    "daily_report_generated": "运营日报已生成", "weekly_report_generated": "运营周报已生成",
+})
 EVENT_SUBJECT_LABELS = {
     "sales_workbench": "销售工作台", "launch_dashboard": "试运营看板", "pilot_dashboard": "试运营看板",
     "growth_dashboard": "增长看板", "delivery_dashboard": "融资交付看板", "city_dashboard": "城市经营看板",
@@ -46,11 +68,30 @@ EVENT_SUBJECT_LABELS = {
     "audit_log": "审计日志", "notification": "通知", "financing_project": "融资项目", "funding_application": "资金申请",
     "daily_report": "运营日报", "weekly_report": "运营周报", "operation_issue": "运营问题", "customer_feedback": "客户反馈",
 }
+EVENT_SUBJECT_LABELS.update({
+    "landing_page": "落地页", "ab": "A/B测试", "ab_test": "A/B测试",
+    "notification_job": "通知任务", "notification_template": "通知模板", "notification": "通知",
+    "reminder_scan": "提醒扫描", "notification_worker": "通知Worker", "audit_log": "审计日志",
+    "assessment_page": "测评页面", "assessment": "测评", "free_result": "免费结果", "checkout": "支付页",
+    "payment": "支付", "report": "报告", "client_report": "客户报告", "client_document": "客户资料",
+    "customer": "客户", "lead": "线索", "order": "订单", "sales_workbench": "销售工作台",
+    "launch_dashboard": "试运营看板", "pilot_dashboard": "试运营看板", "growth_dashboard": "增长看板",
+    "system_health": "系统健康页", "production_checklist": "生产检查清单", "customer_journey": "客户旅程",
+    "financing_project": "融资项目", "funding_application": "资金申请", "customer_feedback": "客户反馈",
+    "operation_issue": "运营问题", "daily_report": "运营日报", "weekly_report": "运营周报",
+})
 EVENT_ACTION_LABELS = {
     "viewed": "已查看", "created": "已创建", "updated": "已更新", "deleted": "已删除", "submitted": "已提交",
     "generated": "已生成", "uploaded": "已上传", "downloaded": "已下载", "failed": "失败", "success": "成功",
     "approved": "已批复", "rejected": "未通过", "disbursed": "已放款", "completed": "已完成", "cancelled": "已取消",
 }
+EVENT_ACTION_LABELS.update({
+    "viewed": "已查看", "created": "已创建", "updated": "已更新", "deleted": "已删除",
+    "submitted": "已提交", "assigned": "已分配", "generated": "已生成", "uploaded": "已上传",
+    "downloaded": "已下载", "sent": "已发送", "failed": "失败", "success": "成功",
+    "approved": "已批复", "rejected": "未通过", "disbursed": "已放款", "completed": "已完成",
+    "cancelled": "已取消", "retried": "已重试", "run": "已执行", "read": "已读", "logged_in": "已登录",
+})
 TASK_STATUS_LABELS = {"pending": "待跟进", "done": "已完成", "cancelled": "已取消"}
 TASK_PRIORITY_LABELS = {"high": "高优先级", "medium": "中优先级", "low": "低优先级"}
 TASK_TYPE_LABELS = {
@@ -68,15 +109,16 @@ def _label(mapping, code):
 
 def get_product_label(code): return _label(PRODUCT_LABELS, code)
 def get_event_label(code):
-    value = "" if code is None else str(code)
+    value = "" if code is None else str(code).strip().lower()
     if value in EVENT_LABELS:
         return EVENT_LABELS[value]
-    for suffix, action in EVENT_ACTION_LABELS.items():
+    for suffix in sorted(EVENT_ACTION_LABELS, key=len, reverse=True):
         marker = f"_{suffix}"
-        if value.endswith(marker):
-            subject = value[:-len(marker)]
-            return f"{EVENT_SUBJECT_LABELS.get(subject, subject)}{action}"
-    return value
+        if not value.endswith(marker):
+            continue
+        subject_label = EVENT_SUBJECT_LABELS.get(value[:-len(marker)])
+        return f"{subject_label}{EVENT_ACTION_LABELS[suffix]}" if subject_label else "系统事件"
+    return "系统事件"
 def get_task_status_label(code): return _label(TASK_STATUS_LABELS, code)
 def get_task_priority_label(code): return _label(TASK_PRIORITY_LABELS, code)
 def get_task_type_label(code): return _label(TASK_TYPE_LABELS, code)

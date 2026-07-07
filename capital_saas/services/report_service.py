@@ -11,6 +11,7 @@ from core.pricing_engine import PRODUCT_RANK
 from ai.pipelines.report_pipeline import ReportPipeline
 from db.models import AIGenerationLog, Assessment, Order, Report, ReportVersion
 from services.settings_service import get_bool_setting
+from utils.report_formatters import normalize_report_action_steps
 
 
 def _assessment_data(item: Assessment) -> dict:
@@ -457,6 +458,7 @@ def generate_full_report(
     fallback = _build_professional_report(db, assessment)
     content, quality = ReportPipeline(db, report).run(assessment, product_code, fallback)
     content = _apply_product_depth(content, product_code)
+    normalize_report_action_steps(content)
     report.full_report_json = json.dumps(content, ensure_ascii=False)
     report.html_content = ""
     report.is_unlocked = True
@@ -479,4 +481,5 @@ def generate_full_report(
 def parse_report(report: Report) -> tuple[dict, dict | None]:
     free = json.loads(report.free_summary_json)
     full = json.loads(report.full_report_json) if report.full_report_json else None
+    normalize_report_action_steps(full)
     return free, full
