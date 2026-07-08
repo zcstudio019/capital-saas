@@ -1,5 +1,5 @@
 from fastapi.templating import Jinja2Templates
-from utils.display_labels import get_display_company_name, get_event_label, get_event_target_label, get_product_label, get_task_priority_label, get_task_status_label, get_task_type_label
+from utils.display_labels import get_display_company_name, get_event_label, get_event_target_label, get_nav_label, get_product_label, get_role_label, get_task_priority_label, get_task_status_label, get_task_type_label, get_user_display_name
 
 
 ZH_MAP = {
@@ -75,6 +75,9 @@ def zh_label(value):
 def install_chinese_filters(templates: Jinja2Templates) -> Jinja2Templates:
     templates.env.filters["zh"] = zh_label
     templates.env.filters["product_label"] = get_product_label
+    templates.env.filters["nav_label"] = get_nav_label
+    templates.env.filters["role_label"] = get_role_label
+    templates.env.filters["user_display_name"] = get_user_display_name
     templates.env.filters["event_label"] = get_event_label
     templates.env.filters["task_status_label"] = get_task_status_label
     templates.env.filters["task_priority_label"] = get_task_priority_label

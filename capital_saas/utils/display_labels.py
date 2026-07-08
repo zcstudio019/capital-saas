@@ -3,6 +3,49 @@
 import json
 import re
 
+NAV_LABELS = {
+    "admin_dashboard": "总览", "dashboard": "总览", "delivery_dashboard": "交付看板",
+    "financing_projects": "融资项目", "sales_workbench": "销售工作台", "leads": "线索管理",
+    "follow_tasks": "跟进任务", "reports": "报告管理", "bank_products": "银行产品",
+    "consulting_cases": "顾问案件", "orders": "订单管理", "growth": "增长看板",
+    "hq_dashboard": "总部总览", "city_dashboard": "城市经营", "team_performance": "团队业绩",
+    "organizations": "组织管理", "channel_partners": "渠道伙伴", "institution_contacts": "机构联系人",
+    "commissions": "提成结算", "script_templates": "话术库", "backup": "数据备份",
+    "settings": "系统设置", "users": "用户管理", "audit_logs": "审计日志",
+    "notifications": "通知中心", "notification_templates": "通知模板", "notification_jobs": "通知任务",
+    "system_health": "系统健康", "production_checklist": "上线检查", "setup_wizard": "初始化向导",
+    "launch_dashboard": "试运营看板", "pilot_batches": "试运营批次", "pilot_dashboard": "试运营作战台",
+    "feedback": "客户反馈", "issues": "问题池", "daily_reports": "运营日报",
+    "weekly_reports": "运营周报", "client_portals": "客户门户", "legal_documents": "法律文档",
+    "release_notes": "发布说明",
+}
+
+ROLE_LABELS = {
+    "super_admin": "超级管理员", "admin": "管理员", "city_manager": "城市负责人",
+    "sales_manager": "销售主管", "sales": "销售", "consultant_manager": "顾问主管",
+    "consultant": "融资顾问", "finance": "财务", "viewer": "只读账号", "partner": "渠道伙伴",
+}
+
+
+def get_nav_label(code):
+    value = "" if code is None else str(code).strip().lower()
+    return NAV_LABELS.get(value, "系统模块")
+
+
+def get_role_label(role):
+    value = "" if role is None else str(role).strip().lower()
+    return ROLE_LABELS.get(value, "系统账号")
+
+
+def get_user_display_name(user):
+    if user is None:
+        return "系统用户"
+    username = str(getattr(user, "username", "") or "").strip()
+    if username.lower() == "admin":
+        return "系统管理员"
+    role_label = get_role_label(getattr(user, "role", ""))
+    return f"{username}（{role_label}）" if username else role_label
+
 PRODUCT_LABELS = {
     "299_report": "基础诊断报告（299元）", "699_bank_match": "银行匹配报告（699元）",
     "1999_structure_plan": "融资结构优化方案（1999元）", "high_ticket_consulting": "顾问服务", "free_nurture": "免费培育",
