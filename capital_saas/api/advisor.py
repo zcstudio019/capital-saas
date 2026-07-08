@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,7 @@ from db.models import (
     ReportVersion, UploadedDocument, User,
 )
 from services.auth_service import require_roles
+from services.bank_product_import_service import import_bank_products, parse_bank_product_file
 from services.event_service import track_event
 from services.report_service import generate_full_report
 from services.settings_service import get_setting
@@ -185,6 +186,48 @@ def bank_products_page(
         },
     )
 
+
+@router.get("/admin/bank-products/import-template")
+def download_bank_product_markdown_template(
+    _: User = Depends(require_roles("admin")),
+):
+    path = BASE_DIR / "data" / "import_templates" / "bank_products_template.md"
+    return FileResponse(path, media_type="text/markdown; charset=utf-8", filename="bank_products_template.md")
+
+@router.get("/admin/bank-products/import", response_class=HTMLResponse)
+def bank_products_import_page(
+    request: Request,
+    user: User = Depends(require_roles("admin")),
+):
+    return templates.TemplateResponse(
+        request=request, name="admin_bank_product_import.html",
+        context={"current_user": user, "result": None},
+    )
+
+
+@router.post("/admin/bank-products/import", response_class=HTMLResponse)
+async def import_bank_products_file(
+    request: Request,
+    upload: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin")),
+):
+    filename = Path(upload.filename or "").name
+    suffix = Path(filename).suffix.lower()
+    if suffix not in {".csv", ".xlsx", ".md"}:
+        raise HTTPException(status_code=400, detail="仅支持 CSV、Excel（.xlsx）或 Markdown（.md）文件")
+    content = await upload.read(10 * 1024 * 1024 + 1)
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="导入文件不能超过10MB")
+    try:
+        rows = parse_bank_product_file(filename, content)
+        result = import_bank_products(db, rows)
+    except (ValueError, UnicodeDecodeError) as exc:
+        result = {"parsed": 0, "success": 0, "failed": 1, "errors": [str(exc)]}
+    return templates.TemplateResponse(
+        request=request, name="admin_bank_product_import.html",
+        context={"current_user": user, "result": result},
+    )
 
 @router.get("/admin/bank-products/{product_id}/edit", response_class=HTMLResponse)
 def edit_bank_product_page(

@@ -119,6 +119,15 @@ SQLITE_COLUMNS = {
     },
     "customer_accounts":{"deleted_at":"DATETIME","deleted_by":"INTEGER","delete_reason":"TEXT NOT NULL DEFAULT ''"},
     "funding_applications": {"org_id": "INTEGER", "institution_contact_id": "INTEGER"},
+    "bank_products": {
+        "city": "VARCHAR(100) NOT NULL DEFAULT ''", "province": "VARCHAR(100) NOT NULL DEFAULT ''",
+        "min_amount": "FLOAT NOT NULL DEFAULT 0", "min_rate": "FLOAT", "max_rate": "FLOAT",
+        "min_term_months": "INTEGER", "max_term_months": "INTEGER",
+        "required_documents": "TEXT NOT NULL DEFAULT ''", "repayment_methods": "TEXT NOT NULL DEFAULT ''",
+        "target_customer_type": "TEXT NOT NULL DEFAULT ''", "advantages": "TEXT NOT NULL DEFAULT ''",
+        "disadvantages": "TEXT NOT NULL DEFAULT ''", "suitable_scenarios": "TEXT NOT NULL DEFAULT ''",
+        "data_source": "VARCHAR(30) NOT NULL DEFAULT 'mock'",
+    },
 }
 
 

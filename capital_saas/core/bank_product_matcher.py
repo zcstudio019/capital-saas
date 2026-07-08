@@ -11,6 +11,9 @@ def _amount_text(value: float) -> str:
 
 def match_bank_products(db: Session, assessment: Any) -> dict:
     products = db.query(BankProduct).filter(BankProduct.is_active.is_(True)).all()
+    imported_products = [product for product in products if product.data_source == "imported"]
+    if imported_products:
+        products = imported_products
     matches = []
     for product in products:
         score = 55
@@ -21,7 +24,7 @@ def match_bank_products(db: Session, assessment: Any) -> dict:
             reasons.append("营业收入达到产品基础门槛")
         else:
             score -= 25
-            risks.append("营业收入低于模拟准入门槛")
+            risks.append("营业收入低于产品准入门槛")
         if assessment.years >= product.min_years:
             score += 8
             reasons.append("经营年限满足要求")
