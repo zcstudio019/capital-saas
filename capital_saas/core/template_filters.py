@@ -1,5 +1,5 @@
 from fastapi.templating import Jinja2Templates
-from utils.display_labels import get_display_company_name, get_event_label, get_event_target_label, get_nav_label, get_product_label, get_role_label, get_task_priority_label, get_task_status_label, get_task_type_label, get_user_display_name
+from utils.display_labels import get_boolean_label, get_commission_trigger_label, get_commission_type_label, get_commission_value_label, get_display_company_name, get_event_label, get_event_target_label, get_landing_page_label, get_lead_grade_label, get_nav_label, get_product_label, get_role_label, get_role_type_label, get_script_scenario_label, get_settlement_status_label, get_source_channel_label, get_status_label, get_task_priority_label, get_task_status_label, get_task_type_label, get_user_display_name
 
 
 ZH_MAP = {
@@ -38,7 +38,7 @@ ZH_MAP = {
     "document_list_confirmed": "确认资料清单", "disclaimer_confirmed": "确认免责声明",
     "service_completed": "确认服务完成",
     "ai": "智能", "AI": "智能", "A/B": "A/B测试",
-    "variant_a": "A版", "variant_b": "B版",
+    "variant_a": "风险提示版", "variant_b": "机会收益版",
     "free_result_conversion": "免费结果页转化实验",
     "299_report": "299元基础诊断报告", "699_bank_match": "699元银行匹配报告",
     "1999_structure_plan": "1999元融资结构方案", "high_ticket_consulting": "一对一融资顾问服务",
@@ -75,6 +75,17 @@ def zh_label(value):
 def install_chinese_filters(templates: Jinja2Templates) -> Jinja2Templates:
     templates.env.filters["zh"] = zh_label
     templates.env.filters["product_label"] = get_product_label
+    templates.env.filters["landing_page_label"] = get_landing_page_label
+    templates.env.filters["commission_trigger_label"] = get_commission_trigger_label
+    templates.env.filters["commission_type_label"] = get_commission_type_label
+    templates.env.filters["commission_value_label"] = get_commission_value_label
+    templates.env.filters["role_type_label"] = get_role_type_label
+    templates.env.filters["script_scenario_label"] = get_script_scenario_label
+    templates.env.filters["status_label"] = get_status_label
+    templates.env.filters["boolean_label"] = get_boolean_label
+    templates.env.filters["settlement_status_label"] = get_settlement_status_label
+    templates.env.filters["lead_grade_label"] = get_lead_grade_label
+    templates.env.filters["source_channel_label"] = get_source_channel_label
     templates.env.filters["nav_label"] = get_nav_label
     templates.env.filters["role_label"] = get_role_label
     templates.env.filters["user_display_name"] = get_user_display_name

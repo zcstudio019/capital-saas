@@ -7,26 +7,33 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = ROOT / "templates"
 OUTPUT_RE = re.compile(r"{{\s*(.*?)\s*}}")
-TECH_FIELDS = (
-    "current_user.username", "current_user.role", "user.role", "event.event_type",
-    "product_code", "nav.key", "module.key", "route.name", "task.status", "task.priority",
-)
-SAFE_FILTERS = {
+TECH_FIELDS = {
+    "current_user.username": ("user_display_name",),
     "current_user.role": ("role_label", "user_display_name", "zh"),
     "user.role": ("role_label", "user_display_name", "zh"),
     "event.event_type": ("event_label",),
     "product_code": ("product_label",),
-    "nav.key": ("nav_label",),
-    "module.key": ("nav_label",),
-    "route.name": ("nav_label",),
-    "task.status": ("task_status_label", "zh"),
-    "task.priority": ("task_priority_label", "zh"),
+    "nav.key": ("nav_label",), "module.key": ("nav_label",), "route.name": ("nav_label",),
+    "task.status": ("task_status_label", "zh"), "task.priority": ("task_priority_label", "zh"),
+    "trigger_event": ("commission_trigger_label",),
+    "commission_type": ("commission_type_label", "commission_value_label"),
+    "settlement_status": ("settlement_status_label",),
+    ".scenario": ("script_scenario_label",), ".lead_grade": ("lead_grade_label",),
+    ".is_active": ("boolean_label",),
+    "x.path": ("landing_page_label",), "x.code": ("product_label",),
+    "source_channel": ("source_channel_label",),
 }
-ROLE_CODES = ("super_admin", "city_manager", "sales_manager", "consultant_manager")
-PRODUCT_CODES = ("high_ticket_consulting", "299_report", "699_bank_match", "1999_structure_plan")
+VISIBLE_TECH_CODES = (
+    "299_report", "699_bank_match", "1999_structure_plan", "paid_order", "project_disbursed",
+    "fixed_amount", "percentage", "sales_manager", "consultant_manager", "high_ticket_consulting",
+    "/lp/rongzi", "/lp/cashflow", "/lp/bank", "/lp/boss", "variant_a", "variant_b",
+    "free_result_conversion",
+)
 
 
 def _is_internal_value(line: str, expression: str) -> bool:
+    if " if " in expression or "==" in expression or "!=" in expression or "|lower" in expression:
+        return True
     if ("task.status" in expression or "task.priority" in expression) and (
         "==" in expression or "!=" in expression or "class=" in line
     ):
@@ -35,7 +42,17 @@ def _is_internal_value(line: str, expression: str) -> bool:
         r'<(?:input|select)[^>]*name=["\'](?:target_)?product_code["\']', line
     ):
         return True
+    if any(field in expression for field in ("settlement_status", "is_active")) and (
+        "==" in expression or "!=" in expression
+    ):
+        return True
     return False
+
+
+def _visible_text(line: str) -> str:
+    text = re.sub(r"{%.*?%}", "", line)
+    text = re.sub(r"{{.*?}}", "", text)
+    return re.sub(r"<[^>]+>", " ", text)
 
 
 def main() -> int:
@@ -48,19 +65,16 @@ def main() -> int:
     for path in paths:
         for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             for expression in OUTPUT_RE.findall(line):
-                for field in TECH_FIELDS:
-                    if field not in expression:
+                for field, safe_filters in TECH_FIELDS.items():
+                    if field not in expression or _is_internal_value(line, expression):
                         continue
-                    if field == "current_user.username" and "user_display_name" in expression:
-                        continue
-                    if _is_internal_value(line, expression):
-                        continue
-                    allowed = SAFE_FILTERS.get(field, ())
-                    if not any(filter_name in expression for filter_name in allowed):
+                    if not any(name in expression for name in safe_filters):
                         findings.append(f"{path.relative_to(ROOT)}:{line_no}: {{ {expression} }}")
-                if any(code in expression for code in ROLE_CODES + PRODUCT_CODES):
-                    if not any(name in expression for name in ("role_label", "product_label", "zh")):
-                        findings.append(f"{path.relative_to(ROOT)}:{line_no}: {{ {expression} }}")
+            visible = _visible_text(line)
+            if "?partner=" not in line and "?pilot=" not in line:
+                for code in VISIBLE_TECH_CODES:
+                    if code in visible:
+                        findings.append(f"{path.relative_to(ROOT)}:{line_no}: visible code {code!r}")
 
     if findings:
         print("发现可能直出的技术字段：")

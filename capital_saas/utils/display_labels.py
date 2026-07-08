@@ -49,7 +49,105 @@ def get_user_display_name(user):
 PRODUCT_LABELS = {
     "299_report": "基础诊断报告（299元）", "699_bank_match": "银行匹配报告（699元）",
     "1999_structure_plan": "融资结构优化方案（1999元）", "high_ticket_consulting": "顾问服务", "free_nurture": "免费培育",
+    "manual_consulting": "人工顾问服务", "structure_plan": "融资结构方案",
 }
+LANDING_PAGE_LABELS = {
+    "/": "官网首页", "/assessment": "免费测评页", "/lp/rongzi": "企业融资测评页",
+    "/lp/cashflow": "现金流风险测评页", "/lp/bank": "银行贷款通过率测评页",
+    "/lp/boss": "老板财商诊断页", "/products": "产品服务页",
+    "/checkout": "支付解锁页", "/result": "免费结果页",
+}
+COMMISSION_TRIGGER_LABELS = {
+    "paid_order": "订单支付成功", "consulting_case_created": "顾问案件创建",
+    "project_approved": "融资项目批复", "project_disbursed": "融资项目放款",
+    "funding_application_approved": "资金申请批复",
+    "funding_application_disbursed": "资金申请放款",
+}
+COMMISSION_TYPE_LABELS = {
+    "fixed_amount": "固定金额", "percentage": "按比例",
+    "tiered_percentage": "阶梯比例", "manual": "手动结算",
+}
+SCRIPT_SCENARIO_LABELS = {
+    "first_wechat": "初次加微信", "after_free_assessment": "免费测评后未支付",
+    "free_unpaid": "免费测评后未支付", "push_299": "推荐基础诊断报告",
+    "push_699": "推荐银行匹配报告", "push_1999": "推荐融资结构优化方案",
+    "high_ticket_consulting": "推荐高客单顾问服务", "high_ticket": "推荐高客单顾问服务",
+    "no_reply_24h": "24小时未回复", "reactivate_7d": "7天重新激活",
+    "paid_thanks": "已支付感谢", "upsell_recommend": "升级服务推荐", "upsell": "升级服务推荐",
+    "document_request": "补资料提醒", "report_ready": "报告生成提醒",
+    "project_update": "项目进度通知", "payment_follow": "付款跟进",
+    "renewal_reminder": "续贷提醒",
+}
+STATUS_LABELS = {
+    "pending": "待处理", "confirmed": "已确认", "paid": "已支付", "cancelled": "已取消",
+    "active": "已启用", "inactive": "已停用", "success": "成功", "failed": "失败",
+    "draft": "草稿", "ready": "已就绪", "submitted": "已提交", "returned": "已退回",
+    "archived": "已归档", "planning": "筹备中", "running": "进行中", "completed": "已完成",
+}
+SETTLEMENT_STATUS_LABELS = {
+    "pending": "待处理", "confirmed": "已确认", "paid": "已支付", "cancelled": "已取消",
+}
+SOURCE_CHANNEL_LABELS = {
+    "": "直接访问", "direct": "直接访问", "organic": "自然访问", "douyin": "抖音",
+    "xiaohongshu": "小红书", "wechat": "微信私域", "partner": "渠道伙伴",
+    "sales_call": "电销客户", "wx_private": "微信私域", "partner_caishui": "财税渠道",
+}
+LEAD_GRADE_LABELS = {"S": "S级线索", "A": "A级线索", "B": "B级线索", "C": "C级线索", "D": "D级线索"}
+
+
+def get_landing_page_label(path):
+    value = "" if path is None else str(path).strip()
+    clean_path = value.split("?", 1)[0].rstrip("/") or "/"
+    return LANDING_PAGE_LABELS.get(clean_path, "其他落地页")
+
+
+def get_commission_trigger_label(code):
+    return COMMISSION_TRIGGER_LABELS.get(str(code or "").strip().lower(), "其他业务触发")
+
+
+def get_commission_type_label(code):
+    return COMMISSION_TYPE_LABELS.get(str(code or "").strip().lower(), "其他结算方式")
+
+
+def get_commission_value_label(rule):
+    code = str(getattr(rule, "commission_type", "") or "").strip().lower()
+    value = getattr(rule, "commission_value", 0)
+    unit = "元" if code == "fixed_amount" else "%" if code in {"percentage", "tiered_percentage"} else ""
+    return f"{get_commission_type_label(code)}：{value}{unit}"
+
+
+def get_role_type_label(code):
+    return get_role_label(code)
+
+
+def get_script_scenario_label(code):
+    return SCRIPT_SCENARIO_LABELS.get(str(code or "").strip().lower(), "通用跟进场景")
+
+
+def get_status_label(code):
+    return STATUS_LABELS.get(str(code or "").strip().lower(), "状态未知")
+
+
+def get_boolean_label(value):
+    if isinstance(value, str):
+        enabled = value.strip().lower() in {"1", "true", "yes", "on", "active"}
+    else:
+        enabled = bool(value)
+    return "已启用" if enabled else "已停用"
+
+
+def get_settlement_status_label(code):
+    return SETTLEMENT_STATUS_LABELS.get(str(code or "").strip().lower(), "状态未知")
+
+
+def get_lead_grade_label(code):
+    value = str(code or "").strip().upper()
+    return LEAD_GRADE_LABELS.get(value, "全部线索" if not value else "其他等级线索")
+
+
+def get_source_channel_label(code):
+    return SOURCE_CHANNEL_LABELS.get(str(code or "").strip().lower(), "其他渠道")
+
 EVENT_LABELS = {
     "audit_log_created": "审计日志已创建", "unhandled_exception": "系统异常", "assessment_page_viewed": "测评页面被访问",
     "assessment_submitted": "已提交测评", "free_result_viewed": "已查看免费结果", "checkout_viewed": "已进入支付页",
@@ -150,7 +248,9 @@ def _label(mapping, code):
     value = str(code)
     return mapping.get(value, value)
 
-def get_product_label(code): return _label(PRODUCT_LABELS, code)
+def get_product_label(code):
+    value = "" if code is None else str(code).strip()
+    return PRODUCT_LABELS.get(value, "全部产品" if not value else "其他业务产品")
 def get_event_label(code):
     value = "" if code is None else str(code).strip().lower()
     if value in EVENT_LABELS:

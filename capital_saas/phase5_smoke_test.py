@@ -80,7 +80,8 @@ def run():
         for url in ["/admin/ab-tests", "/admin/growth?show_test=1", "/admin/script-templates", "/admin/backup"]:
             assert client.get(url).status_code == 200
         growth = client.get("/admin/growth?show_test=1")
-        assert "douyin" in growth.text and "/lp/rongzi" in growth.text
+        assert "抖音" in growth.text and "企业融资测评页" in growth.text
+        assert "douyin" not in growth.text and "/lp/rongzi" not in growth.text
         ab_page = client.get("/admin/ab-tests")
         assert "free_result_conversion" in ab_page.text
 
