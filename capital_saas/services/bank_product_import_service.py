@@ -1,14 +1,15 @@
-"""CSV、Excel、Markdown 银行产品导入服务。"""
+"""CSV, Excel and Markdown bank-product import service."""
 from __future__ import annotations
 import csv
 import io
+import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 from db.models import BankProduct
 from parsers.markdown_bank_product_parser import normalize_bank_product, parse_markdown_bank_products
-
 
 def parse_bank_product_file(filename: str, content: bytes) -> list[dict[str, Any]]:
     suffix = Path(filename).suffix.lower()
@@ -19,66 +20,63 @@ def parse_bank_product_file(filename: str, content: bytes) -> list[dict[str, Any
     if suffix == ".xlsx":
         sheet = load_workbook(io.BytesIO(content), read_only=True, data_only=True).active
         values = sheet.iter_rows(values_only=True)
-        headers = [str(value or "").strip() for value in next(values, [])]
-        return [normalize_bank_product(dict(zip(headers, row))) for row in values if any(value is not None for value in row)]
+        headers = [str(v or "").strip() for v in next(values, [])]
+        return [normalize_bank_product(dict(zip(headers, row))) for row in values if any(v is not None for v in row)]
     raise ValueError("仅支持 CSV、Excel（.xlsx）或 Markdown（.md）文件")
 
-
-def validate_bank_product(row: dict[str, Any], row_number: int) -> str | None:
-    if not row.get("product_name"):
-        return f"第{row_number}条缺少产品名称"
-    if not row.get("bank_name"):
-        return f"第{row_number}条缺少银行或机构名称"
-    return None
-
-
-def import_bank_products(db: Session, rows: list[dict[str, Any]]) -> dict[str, Any]:
-    result: dict[str, Any] = {"parsed": len(rows), "success": 0, "failed": 0, "errors": []}
-    seen: set[tuple[str, str, str]] = set()
+def import_bank_products(db: Session, rows: list[dict[str, Any]], source_file_name: str = "") -> dict[str, Any]:
+    batch_id = datetime.now().strftime("%Y%m%d%H%M%S") + "-" + uuid.uuid4().hex[:8]
+    result: dict[str, Any] = {"parsed": len(rows), "success": 0, "created": 0, "updated": 0, "failed": 0, "errors": [], "batch_id": batch_id, "products": []}
+    seen: set[str] = set()
+    model_fields = set(BankProduct.__table__.columns.keys())
     for index, row in enumerate(rows, 1):
-        key = (row.get("bank_name", ""), row.get("product_name", ""), row.get("city", ""))
-        error = validate_bank_product(row, index)
-        if key in seen:
-            error = f"第{index}条与本次文件内产品重复"
-        seen.add(key)
-        if error:
+        identifier = row.get("product_code") or row.get("_title") or row.get("product_name") or f"第{index}项"
+        if not row.get("product_name") or not row.get("bank_name"):
             result["failed"] += 1
-            result["errors"].append(error)
+            result["errors"].append(f"{identifier}：缺少银行/机构或产品名称")
             continue
-        item = db.query(BankProduct).filter_by(bank_name=key[0], product_name=key[1], city=key[2]).first()
+        dedupe = row.get("product_code") or f'{row["bank_name"]}|{row["product_name"]}'
+        if dedupe in seen:
+            result["failed"] += 1
+            result["errors"].append(f"{identifier}：文件内产品重复")
+            continue
+        seen.add(dedupe)
+        item = None
+        if row.get("product_code"):
+            item = db.query(BankProduct).filter(BankProduct.product_code == row["product_code"]).first()
         if item is None:
+            item = db.query(BankProduct).filter(BankProduct.bank_name == row["bank_name"], BankProduct.product_name == row["product_name"]).first()
+        created = item is None
+        if created:
             item = BankProduct()
             db.add(item)
         try:
-            values = {
-                "bank_name": key[0], "product_name": key[1], "city": key[2],
-                "province": row.get("province", ""), "bank_type": row.get("bank_type", "银行") or "银行",
-                "product_type": row.get("product_type", "待补充") or "待补充",
-                "suitable_industry": row.get("suitable_industry", "通用") or "通用",
-                "min_amount": (row.get("min_amount") or 0) * 10_000,
-                "max_amount": (row.get("max_amount") or 0) * 10_000,
-                "min_rate": row.get("min_rate"), "max_rate": row.get("max_rate"),
-                "min_term_months": row.get("min_term_months"), "max_term_months": row.get("max_term_months"),
-                "interest_rate_range": row.get("rate", "") or "以审批为准",
-                "loan_term": row.get("term", "") or "以审批为准",
-                "application_requirements": "；".join(filter(None, [row.get("access_conditions", ""), row.get("prohibited_conditions", "")])),
-                "required_documents": row.get("required_documents", ""), "repayment_methods": row.get("repayment_methods", ""),
-                "target_customer_type": row.get("target_customer_type", ""), "risk_notes": row.get("risk_notes", ""),
-                "advantages": row.get("advantages", ""), "disadvantages": row.get("disadvantages", ""),
-                "suitable_scenarios": row.get("suitable_scenarios", ""),
-                "requires_tax_normal": bool(row.get("requires_tax_normal")),
-                "requires_credit_normal": bool(row.get("requires_credit_normal")),
-                "requires_collateral": bool(row.get("requires_collateral")),
-                "data_source": "imported", "is_active": True,
-            }
-            for field, value in values.items():
-                setattr(item, field, value)
+            for field, value in row.items():
+                if field in model_fields and field not in {"id", "created_at", "updated_at"}:
+                    setattr(item, field, value)
+            # Database stores yuan; parser exposes the requested 万元 normalization.
+            item.min_amount = (row.get("min_amount") or 0) * 10000
+            item.max_amount = (row.get("max_amount") or 0) * 10000
+            item.bank_type = row.get("bank_type") or row.get("institution_category") or "银行"
+            item.product_type = row.get("product_type") or "待补充"
+            item.suitable_industry = row.get("suitable_industry") or "通用"
+            item.application_requirements = row.get("access_conditions_json", "")
+            item.required_documents = row.get("required_documents_json", "")
+            item.data_source, item.is_active = "imported", True
+            item.source_file_name, item.source_batch_id, item.imported_at = source_file_name, batch_id, datetime.now()
             result["success"] += 1
+            result["created" if created else "updated"] += 1
+            result["products"].append({"product_code": row.get("product_code", ""), "product_name": row["product_name"]})
         except Exception as exc:
             result["failed"] += 1
-            result["errors"].append(f"第{index}条导入失败：{exc}")
+            result["errors"].append(f"{identifier}：{exc}")
     if result["success"]:
         db.commit()
     else:
         db.rollback()
     return result
+
+def disable_mock_products(db: Session) -> int:
+    count = db.query(BankProduct).filter(BankProduct.data_source == "mock", BankProduct.is_active.is_(True)).update({BankProduct.is_active: False}, synchronize_session=False)
+    db.commit()
+    return count

@@ -120,6 +120,7 @@ SQLITE_COLUMNS = {
     "customer_accounts":{"deleted_at":"DATETIME","deleted_by":"INTEGER","delete_reason":"TEXT NOT NULL DEFAULT ''"},
     "funding_applications": {"org_id": "INTEGER", "institution_contact_id": "INTEGER"},
     "bank_products": {
+        "product_code": "VARCHAR(80) NOT NULL DEFAULT ''",
         "city": "VARCHAR(100) NOT NULL DEFAULT ''", "province": "VARCHAR(100) NOT NULL DEFAULT ''",
         "min_amount": "FLOAT NOT NULL DEFAULT 0", "min_rate": "FLOAT", "max_rate": "FLOAT",
         "min_term_months": "INTEGER", "max_term_months": "INTEGER",
@@ -127,6 +128,17 @@ SQLITE_COLUMNS = {
         "target_customer_type": "TEXT NOT NULL DEFAULT ''", "advantages": "TEXT NOT NULL DEFAULT ''",
         "disadvantages": "TEXT NOT NULL DEFAULT ''", "suitable_scenarios": "TEXT NOT NULL DEFAULT ''",
         "data_source": "VARCHAR(30) NOT NULL DEFAULT 'mock'",
+        "institution_category": "TEXT NOT NULL DEFAULT ''", "product_group": "TEXT NOT NULL DEFAULT ''",
+        "guarantee_method": "TEXT NOT NULL DEFAULT ''", "amount_description": "TEXT NOT NULL DEFAULT ''",
+        "application_process": "TEXT NOT NULL DEFAULT ''", "access_conditions_json": "TEXT NOT NULL DEFAULT ''",
+        "company_requirements": "TEXT NOT NULL DEFAULT ''", "guarantor_requirements": "TEXT NOT NULL DEFAULT ''",
+        "borrower_requirements": "TEXT NOT NULL DEFAULT ''", "credit_requirements": "TEXT NOT NULL DEFAULT ''",
+        "tax_requirements": "TEXT NOT NULL DEFAULT ''", "invoice_requirements": "TEXT NOT NULL DEFAULT ''",
+        "cashflow_requirements": "TEXT NOT NULL DEFAULT ''", "revenue_requirements": "TEXT NOT NULL DEFAULT ''",
+        "business_license_requirements": "TEXT NOT NULL DEFAULT ''", "prohibited_conditions_json": "TEXT NOT NULL DEFAULT ''",
+        "required_documents_json": "TEXT NOT NULL DEFAULT ''", "extra_fields_json": "TEXT NOT NULL DEFAULT '{}'",
+        "update_note": "TEXT NOT NULL DEFAULT ''", "source_file_name": "VARCHAR(300) NOT NULL DEFAULT ''",
+        "source_batch_id": "VARCHAR(80) NOT NULL DEFAULT ''", "imported_at": "DATETIME",
     },
 }
 

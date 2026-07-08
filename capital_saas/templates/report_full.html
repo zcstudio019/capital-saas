@@ -85,6 +85,7 @@
     {% endfor %}
     <section class="report-chapter card">
       <div class="chapter-no">+</div><h2>银行产品匹配</h2>
+      {% if report.bank_product_matches.fallback_notice %}<p class="safe-note">{{ report.bank_product_matches.fallback_notice }}</p>{% endif %}
       {% for item in report.bank_product_matches.matched_products %}
       <article class="match-item"><div class="task-section-head"><h3>{{ item.product_name }}</h3><span>匹配度 {{ item.match_score }}</span></div><p>{{ item.reason }}</p><small>{{ item.bank_type }} · {{ item.estimated_amount }} · {{ item.interest_rate_range }}</small><p class="safe-note">{{ item.risk_notes }}</p></article>
       {% else %}<p>暂无匹配产品。</p>{% endfor %}

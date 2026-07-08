@@ -21,7 +21,7 @@ from db.models import (
     ReportVersion, UploadedDocument, User,
 )
 from services.auth_service import require_roles
-from services.bank_product_import_service import import_bank_products, parse_bank_product_file
+from services.bank_product_import_service import disable_mock_products, import_bank_products, parse_bank_product_file
 from services.event_service import track_event
 from services.report_service import generate_full_report
 from services.settings_service import get_setting
@@ -175,14 +175,20 @@ def reject_report(
 @router.get("/admin/bank-products", response_class=HTMLResponse)
 def bank_products_page(
     request: Request,
+    data_source: str = "",
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("admin", "sales", "viewer")),
 ):
+    query = db.query(BankProduct)
+    if data_source in {"imported", "manual", "mock"}:
+        query = query.filter(BankProduct.data_source == data_source)
+    else:
+        query = query.filter(~((BankProduct.data_source == "mock") & (BankProduct.is_active.is_(False))))
     return templates.TemplateResponse(
         request=request, name="admin_bank_products.html",
         context={
-            "bank_products": db.query(BankProduct).order_by(BankProduct.id).all(),
-            "current_user": user, "edit_item": None,
+            "bank_products": query.order_by(BankProduct.id).all(),
+            "current_user": user, "edit_item": None, "data_source": data_source,
         },
     )
 
@@ -221,7 +227,7 @@ async def import_bank_products_file(
         raise HTTPException(status_code=400, detail="导入文件不能超过10MB")
     try:
         rows = parse_bank_product_file(filename, content)
-        result = import_bank_products(db, rows)
+        result = import_bank_products(db, rows, source_file_name=filename)
     except (ValueError, UnicodeDecodeError) as exc:
         result = {"parsed": 0, "success": 0, "failed": 1, "errors": [str(exc)]}
     return templates.TemplateResponse(
@@ -284,6 +290,7 @@ def save_bank_product(
     }.items():
         setattr(item, key, value)
     if not product_id:
+        item.data_source = "manual"
         db.add(item)
     db.commit()
     return RedirectResponse(url="/admin/bank-products", status_code=303)
@@ -300,6 +307,14 @@ def toggle_bank_product(
         raise HTTPException(status_code=404, detail="银行产品不存在")
     item.is_active = not item.is_active
     db.commit()
+    return RedirectResponse(url="/admin/bank-products", status_code=303)
+
+@router.post("/admin/bank-products/disable-mock")
+def disable_mock_bank_products(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("admin")),
+):
+    disable_mock_products(db)
     return RedirectResponse(url="/admin/bank-products", status_code=303)
 
 

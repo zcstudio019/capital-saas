@@ -10,10 +10,15 @@ def _amount_text(value: float) -> str:
 
 
 def match_bank_products(db: Session, assessment: Any) -> dict:
-    products = db.query(BankProduct).filter(BankProduct.is_active.is_(True)).all()
-    imported_products = [product for product in products if product.data_source == "imported"]
-    if imported_products:
-        products = imported_products
+    products = db.query(BankProduct).filter(
+        BankProduct.is_active.is_(True), BankProduct.data_source.in_(("imported", "manual"))
+    ).all()
+    fallback_notice = ""
+    if not products:
+        products = db.query(BankProduct).filter(
+            BankProduct.is_active.is_(True), BankProduct.data_source == "mock"
+        ).all()
+        fallback_notice = "当前暂无真实产品匹配结果，以下为模拟规则参考。"
     matches = []
     for product in products:
         score = 55
@@ -72,6 +77,7 @@ def match_bank_products(db: Session, assessment: Any) -> dict:
     top = matches[:5]
     return {
         "matched_products": top,
+        "fallback_notice": fallback_notice,
         "best_application_order": [
             f"第{index}顺位：{item['bank_type']}—{item['product_name']}（匹配度{item['match_score']}）"
             for index, item in enumerate(top[:3], 1)

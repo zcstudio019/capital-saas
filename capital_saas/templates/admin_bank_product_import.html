@@ -2,17 +2,18 @@
 {% block title %}导入银行产品库{% endblock %}
 {% block content %}
 <section class="admin-shell container">
-  <div class="admin-top"><div><div class="eyebrow">真实产品库</div><h1>导入银行产品</h1><p>支持 CSV / Excel / Markdown，导入产品将标记为“导入数据”。</p></div><a class="btn" href="/admin/bank-products">返回产品库</a></div>
-  {% if result %}<section class="card detail-card"><h2>导入结果</h2><div class="dashboard-grid"><div class="kpi"><span>解析产品</span><strong>{{ result.parsed }}</strong></div><div class="kpi"><span>成功导入</span><strong>{{ result.success }}</strong></div><div class="kpi"><span>失败</span><strong>{{ result.failed }}</strong></div></div>{% if result.errors %}<h3>失败原因</h3><ul>{% for error in result.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}</section>{% endif %}
-  <form class="card detail-card" method="post" enctype="multipart/form-data" action="/admin/bank-products/import"><h2>选择产品库文件</h2><label>CSV / Excel / Markdown 文件<input type="file" name="upload" accept=".csv,.xlsx,.md,text/markdown" required></label><p class="safe-note">文件最大10MB。相同机构、产品名称和城市的数据会更新，不会重复新增。</p><button class="btn btn-primary">解析并导入</button></form>
-  <section class="card detail-card"><h2>Markdown 格式示例</h2><p>支持 Markdown 表格，也支持每个二级或三级标题代表一个产品。</p><pre>| 银行/机构 | 产品名称 | 产品类型 | 城市 | 额度 | 利率 | 期限 |
-| --- | --- | --- | --- | --- | --- | --- |
-| 建设银行 | 税贷 | 信用贷 | 上海 | 10-300万 | 3.8%-6.0% | 12个月 |
-
-## 建设银行 - 税贷
-产品类型：信用贷
-城市：上海
-额度：10万-300万
-利率：3.8%-6.0%</pre><p><a href="/admin/bank-products/import-template">查看完整 Markdown 模板</a></p></section>
+  <div class="admin-top"><div><div class="eyebrow">真实产品库</div><h1>导入银行产品</h1><p>支持 CSV / Excel / Markdown 产品库。</p></div><a class="btn" href="/admin/bank-products">返回产品库</a></div>
+  {% if result %}<section class="card detail-card"><h2>导入结果</h2><div class="dashboard-grid"><div class="kpi"><span>解析产品数</span><strong>{{ result.parsed }}</strong></div><div class="kpi"><span>成功导入数</span><strong>{{ result.success }}</strong></div><div class="kpi"><span>新增数</span><strong>{{ result.created or 0 }}</strong></div><div class="kpi"><span>更新数</span><strong>{{ result.updated or 0 }}</strong></div><div class="kpi"><span>失败数</span><strong>{{ result.failed }}</strong></div></div>
+  {% if result.products %}<h3>本次产品</h3><ul>{% for item in result.products %}<li>{{ item.product_code }} {{ item.product_name }}</li>{% endfor %}</ul>{% endif %}
+  {% if result.errors %}<h3>失败原因</h3><ul>{% for error in result.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}</section>{% endif %}
+  <form class="card detail-card" method="post" enctype="multipart/form-data" action="/admin/bank-products/import"><h2>选择产品库文件</h2><label>CSV / Excel / Markdown 文件<input type="file" name="upload" accept=".csv,.xlsx,.md,text/markdown" required></label><p class="safe-note">文件最大 10MB。产品编码相同时更新；无编码时按机构与产品名称更新。</p><button class="btn btn-primary">解析并导入</button></form>
+  <section class="card detail-card"><h2>Markdown 格式</h2><pre>## 1. 【BOCOM-001】 普惠e贷1.0
+- 机构：交通银行（交行）
+- 原章节：第 1 章 国有大行
+- 原分组：线上化产品
+| 字段 | 内容 |
+|---|---|
+| 贷款类型 | 信用贷 |
+| 最高额度 | 300万 |</pre></section>
 </section>
 {% endblock %}
