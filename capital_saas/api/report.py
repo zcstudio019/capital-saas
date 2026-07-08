@@ -14,6 +14,10 @@ from services.auth_service import current_user_optional
 from services.event_service import track_event
 from services.pilot_service import set_pilot_stage
 from services.payment_service import has_paid_order
+from services.report_access_service import (
+    build_bank_product_detail_context,
+    build_report_access_context,
+)
 from services.report_service import generate_full_report, parse_report
 from services.settings_service import get_bool_setting
 from utils.logger import logger
@@ -72,6 +76,12 @@ def full_report(request: Request, assessment_id: int, db: Session = Depends(get_
         )
     _, full = parse_report(assessment.report)
     current_product = _current_product(db, assessment_id)
+    access_context = build_report_access_context(
+        db,
+        assessment,
+        full,
+        base_path=f"/report/{assessment.id}",
+    )
     track_event(
         db,
         "report_viewed",
@@ -87,6 +97,7 @@ def full_report(request: Request, assessment_id: int, db: Session = Depends(get_
             "assessment": assessment,
             "report": full,
             "current_product": current_product,
+            **access_context,
         },
     )
 
@@ -108,10 +119,59 @@ def print_report(request: Request, assessment_id: int, db: Session = Depends(get
             status_code=202,
         )
     _, full = parse_report(assessment.report)
+    current_product = _current_product(db, assessment_id)
+    access_context = build_report_access_context(
+        db,
+        assessment,
+        full,
+        base_path=f"/report/{assessment.id}",
+    )
     return templates.TemplateResponse(
         request=request,
         name="report_print.html",
-        context={"assessment": assessment, "report": full},
+        context={
+            "assessment": assessment,
+            "report": full,
+            "current_product": current_product,
+            **access_context,
+        },
+    )
+
+
+@router.get("/report/{assessment_id}/bank-products/{product_id}", response_class=HTMLResponse)
+def bank_product_detail(
+    request: Request,
+    assessment_id: int,
+    product_id: int,
+    db: Session = Depends(get_db),
+):
+    assessment = get_assessment(db, assessment_id)
+    if not assessment or not assessment.report:
+        raise HTTPException(status_code=404, detail="报告不存在")
+    if not _report_access_allowed(request, db, assessment_id):
+        return RedirectResponse(url=f"/checkout/{assessment_id}", status_code=303)
+    generate_full_report(db, assessment)
+    if _review_blocks_customer(request, db, assessment.report):
+        return templates.TemplateResponse(
+            request=request,
+            name="report_pending.html",
+            context={"assessment": assessment, "report_item": assessment.report},
+            status_code=202,
+        )
+    _, full = parse_report(assessment.report)
+    detail_context = build_bank_product_detail_context(db, assessment, full, product_id)
+    if detail_context is None:
+        raise HTTPException(status_code=404, detail="银行产品不存在")
+    return templates.TemplateResponse(
+        request=request,
+        name="report_bank_product_detail.html",
+        context={
+            "assessment": assessment,
+            "report": full,
+            "back_url": f"/report/{assessment.id}",
+            "checkout_base": f"/checkout/{assessment.id}",
+            **detail_context,
+        },
     )
 
 
@@ -126,10 +186,21 @@ def public_report(request: Request, public_token: str, db: Session = Depends(get
         raise HTTPException(status_code=403, detail="报告正在生成或审核中")
     generate_full_report(db, report.assessment)
     _, full = parse_report(report)
+    access_context = build_report_access_context(
+        db,
+        report.assessment,
+        full,
+        base_path=f"/report/{report.assessment_id}",
+    )
     return templates.TemplateResponse(
         request=request,
         name="report_print.html",
-        context={"assessment": report.assessment, "report": full},
+        context={
+            "assessment": report.assessment,
+            "report": full,
+            "current_product": _current_product(db, report.assessment_id),
+            **access_context,
+        },
     )
 
 

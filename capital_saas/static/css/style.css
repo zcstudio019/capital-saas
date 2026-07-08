@@ -378,7 +378,18 @@ td a { color: #1b5f93; font-weight: 700; }
 .btn-danger { color:#fff; background:var(--danger); }
 .match-item { margin:14px 0; padding:18px; border:1px solid var(--line); border-left:4px solid var(--gold); border-radius:8px; }
 .match-item h3 { margin:0; }
+.match-card-link { display:block; color:inherit; text-decoration:none; background:#fff; transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.match-card-link:hover { border-color:var(--gold); box-shadow:0 12px 30px rgba(12,39,71,.10); transform:translateY(-2px); }
+.match-card-link small { display:block; margin:8px 0; color:var(--muted); }
+.detail-hint { display:inline-flex; margin-top:10px; color:var(--gold); font-size:13px; }
 .locked-panel { margin-top:18px; padding:18px; border:1px dashed var(--gold); border-radius:8px; background:#fffaf0; }
+.locked-panel .btn { margin-top:10px; }
+.product-detail-card { max-width:980px; margin:0 auto; }
+.product-detail-card h1 { margin:10px 0 22px; color:var(--navy); }
+.product-detail-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:22px; }
+.product-detail-grid > div { padding:18px; border:1px solid var(--line); border-radius:10px; background:#fbfcfd; }
+.product-detail-grid h3 { margin:0 0 8px; color:var(--navy-2); font-size:16px; }
+.product-detail-grid p { margin:0; color:#4c5d70; white-space:pre-wrap; }
 .compliance-card, .compliance-note { margin:22px 0; padding:18px; border-radius:8px; color:#5d6875; background:#f3f5f7; font-size:13px; }
 .json-preview { max-height:320px; padding:14px; overflow:auto; white-space:pre-wrap; border-radius:7px; color:#dbe8f5; background:#0b2038; font-size:12px; }
 details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold); font-weight:700; }
@@ -395,7 +406,7 @@ details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold)
   .follow-form { position: static; }
   .product-grid { grid-template-columns: 1fr; }
   .product-card.featured { transform: none; }
-  .chapter-structure, .bank-detail-grid { grid-template-columns: 1fr; }
+  .chapter-structure, .bank-detail-grid, .product-detail-grid { grid-template-columns: 1fr; }
   .funnel-flow { grid-template-columns: 1fr; }
   .funnel-flow i { transform: rotate(90deg); text-align: center; }
   .funnel-products, .grade-conversion { grid-template-columns: 1fr 1fr; }

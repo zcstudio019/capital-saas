@@ -1,0 +1,51 @@
+{% extends "client_base.html" if customer is defined else "base.html" %}
+{% block title %}银行产品详情｜{{ product.product_name }}{% endblock %}
+{% block content %}
+<section class="{{ 'client-card' if customer is defined else 'section' }}">
+  <div class="{{ '' if customer is defined else 'container' }}">
+    <div class="card detail-card product-detail-card">
+      <a class="text-link inline" href="{{ back_url }}">← 返回报告</a>
+      <div class="eyebrow">银行产品详情</div>
+      <h1>{{ product.bank_name }} · {{ product.product_name }}</h1>
+      <div class="detail-data">
+        <div><span>银行/机构</span><strong>{{ product.bank_name or '-' }}</strong></div>
+        <div><span>产品名称</span><strong>{{ product.product_name or '-' }}</strong></div>
+        <div><span>产品类型</span><strong>{{ product.product_type or '-' }}</strong></div>
+        <div><span>额度参考</span><strong>{{ product.amount_description or product.estimated_amount or product.max_amount or '-' }}</strong></div>
+        <div><span>利率参考</span><strong>{{ product.interest_rate_range or '-' }}</strong></div>
+        <div><span>适合客户</span><strong>{{ product.target_customer_type or product.suitable_scenarios or '需结合企业经营情况进一步判断' }}</strong></div>
+      </div>
+
+      <div class="consultant-conclusion">
+        <span>匹配结论</span>
+        <p>{{ product.reason or '该产品与当前企业融资需求存在基础匹配，可进一步核验准入。' }}</p>
+      </div>
+
+      {% if product_detail_unlocked %}
+      <div class="product-detail-grid">
+        <div><h3>产品编码</h3><p>{{ product.product_code or '-' }}</p></div>
+        <div><h3>银行类型/原章节</h3><p>{{ product.bank_type or '-' }}</p></div>
+        <div><h3>担保方式</h3><p>{{ product.guarantee_method or '-' }}</p></div>
+        <div><h3>额度区间</h3><p>{{ product.amount_description or product.estimated_amount or '-' }}</p></div>
+        <div><h3>利率区间</h3><p>{{ product.interest_rate_range or '-' }}</p></div>
+        <div><h3>期限</h3><p>{{ product.loan_term or '-' }}</p></div>
+        <div><h3>还款方式</h3><p>{{ product.repayment_methods or '-' }}</p></div>
+        <div><h3>准入条件</h3><p>{{ product.application_requirements or product.access_conditions_json or '-' }}</p></div>
+        <div><h3>禁入条件</h3><p>{{ product.prohibited_conditions_json or '-' }}</p></div>
+        <div><h3>所需资料</h3><p>{{ product.required_documents_json or product.required_documents or '-' }}</p></div>
+        <div><h3>风险提示</h3><p>{{ product.risk_notes or '-' }}</p></div>
+        <div><h3>备注</h3><p>{{ product.update_note or '-' }}</p></div>
+        <div><h3>推荐理由</h3><p>{{ product.reason or '-' }}</p></div>
+        <div><h3>下一步建议</h3><p>按匹配度顺序准备资料，先做征信、纳税、流水和经营材料核验，再决定是否提交正式申请。</p></div>
+      </div>
+      {% else %}
+      <div class="locked-panel">
+        <strong>升级699银行匹配报告后，可查看完整准入条件、所需资料、风控要求、申请顺序与注意事项。</strong>
+        <p>当前仅展示基础预览信息，详细规则以银行审批和完整报告为准。</p>
+        <a class="btn btn-gold" href="{{ checkout_base }}?product=699_bank_match&upgrade=1">解锁699银行匹配报告</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

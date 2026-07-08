@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}完整资本诊断报告｜{{ assessment.company_name }}{% endblock %}
+{% block title %}完整融资诊断报告｜{{ assessment.company_name }}{% endblock %}
 {% block content %}
 <section class="report-cover">
   <div class="container">
     <div class="eyebrow">企业融资顾问报告 · 内部保密</div>
     <h1>{{ assessment.company_name }}<br><span>企业融资顾问诊断报告</span></h1>
     <div class="cover-meta">
-      <span>报告编号：HSY-{{ "%06d"|format(assessment.id) }}</span>
+      <span>报告编号：CSY-{{ "%06d"|format(assessment.id) }}</span>
       <span>企业等级：{{ assessment.grade }}级</span>
       <span>银行模拟通过率：{{ "%.0f"|format(report.bank_approval.approval_probability * 100) }}%</span>
       <span>交付版本：{{ report.delivery_scope.level }}（{{ current_product }}）</span>
@@ -83,22 +83,59 @@
       {% endif %}
     </section>
     {% endfor %}
+
     <section class="report-chapter card">
       <div class="chapter-no">+</div><h2>银行产品匹配</h2>
-      {% if report.bank_product_matches.fallback_notice %}<p class="safe-note">{{ report.bank_product_matches.fallback_notice }}</p>{% endif %}
-      {% for item in report.bank_product_matches.matched_products %}
-      <article class="match-item"><div class="task-section-head"><h3>{{ item.product_name }}</h3><span>匹配度 {{ item.match_score }}</span></div><p>{{ item.reason }}</p><small>{{ item.bank_type }} · {{ item.estimated_amount }} · {{ item.interest_rate_range }}</small><p class="safe-note">{{ item.risk_notes }}</p></article>
+      {% set bank_block = bank_match_full if bank_match_unlocked else bank_match_preview %}
+      {% if bank_block.fallback_notice %}<p class="safe-note">{{ bank_block.fallback_notice }}</p>{% endif %}
+      {% for item in bank_block.matched_products %}
+      <a class="match-item match-card-link" href="{{ item.detail_url }}">
+        <div class="task-section-head"><h3>{{ item.product_name }}</h3><span>匹配度 {{ item.match_score }}</span></div>
+        {% if bank_match_unlocked %}
+        <p>{{ item.reason }}</p>
+        <small>{{ item.bank_name or item.bank_type }} · {{ item.estimated_amount }} · {{ item.interest_rate_range }} · {{ item.loan_term }}</small>
+        <p class="safe-note">{{ item.risk_notes }}</p>
+        <b class="detail-hint">查看完整详情</b>
+        {% else %}
+        <p>{{ item.preview_reason }}</p>
+        <small>{{ item.access_hint }}</small>
+        <p class="safe-note">{{ item.preview_note }}</p>
+        <b class="detail-hint">查看预览详情</b>
+        {% endif %}
+      </a>
       {% else %}<p>暂无匹配产品。</p>{% endfor %}
-      {% if report.bank_product_matches.preview_only %}<div class="locked-panel"><strong>当前为基础版预览</strong><p>升级699版本可查看完整产品匹配、申请顺序和额度预测。</p></div>{% endif %}
+      {% if not bank_match_unlocked %}
+      <div class="locked-panel">
+        <strong>当前为基础版预览</strong>
+        <p>升级699版本可查看完整产品匹配、申请顺序和额度预测。</p>
+        <a class="btn btn-gold" href="/checkout/{{ assessment.id }}?product=699_bank_match&upgrade=1">解锁699银行匹配报告</a>
+      </div>
+      {% endif %}
     </section>
+
     <section class="report-chapter card">
       <div class="chapter-no">+</div><h2>融资资料准备清单</h2>
-      {% for group in report.document_checklist.required_documents %}
-        {% if group is mapping %}<h3>{{ group.category }}</h3><p>{{ group['items']|join('、') }}</p>{% else %}<p>• {{ group }}</p>{% endif %}
+      {% set checklist_block = document_checklist_full if document_checklist_unlocked else document_checklist_preview %}
+      {% for group in checklist_block.required_documents %}
+        {% if group is mapping %}
+          <h3>{{ group.category }}</h3>
+          {% if document_checklist_unlocked and group['items'] %}<p>{{ group['items']|join('、') }}</p>{% endif %}
+        {% else %}
+          <p>• {{ group }}</p>
+        {% endif %}
       {% endfor %}
-      {% for risk in report.document_checklist.missing_risk %}<p class="risk-message">{{ risk }}</p>{% endfor %}
-      {% if current_product != '1999_structure_plan' %}<div class="locked-panel"><strong>高级交付内容</strong><p>1999结构优化方案提供完整逐项资料清单、优先级与30/90/180天执行计划。</p></div>{% endif %}
+      {% if document_checklist_unlocked %}
+        {% for priority in checklist_block.preparation_priority %}<p class="safe-note">{{ priority }}</p>{% endfor %}
+        {% for risk in checklist_block.missing_risk %}<p class="risk-message">{{ risk }}</p>{% endfor %}
+      {% else %}
+      <div class="locked-panel">
+        <strong>高级交付内容</strong>
+        <p>1999结构优化方案提供完整资料清单、优先级与30/90/180天执行计划。</p>
+        <a class="btn btn-gold" href="/checkout/{{ assessment.id }}?product=1999_structure_plan&upgrade=1">解锁1999结构优化方案</a>
+      </div>
+      {% endif %}
     </section>
+
     <section class="upgrade-card">
       <div>
         <span>融资结构升级</span>

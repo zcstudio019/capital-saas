@@ -24,7 +24,11 @@ from services.customer_portal_service import (advisor_context, complete_document
 from services.document_parse_service import classify_document, run_parse_task
 from services.event_service import track_event
 from services.pilot_service import set_pilot_stage
-from services.report_service import parse_report
+from services.report_access_service import (
+    build_bank_product_detail_context,
+    build_report_access_context,
+)
+from services.report_service import generate_full_report, parse_report
 from services.settings_service import get_setting
 
 router=APIRouter();templates=Jinja2Templates(directory=str(BASE_DIR/"templates"))
@@ -108,13 +112,29 @@ def client_report(request:Request,report_id:int,db:Session=Depends(get_db),custo
     report=_client_report(db,customer,report_id);paid=db.query(Order).filter(Order.assessment_id==customer.assessment_id,Order.status=='paid').first()
     if not paid:return templates.TemplateResponse(request=request,name='client_notice.html',context={'customer':customer,'title':'报告尚未解锁','message':'该报告尚未解锁。'})
     if report.review_status!='approved':return templates.TemplateResponse(request=request,name='client_notice.html',context={'customer':customer,'title':'报告审核中','message':'报告正在生成/审核中，请稍后查看。'})
+    generate_full_report(db, report.assessment)
     _,full=parse_report(report);track_event(db,'client_report_viewed',customer.assessment_id,customer.lead_id,{'report_id':report.id});set_pilot_stage(db,db.get(Lead,customer.lead_id),'report_viewed',commit=True)
-    return templates.TemplateResponse(request=request,name='client_report.html',context={'customer':customer,'assessment':report.assessment,'report':full,'print_mode':False})
+    access_context=build_report_access_context(db,report.assessment,full,base_path=f'/client/reports/{report.id}')
+    return templates.TemplateResponse(request=request,name='client_report.html',context={'customer':customer,'assessment':report.assessment,'report':full,'print_mode':False,**access_context})
 @router.get('/client/reports/{report_id}/print',response_class=HTMLResponse)
 def client_report_print(request:Request,report_id:int,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
     report=_client_report(db,customer,report_id)
     if report.review_status!='approved' or not db.query(Order).filter(Order.assessment_id==customer.assessment_id,Order.status=='paid').first():raise HTTPException(403,"报告尚不可打印")
-    _,full=parse_report(report);return templates.TemplateResponse(request=request,name='client_report.html',context={'customer':customer,'assessment':report.assessment,'report':full,'print_mode':True})
+    generate_full_report(db, report.assessment)
+    _,full=parse_report(report);access_context=build_report_access_context(db,report.assessment,full,base_path=f'/client/reports/{report.id}')
+    return templates.TemplateResponse(request=request,name='client_report.html',context={'customer':customer,'assessment':report.assessment,'report':full,'print_mode':True,**access_context})
+
+@router.get('/client/reports/{report_id}/bank-products/{product_id}',response_class=HTMLResponse)
+def client_bank_product_detail(request:Request,report_id:int,product_id:int,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
+    report=_client_report(db,customer,report_id)
+    paid=db.query(Order).filter(Order.assessment_id==customer.assessment_id,Order.status=='paid').first()
+    if not paid:return templates.TemplateResponse(request=request,name='client_notice.html',context={'customer':customer,'title':'报告尚未解锁','message':'该报告尚未解锁。'})
+    if report.review_status!='approved':return templates.TemplateResponse(request=request,name='client_notice.html',context={'customer':customer,'title':'报告审核中','message':'报告正在生成/审核中，请稍后查看。'})
+    generate_full_report(db, report.assessment)
+    _,full=parse_report(report)
+    detail_context=build_bank_product_detail_context(db,report.assessment,full,product_id)
+    if detail_context is None:raise HTTPException(404,'银行产品不存在')
+    return templates.TemplateResponse(request=request,name='report_bank_product_detail.html',context={'customer':customer,'assessment':report.assessment,'report':full,'back_url':f'/client/reports/{report.id}','checkout_base':f'/checkout/{customer.assessment_id}',**detail_context})
 
 @router.get('/client/documents',response_class=HTMLResponse)
 def client_documents(request:Request,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
