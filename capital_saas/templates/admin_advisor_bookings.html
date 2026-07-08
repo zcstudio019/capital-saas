@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}顾问预约管理{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top">
+    <div><div class="eyebrow">Advisor Bookings</div><h1>1对1融资顾问预约</h1></div>
+    <div class="admin-links">
+      <a href="/admin">总览</a>
+      <a href="/admin/leads">线索</a>
+      <a href="/admin/follow-tasks">任务</a>
+      <a class="active" href="/admin/advisor-bookings">顾问预约</a>
+      <a href="/admin/consulting-cases">顾问案件</a>
+    </div>
+  </div>
+  <form class="card filter-bar" method="get">
+    {% set status_labels = {'pending':'待跟进','contacted':'已联系','completed':'已完成','cancelled':'已取消'} %}
+    {% set task_status_labels = {'pending':'待完成','done':'已完成','cancelled':'已取消'} %}
+    <label>状态
+      <select name="status">
+        <option value="">全部</option>
+        {% for item in ['pending','contacted','completed','cancelled'] %}
+        <option value="{{ item }}" {{ 'selected' if filters.status == item else '' }}>{{ status_labels.get(item, item) }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button class="btn btn-primary">筛选</button>
+  </form>
+  <div class="card table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>企业</th><th>联系人</th><th>手机/微信</th><th>咨询重点</th><th>希望沟通时间</th><th>状态</th><th>跟进任务</th><th>提交时间</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in bookings %}
+        {% set lead = leads.get(item.lead_id) if item.lead_id else None %}
+        {% set task = tasks.get(item.follow_task_id) if item.follow_task_id else None %}
+        <tr>
+          <td>#{{ item.id }}</td>
+          <td>{{ item.company_name }}</td>
+          <td>{{ item.contact_name }}</td>
+          <td>{{ item.phone }}{% if item.wechat_id %}<br>{{ item.wechat_id }}{% endif %}</td>
+          <td>{{ item.consultation_focus or '-' }}</td>
+          <td>{{ item.preferred_time or '-' }}</td>
+          <td>{{ status_labels.get(item.booking_status, item.booking_status) }}</td>
+          <td>{% if task %}{{ task.task_title }}<br><small>{{ task_status_labels.get(task.status, task.status) }} · {{ task.due_time.strftime('%Y-%m-%d %H:%M') }}</small>{% else %}-{% endif %}</td>
+          <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>{% if lead %}<a href="/admin/leads/{{ lead.id }}">查看线索</a>{% else %}-{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10" class="empty">暂无顾问预约</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

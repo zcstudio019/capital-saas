@@ -195,6 +195,26 @@ class FollowTask(Base):
     assessment: Mapped[Assessment] = relationship(back_populates="follow_tasks")
 
 
+class AdvisorBooking(Base):
+    __tablename__ = "advisor_bookings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("assessments.id"), index=True)
+    report_id: Mapped[int | None] = mapped_column(ForeignKey("reports.id"), nullable=True, index=True)
+    lead_id: Mapped[int | None] = mapped_column(ForeignKey("leads.id"), nullable=True, index=True)
+    company_name: Mapped[str] = mapped_column(String(200), default="")
+    contact_name: Mapped[str] = mapped_column(String(100), default="")
+    phone: Mapped[str] = mapped_column(String(50), default="")
+    wechat_id: Mapped[str] = mapped_column(String(100), default="")
+    consultation_focus: Mapped[str] = mapped_column(Text, default="")
+    preferred_time: Mapped[str] = mapped_column(String(200), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    booking_status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    follow_task_id: Mapped[int | None] = mapped_column(ForeignKey("follow_tasks.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
 class Event(Base):
     __tablename__ = "events"
 

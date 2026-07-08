@@ -1,7 +1,7 @@
 import json
 import hashlib
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -17,8 +17,8 @@ from core.document_completeness_engine import check_document_completeness
 from core.document_request_script_engine import generate_document_request_script
 from db.database import get_db
 from db.models import (
-    AIGenerationLog, BankProduct, ConsultingCase, CustomerTask, DocumentParseTask, Lead, Report,
-    ReportVersion, UploadedDocument, User,
+    AdvisorBooking, AIGenerationLog, BankProduct, ConsultingCase, CustomerTask,
+    DocumentParseTask, FollowTask, Lead, Report, ReportVersion, UploadedDocument, User,
 )
 from services.auth_service import require_roles
 from services.bank_product_import_service import disable_mock_products, import_bank_products, parse_bank_product_file
@@ -40,6 +40,157 @@ def _report_or_404(db: Session, report_id: int) -> Report:
     if not report:
         raise HTTPException(status_code=404, detail="报告不存在")
     return report
+
+
+@router.get("/advisor/book/{report_id}", response_class=HTMLResponse)
+def advisor_booking_form(
+    request: Request,
+    report_id: int,
+    db: Session = Depends(get_db),
+):
+    report = _report_or_404(db, report_id)
+    assessment = report.assessment
+    return templates.TemplateResponse(
+        request=request,
+        name="advisor_booking.html",
+        context={
+            "report": report,
+            "assessment": assessment,
+            "lead": assessment.lead,
+            "submitted": False,
+        },
+    )
+
+
+@router.post("/advisor/book/{report_id}", response_class=HTMLResponse)
+def submit_advisor_booking(
+    request: Request,
+    report_id: int,
+    company_name: str = Form(""),
+    contact_name: str = Form(""),
+    phone: str = Form(""),
+    wechat_id: str = Form(""),
+    consultation_focus: str = Form(""),
+    preferred_time: str = Form(""),
+    note: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    report = _report_or_404(db, report_id)
+    assessment = report.assessment
+    lead = assessment.lead
+    company_name = (company_name or assessment.company_name or "").strip()
+    contact_name = (contact_name or assessment.contact_name or (lead.contact_name if lead else "") or "").strip()
+    phone = (phone or assessment.phone or (lead.phone if lead else "") or "").strip()
+    wechat_id = (wechat_id or assessment.wechat_id or (lead.wechat_id if lead else "") or "").strip()
+    focus = consultation_focus.strip()
+    preferred_time = preferred_time.strip()
+    note = note.strip()
+    if not contact_name or not phone:
+        return templates.TemplateResponse(
+            request=request,
+            name="advisor_booking.html",
+            context={
+                "report": report,
+                "assessment": assessment,
+                "lead": lead,
+                "submitted": False,
+                "error": "请填写联系人和手机，方便顾问联系您。",
+                "form": {
+                    "company_name": company_name,
+                    "contact_name": contact_name,
+                    "phone": phone,
+                    "wechat_id": wechat_id,
+                    "consultation_focus": focus,
+                    "preferred_time": preferred_time,
+                    "note": note,
+                },
+            },
+            status_code=400,
+        )
+    task = None
+    if lead:
+        task = FollowTask(
+            lead_id=lead.id,
+            assessment_id=assessment.id,
+            task_type="advisor_booking",
+            task_title="预约1对1融资顾问服务",
+            task_content=f"客户提交顾问预约。咨询重点：{focus or '未填写'}；希望沟通时间：{preferred_time or '未填写'}；补充说明：{note or '无'}",
+            priority="high",
+            due_time=datetime.now() + timedelta(hours=2),
+            status="pending",
+        )
+        db.add(task)
+        db.flush()
+        lead.follow_status = "跟进中"
+        lead.next_follow_time = task.due_time
+        lead.last_follow_note = "客户提交了1对1融资顾问预约。"
+    booking = AdvisorBooking(
+        assessment_id=assessment.id,
+        report_id=report.id,
+        lead_id=lead.id if lead else None,
+        company_name=company_name,
+        contact_name=contact_name,
+        phone=phone,
+        wechat_id=wechat_id,
+        consultation_focus=focus,
+        preferred_time=preferred_time,
+        note=note,
+        booking_status="pending",
+        follow_task_id=task.id if task else None,
+    )
+    db.add(booking)
+    db.commit()
+    db.refresh(booking)
+    track_event(
+        db,
+        "advisor_booking_submitted",
+        assessment_id=assessment.id,
+        lead_id=lead.id if lead else None,
+        data={"booking_id": booking.id, "report_id": report.id},
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="advisor_booking.html",
+        context={
+            "report": report,
+            "assessment": assessment,
+            "lead": lead,
+            "submitted": True,
+            "booking": booking,
+        },
+    )
+
+
+@router.get("/admin/advisor-bookings", response_class=HTMLResponse)
+def admin_advisor_bookings(
+    request: Request,
+    status: str = "",
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "super_admin", "city_manager", "sales_manager", "sales", "consultant_manager", "consultant", "viewer")),
+):
+    scope = get_access_scope(db, user)
+    query = db.query(AdvisorBooking)
+    if status:
+        query = query.filter(AdvisorBooking.booking_status == status)
+    if not scope.can_view_all:
+        lead_ids = [lead.id for lead in db.query(Lead).filter(Lead.owner_org_id.in_(scope.allowed_org_ids or [-1])).all()]
+        if scope.role in {"sales", "consultant"}:
+            lead_ids = [lead.id for lead in db.query(Lead).filter((Lead.owner_user_id == user.id) | (Lead.assigned_sales_id == user.id)).all()]
+        query = query.filter(AdvisorBooking.lead_id.in_(lead_ids or [-1]))
+    bookings = query.order_by(AdvisorBooking.created_at.desc()).all()
+    leads = {item.lead_id: db.get(Lead, item.lead_id) for item in bookings if item.lead_id}
+    tasks = {item.follow_task_id: db.get(FollowTask, item.follow_task_id) for item in bookings if item.follow_task_id}
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_advisor_bookings.html",
+        context={
+            "bookings": bookings,
+            "leads": leads,
+            "tasks": tasks,
+            "filters": {"status": status},
+            "current_user": user,
+        },
+    )
 
 
 @router.get("/admin/reports/{report_id}/versions", response_class=HTMLResponse)

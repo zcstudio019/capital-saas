@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}预约1对1融资顾问服务｜{{ assessment.company_name }}{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    {% if submitted %}
+    <div class="card payment-result">
+      <div class="result-symbol success">✓</div>
+      <h1>预约已提交</h1>
+      <p>融资顾问会根据您填写的咨询重点和希望沟通时间尽快联系您。</p>
+      <p class="safe-note">预约编号：#{{ booking.id }} · 企业：{{ booking.company_name }}</p>
+      <a class="btn btn-primary" href="/report/{{ assessment.id }}">返回报告</a>
+    </div>
+    {% else %}
+    <div class="card detail-card advisor-booking-card">
+      <div class="eyebrow">1对1融资顾问服务</div>
+      <h1>预约融资顾问沟通</h1>
+      <p class="safe-note">请补充沟通重点和期望时间，提交后系统会自动生成后台跟进任务。</p>
+      {% if error %}<div class="form-error">{{ error }}</div>{% endif %}
+      {% set data = form if form is defined else {} %}
+      <form class="form-grid" method="post" action="/advisor/book/{{ report.id }}">
+        <label>企业名称
+          <input name="company_name" value="{{ data.company_name or assessment.company_name }}" required>
+        </label>
+        <label>联系人
+          <input name="contact_name" value="{{ data.contact_name or assessment.contact_name or (lead.contact_name if lead else '') }}" required>
+        </label>
+        <label>手机
+          <input name="phone" value="{{ data.phone or assessment.phone or (lead.phone if lead else '') }}" required>
+        </label>
+        <label>微信
+          <input name="wechat_id" value="{{ data.wechat_id or assessment.wechat_id or (lead.wechat_id if lead else '') }}">
+        </label>
+        <label class="full">咨询重点
+          <textarea name="consultation_focus" placeholder="例如：融资额度、银行选择、资料准备、被拒原因、还款压力等">{{ data.consultation_focus or '' }}</textarea>
+        </label>
+        <label class="full">希望沟通时间
+          <input name="preferred_time" value="{{ data.preferred_time or '' }}" placeholder="例如：明天下午3点，或工作日晚上">
+        </label>
+        <label class="full">补充说明
+          <textarea name="note" placeholder="可补充当前申请进度、已沟通银行、紧急程度等">{{ data.note or '' }}</textarea>
+        </label>
+        <div class="full action-row">
+          <button class="btn btn-gold btn-lg" type="submit">提交预约</button>
+          <a class="btn" href="/report/{{ assessment.id }}">返回报告</a>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
