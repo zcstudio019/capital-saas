@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from services.report_access_service import (
     build_bank_match_full,
     build_bank_match_preview,
+    build_document_execution_plan,
     build_document_checklist_full,
     build_document_checklist_preview,
     can_view_full_bank_match,
@@ -65,10 +66,32 @@ def test_document_checklist_preview_and_full_structure():
     assert full["required_documents"][0]["priority"] == "高"
     assert len(full["required_documents"][0]["items"]) >= 6
     assert full["required_documents"][0]["missing_risk"]
+    assert len(full["execution_plan"]) == 3
+    assert full["execution_plan"][0]["period"] == "30天执行计划"
+    assert full["execution_plan"][0]["goal"]
+    assert full["execution_plan"][0]["actions"]
+    assert full["execution_plan"][0]["owner"]
+    assert full["execution_plan"][0]["deliverable"]
+
+
+def test_document_execution_plan_reuses_structure_plan():
+    plan = build_document_execution_plan(
+        {
+            "structure_plan": {
+                "stage_1_30_days": ["统一资料口径", "完成银行预匹配"],
+                "stage_2_90_days": ["提交核心授信", "复核现金流"],
+                "stage_3_180_days": ["建立续贷资料台账"],
+            }
+        },
+        {},
+    )
+    assert [item["period"] for item in plan] == ["30天执行计划", "90天执行计划", "180天执行计划"]
+    assert plan[0]["actions"] == ["统一资料口径", "完成银行预匹配"]
 
 
 if __name__ == "__main__":
     test_paid_unlock_rules()
     test_bank_match_preview_is_one_clickable_product()
     test_document_checklist_preview_and_full_structure()
+    test_document_execution_plan_reuses_structure_plan()
     print("PHASE_PAID_UNLOCK_OK")

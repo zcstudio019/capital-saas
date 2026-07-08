@@ -108,6 +108,21 @@
         </article>
         {% endfor %}
       </div>
+      <div class="document-execution-section">
+        <h3>资料准备执行计划</h3>
+        <p class="safe-note">根据企业当前融资阶段，建议按 30天 / 90天 / 180天 三个阶段推进资料补齐、融资准备与申请执行。</p>
+        <div class="execution-plan-grid">
+          {% for plan in execution_plan_sections %}
+          <article class="execution-plan-card">
+            <h4>{{ plan.period }}</h4>
+            <p><strong>目标：</strong>{{ plan.goal }}</p>
+            <div><strong>核心动作：</strong><ul>{% for action in plan.actions %}<li>{{ action }}</li>{% endfor %}</ul></div>
+            <p><strong>责任人：</strong>{{ plan.owner }}</p>
+            <p><strong>交付结果：</strong>{{ plan.deliverable }}</p>
+          </article>
+          {% endfor %}
+        </div>
+      </div>
       {% else %}
       <p class="safe-note">{{ checklist_block.intro }}</p>
       <div class="document-preview-grid">

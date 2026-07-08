@@ -109,6 +109,55 @@ DEFAULT_CHECKLIST_FULL = [
 ]
 
 
+DEFAULT_DOCUMENT_EXECUTION_PLAN = [
+    {
+        "period": "30天执行计划",
+        "goal": "完成融资申请的基础资料补齐，先把主体、流水、纳税和经营真实性资料整理到可初审状态。",
+        "actions": [
+            "补齐企业基础资料",
+            "统一营业执照、法人信息、公司章程等主体资料",
+            "整理近6-12个月银行流水",
+            "整理近12个月纳税申报记录",
+            "归集近期经营合同、订单、开票记录",
+            "明确本轮融资金额、用途与还款来源",
+            "对明显缺失项做第一轮补齐",
+        ],
+        "owner": "企业负责人牵头，财务负责人和行政/资料负责人配合",
+        "deliverable": "形成基础资料包、流水与纳税资料包、经营证明资料包，以及本轮融资用途说明。",
+    },
+    {
+        "period": "90天执行计划",
+        "goal": "完成银行申请前的资料适配和内部复核，围绕目标产品准备可提交的申请材料包。",
+        "actions": [
+            "完善财务报表及应收应付资料",
+            "补齐银行所需申请材料包",
+            "根据目标产品准备针对性准入资料",
+            "处理征信、负债、查询次数等可能影响审批的问题",
+            "根据不同银行产品调整申请顺序",
+            "完成融资申请前的内部复核",
+            "对重点银行产品进行资料适配",
+        ],
+        "owner": "财务负责人主责，企业负责人确认融资策略，顾问或销售协助银行适配",
+        "deliverable": "形成目标银行申请材料包、问题修复清单、产品适配表和申请顺序建议。",
+    },
+    {
+        "period": "180天执行计划",
+        "goal": "建立长期融资资料管理机制，提升额度稳定性、续贷能力和融资成本控制能力。",
+        "actions": [
+            "建立长期资料归档机制",
+            "优化纳税、开票、流水和财务口径一致性",
+            "逐步提升可贷额度和融资稳定性",
+            "优化融资结构（短中长期组合）",
+            "降低融资成本",
+            "为后续续贷或新增授信做好准备",
+            "建立常态化融资资料更新节奏",
+        ],
+        "owner": "企业负责人和财务负责人共同负责，必要时由外部顾问做季度复盘",
+        "deliverable": "形成长期资料台账、季度融资复盘表、续贷准备清单和下一轮授信优化方案。",
+    },
+]
+
+
 def _product_code(value: Any) -> str:
     if isinstance(value, str):
         return value
@@ -244,9 +293,79 @@ def build_document_checklist_full(checklist: dict[str, Any] | None = None) -> di
         "optional_documents": checklist.get("optional_documents", []),
         "missing_risk": checklist.get("missing_risk", []),
         "preparation_priority": checklist.get("preparation_priority", []),
+        "execution_plan": build_document_execution_plan({}, checklist),
         "detail_level": "full",
         "preview_only": False,
     }
+
+
+def _normalize_execution_plan_item(item: Any) -> dict[str, Any] | None:
+    if not isinstance(item, dict):
+        return None
+    period = str(item.get("period") or item.get("stage") or "").strip()
+    actions = item.get("actions") or item.get("core_actions") or []
+    if isinstance(actions, str):
+        actions = [actions]
+    actions = [str(action).strip() for action in actions if str(action).strip()]
+    if not period or not actions:
+        return None
+    return {
+        "period": period,
+        "goal": str(item.get("goal") or "按阶段完成资料补齐、融资准备与申请执行。").strip(),
+        "actions": actions,
+        "owner": str(item.get("owner") or "企业负责人 / 财务负责人").strip(),
+        "deliverable": str(item.get("deliverable") or item.get("result") or "形成阶段性交付材料包与复核清单。").strip(),
+    }
+
+
+def _plan_from_structure_plan(structure_plan: dict[str, Any] | None) -> list[dict[str, Any]]:
+    structure_plan = structure_plan or {}
+    mapping = [
+        ("stage_1_30_days", "30天执行计划", "完成基础资料补齐和银行预匹配准备。"),
+        ("stage_2_90_days", "90天执行计划", "完成重点银行申请材料适配和内部复核。"),
+        ("stage_3_180_days", "180天执行计划", "建立长期融资资料更新和续贷准备机制。"),
+    ]
+    sections = []
+    for key, period, goal in mapping:
+        actions = structure_plan.get(key) or []
+        if isinstance(actions, str):
+            actions = [actions]
+        actions = [str(action).strip() for action in actions if str(action).strip()]
+        if actions:
+            sections.append(
+                {
+                    "period": period,
+                    "goal": goal,
+                    "actions": actions,
+                    "owner": "企业负责人 / 财务负责人",
+                    "deliverable": "形成阶段性资料清单、问题修复结果和融资推进记录。",
+                }
+            )
+    return sections
+
+
+def build_document_execution_plan(
+    report: dict[str, Any] | None = None,
+    checklist: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    report = report or {}
+    checklist = checklist or {}
+    raw_plan = (
+        checklist.get("execution_plan")
+        or checklist.get("document_execution_plan")
+        or report.get("document_execution_plan")
+        or report.get("execution_plan_sections")
+        or report.get("execution_plan")
+        or []
+    )
+    if isinstance(raw_plan, dict):
+        raw_plan = raw_plan.get("sections") or raw_plan.get("items") or []
+    sections = [_normalize_execution_plan_item(item) for item in raw_plan]
+    sections = [item for item in sections if item]
+    if sections:
+        return sections
+    sections = _plan_from_structure_plan(report.get("structure_plan"))
+    return sections or deepcopy(DEFAULT_DOCUMENT_EXECUTION_PLAN)
 
 
 def build_report_access_context(
@@ -261,6 +380,9 @@ def build_report_access_context(
     base_path = base_path or f"/report/{assessment.id}"
     matches = report.get("bank_product_matches") or {}
     checklist = report.get("document_checklist") or {}
+    document_execution_plan = build_document_execution_plan(report, checklist)
+    document_checklist_full = build_document_checklist_full(checklist)
+    document_checklist_full["execution_plan"] = document_execution_plan
     return {
         "paid_product_codes": paid_product_codes,
         "bank_match_unlocked": bank_unlocked,
@@ -268,7 +390,10 @@ def build_report_access_context(
         "bank_match_full": build_bank_match_full(matches, base_path),
         "document_checklist_unlocked": checklist_unlocked,
         "document_checklist_preview": build_document_checklist_preview(checklist, assessment),
-        "document_checklist_full": build_document_checklist_full(checklist),
+        "document_checklist_full": document_checklist_full,
+        "execution_plan_unlocked": checklist_unlocked,
+        "execution_plan_sections": document_execution_plan if checklist_unlocked else [],
+        "document_execution_plan": document_execution_plan if checklist_unlocked else [],
         "product_detail_unlocked": can_view_full_bank_product_detail(paid_product_codes),
     }
 

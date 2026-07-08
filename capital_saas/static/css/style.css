@@ -407,6 +407,13 @@ td a { color: #1b5f93; font-weight: 700; }
 .priority-中 { color:#7a580f; background:#fff7dc; }
 .priority-低 { color:#28614d; background:#e9f6ef; }
 .document-risk { margin-top:14px; padding:12px; border-radius:8px; color:#7a4d12; background:#fff8e8; }
+.document-execution-section { margin-top:26px; padding-top:22px; border-top:1px solid var(--line); }
+.document-execution-section > h3 { margin:0 0 8px; color:var(--navy-2); font-size:22px; }
+.execution-plan-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:18px; }
+.execution-plan-card { padding:20px; border:1px solid var(--line); border-top:4px solid var(--gold); border-radius:12px; background:#fff; }
+.execution-plan-card h4 { margin:0 0 10px; color:var(--navy-2); font-size:18px; }
+.execution-plan-card p { margin:10px 0; color:#4c5d70; }
+.execution-plan-card ul { margin:8px 0 0; padding-left:20px; color:#4c5d70; }
 .compliance-card, .compliance-note { margin:22px 0; padding:18px; border-radius:8px; color:#5d6875; background:#f3f5f7; font-size:13px; }
 .json-preview { max-height:320px; padding:14px; overflow:auto; white-space:pre-wrap; border-radius:7px; color:#dbe8f5; background:#0b2038; font-size:12px; }
 details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold); font-weight:700; }
@@ -423,7 +430,7 @@ details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold)
   .follow-form { position: static; }
   .product-grid { grid-template-columns: 1fr; }
   .product-card.featured { transform: none; }
-  .chapter-structure, .bank-detail-grid, .product-detail-grid, .document-preview-grid, .document-full-grid, .document-hidden-panel ul { grid-template-columns: 1fr; }
+  .chapter-structure, .bank-detail-grid, .product-detail-grid, .document-preview-grid, .document-full-grid, .document-hidden-panel ul, .execution-plan-grid { grid-template-columns: 1fr; }
   .funnel-flow { grid-template-columns: 1fr; }
   .funnel-flow i { transform: rotate(90deg); text-align: center; }
   .funnel-products, .grade-conversion { grid-template-columns: 1fr 1fr; }
