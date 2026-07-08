@@ -1,6 +1,5 @@
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -52,26 +51,24 @@ def test_bank_match_preview_is_one_clickable_product():
     assert len(full["matched_products"]) == 2
 
 
-def test_document_checklist_preview_hides_children():
-    checklist = {
-        "required_documents": [
-            {"category": "企业基础资料", "items": ["营业执照", "公司章程"]},
-            {"category": "财务资料", "items": ["近1年财务报表"]},
-        ],
-        "missing_risk": ["流水缺失会影响审批"],
-        "preparation_priority": ["P0：先补基础资料"],
-    }
-    assessment = SimpleNamespace(has_collateral=True)
-    preview = build_document_checklist_preview(checklist, assessment)
-    full = build_document_checklist_full(checklist)
+def test_document_checklist_preview_and_full_structure():
+    preview = build_document_checklist_preview()
+    full = build_document_checklist_full({})
     assert preview["preview_only"] is True
-    assert any(item["category"] == "抵押物资料" for item in preview["required_documents"])
-    assert all(not item["items"] for item in preview["required_documents"])
-    assert full["required_documents"][0]["items"] == ["营业执照", "公司章程"]
+    assert len(preview["preview_cards"]) == 3
+    assert preview["preview_cards"][0]["items"] == ["营业执照", "法人/实控人身份证明", "公司基本工商信息"]
+    assert "30/90/180天执行计划" in preview["hidden_items"]
+    assert full["preview_only"] is False
+    assert len(full["required_documents"]) >= 8
+    assert full["required_documents"][0]["category"] == "企业基础资料"
+    assert full["required_documents"][0]["purpose"]
+    assert full["required_documents"][0]["priority"] == "高"
+    assert len(full["required_documents"][0]["items"]) >= 6
+    assert full["required_documents"][0]["missing_risk"]
 
 
 if __name__ == "__main__":
     test_paid_unlock_rules()
     test_bank_match_preview_is_one_clickable_product()
-    test_document_checklist_preview_hides_children()
+    test_document_checklist_preview_and_full_structure()
     print("PHASE_PAID_UNLOCK_OK")

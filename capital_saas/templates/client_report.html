@@ -58,17 +58,35 @@
 <section class="client-card report-chapter">
   <h2>融资资料准备清单</h2>
   {% set checklist_block = document_checklist_full if document_checklist_unlocked else document_checklist_preview %}
-  {% for group in checklist_block.required_documents %}
-    {% if group is mapping %}
-      <h3>{{ group.category }}</h3>
-      {% if document_checklist_unlocked and group['items'] %}<p>{{ group['items']|join('、') }}</p>{% endif %}
-    {% else %}<p>• {{ group }}</p>{% endif %}
-  {% endfor %}
   {% if document_checklist_unlocked %}
-    {% for priority in checklist_block.preparation_priority %}<p class="safe-note">{{ priority }}</p>{% endfor %}
-    {% for risk in checklist_block.missing_risk %}<p class="risk-message">{{ risk }}</p>{% endfor %}
-  {% elif not print_mode %}
-  <div class="locked-panel"><strong>高级交付内容</strong><p>1999结构优化方案提供完整资料清单、优先级与30/90/180天执行计划。</p><a class="btn btn-gold" href="/checkout/{{ assessment.id }}?product=1999_structure_plan&upgrade=1">解锁1999结构优化方案</a></div>
+  <div class="document-full-grid">
+    {% for group in checklist_block.required_documents %}
+    <article class="document-full-card">
+      <div class="task-section-head"><h3>{{ group.category }}</h3><span class="priority-pill priority-{{ group.priority }}">{{ group.priority }}</span></div>
+      <p><strong>用途说明：</strong>{{ group.purpose }}</p>
+      <div><strong>资料明细：</strong><ul>{% for item in group['items'] %}<li>{{ item }}</li>{% endfor %}</ul></div>
+      <p class="document-risk"><strong>缺失风险：</strong>{{ group.missing_risk }}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="safe-note">{{ checklist_block.intro }}</p>
+  <div class="document-preview-grid">
+    {% for card in checklist_block.preview_cards %}
+    <article class="document-preview-card">
+      <h3>{{ card.category }}</h3>
+      <p>{{ card.description }}</p>
+      <ul>{% for item in card['items'] %}<li>{{ item }}</li>{% endfor %}</ul>
+    </article>
+    {% endfor %}
+  </div>
+  <div class="document-hidden-panel">
+    <strong>{{ checklist_block.hidden_title }}</strong>
+    <ul>{% for item in checklist_block.hidden_items %}<li>{{ item }}</li>{% endfor %}</ul>
+  </div>
+  {% if not print_mode %}
+  <div class="locked-panel"><strong>{{ checklist_block.upgrade_title }}</strong><p>{{ checklist_block.upgrade_text }}</p><a class="btn btn-gold" href="/checkout/{{ assessment.id }}?product=1999_structure_plan&upgrade=1">解锁1999结构优化方案</a></div>
+  {% endif %}
   {% endif %}
 </section>
 

@@ -390,6 +390,23 @@ td a { color: #1b5f93; font-weight: 700; }
 .product-detail-grid > div { padding:18px; border:1px solid var(--line); border-radius:10px; background:#fbfcfd; }
 .product-detail-grid h3 { margin:0 0 8px; color:var(--navy-2); font-size:16px; }
 .product-detail-grid p { margin:0; color:#4c5d70; white-space:pre-wrap; }
+.document-preview-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin:18px 0; }
+.document-preview-card { padding:20px; border:1px solid var(--line); border-top:4px solid var(--gold); border-radius:12px; background:#fff; }
+.document-preview-card h3 { margin:0 0 8px; color:var(--navy-2); }
+.document-preview-card p { color:#536273; font-size:14px; }
+.document-preview-card ul { margin-bottom:0; padding-left:20px; }
+.document-hidden-panel { margin:18px 0; padding:18px; border:1px dashed #d8c38a; border-radius:12px; background:#fffdf7; }
+.document-hidden-panel strong { color:#7a580f; }
+.document-hidden-panel ul { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 18px; margin-bottom:0; padding-left:20px; color:#536273; }
+.document-full-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:18px; }
+.document-full-card { padding:20px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+.document-full-card h3 { margin:0; color:var(--navy-2); }
+.document-full-card ul { margin:8px 0 0; padding-left:20px; }
+.priority-pill { display:inline-flex; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:800; background:#edf2f7; color:#536273; }
+.priority-高 { color:#9a3a1d; background:#fff0e6; }
+.priority-中 { color:#7a580f; background:#fff7dc; }
+.priority-低 { color:#28614d; background:#e9f6ef; }
+.document-risk { margin-top:14px; padding:12px; border-radius:8px; color:#7a4d12; background:#fff8e8; }
 .compliance-card, .compliance-note { margin:22px 0; padding:18px; border-radius:8px; color:#5d6875; background:#f3f5f7; font-size:13px; }
 .json-preview { max-height:320px; padding:14px; overflow:auto; white-space:pre-wrap; border-radius:7px; color:#dbe8f5; background:#0b2038; font-size:12px; }
 details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold); font-weight:700; }
@@ -406,7 +423,7 @@ details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold)
   .follow-form { position: static; }
   .product-grid { grid-template-columns: 1fr; }
   .product-card.featured { transform: none; }
-  .chapter-structure, .bank-detail-grid, .product-detail-grid { grid-template-columns: 1fr; }
+  .chapter-structure, .bank-detail-grid, .product-detail-grid, .document-preview-grid, .document-full-grid, .document-hidden-panel ul { grid-template-columns: 1fr; }
   .funnel-flow { grid-template-columns: 1fr; }
   .funnel-flow i { transform: rotate(90deg); text-align: center; }
   .funnel-products, .grade-conversion { grid-template-columns: 1fr 1fr; }

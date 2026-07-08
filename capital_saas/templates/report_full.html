@@ -27,10 +27,7 @@
     <section class="report-chapter card" id="chapter-{{ loop.index }}">
       <div class="chapter-no">{{ "%02d"|format(loop.index) }}</div>
       <h2>{{ chapter.title }}</h2>
-      <div class="consultant-conclusion">
-        <span>本章结论</span>
-        <p>{{ chapter.conclusion }}</p>
-      </div>
+      <div class="consultant-conclusion"><span>本章结论</span><p>{{ chapter.conclusion }}</p></div>
       {% if loop.index == 1 or loop.index == 5 or loop.index == 10 %}
       <div class="bank-approval-panel">
         <div><span>模拟通过概率</span><strong>{{ "%.0f"|format(report.bank_approval.approval_probability * 100) }}%</strong></div>
@@ -38,18 +35,9 @@
       </div>
       {% endif %}
       <div class="chapter-structure">
-        <div>
-          <h3>关键问题</h3>
-          <ul>{% for item in chapter.key_issues %}<li>{{ item }}</li>{% endfor %}</ul>
-        </div>
-        <div>
-          <h3>银行视角判断</h3>
-          <p>{{ chapter.bank_view }}</p>
-        </div>
-        <div>
-          <h3>老板应该怎么做</h3>
-          <ul>{% for item in chapter.owner_actions %}<li>{{ item }}</li>{% endfor %}</ul>
-        </div>
+        <div><h3>关键问题</h3><ul>{% for item in chapter.key_issues %}<li>{{ item }}</li>{% endfor %}</ul></div>
+        <div><h3>银行视角判断</h3><p>{{ chapter.bank_view }}</p></div>
+        <div><h3>老板应该怎么做</h3><ul>{% for item in chapter.owner_actions %}<li>{{ item }}</li>{% endfor %}</ul></div>
         <div>
           <h3>下一步行动建议</h3>
           {% if chapter.formatted_action_steps %}
@@ -68,10 +56,7 @@
           <ol>{% for item in chapter.next_actions %}<li>{{ item }}</li>{% endfor %}</ol>
           {% endif %}
         </div>
-        <div class="risk-message">
-          <h3>风险与合规提示</h3>
-          <p>{{ chapter.risk_warning }}</p>
-        </div>
+        <div class="risk-message"><h3>风险与合规提示</h3><p>{{ chapter.risk_warning }}</p></div>
       </div>
       {% if loop.index == 1 or loop.index == 5 or loop.index == 10 %}
       <div class="bank-detail-grid">
@@ -105,43 +90,49 @@
       </a>
       {% else %}<p>暂无匹配产品。</p>{% endfor %}
       {% if not bank_match_unlocked %}
-      <div class="locked-panel">
-        <strong>当前为基础版预览</strong>
-        <p>升级699版本可查看完整产品匹配、申请顺序和额度预测。</p>
-        <a class="btn btn-gold" href="/checkout/{{ assessment.id }}?product=699_bank_match&upgrade=1">解锁699银行匹配报告</a>
-      </div>
+      <div class="locked-panel"><strong>当前为基础版预览</strong><p>升级699版本可查看完整产品匹配、申请顺序和额度预测。</p><a class="btn btn-gold" href="/checkout/{{ assessment.id }}?product=699_bank_match&upgrade=1">解锁699银行匹配报告</a></div>
       {% endif %}
     </section>
 
     <section class="report-chapter card">
       <div class="chapter-no">+</div><h2>融资资料准备清单</h2>
       {% set checklist_block = document_checklist_full if document_checklist_unlocked else document_checklist_preview %}
-      {% for group in checklist_block.required_documents %}
-        {% if group is mapping %}
-          <h3>{{ group.category }}</h3>
-          {% if document_checklist_unlocked and group['items'] %}<p>{{ group['items']|join('、') }}</p>{% endif %}
-        {% else %}
-          <p>• {{ group }}</p>
-        {% endif %}
-      {% endfor %}
       {% if document_checklist_unlocked %}
-        {% for priority in checklist_block.preparation_priority %}<p class="safe-note">{{ priority }}</p>{% endfor %}
-        {% for risk in checklist_block.missing_risk %}<p class="risk-message">{{ risk }}</p>{% endfor %}
+      <div class="document-full-grid">
+        {% for group in checklist_block.required_documents %}
+        <article class="document-full-card">
+          <div class="task-section-head"><h3>{{ group.category }}</h3><span class="priority-pill priority-{{ group.priority }}">{{ group.priority }}</span></div>
+          <p><strong>用途说明：</strong>{{ group.purpose }}</p>
+          <div><strong>资料明细：</strong><ul>{% for item in group['items'] %}<li>{{ item }}</li>{% endfor %}</ul></div>
+          <p class="document-risk"><strong>缺失风险：</strong>{{ group.missing_risk }}</p>
+        </article>
+        {% endfor %}
+      </div>
       {% else %}
+      <p class="safe-note">{{ checklist_block.intro }}</p>
+      <div class="document-preview-grid">
+        {% for card in checklist_block.preview_cards %}
+        <article class="document-preview-card">
+          <h3>{{ card.category }}</h3>
+          <p>{{ card.description }}</p>
+          <ul>{% for item in card['items'] %}<li>{{ item }}</li>{% endfor %}</ul>
+        </article>
+        {% endfor %}
+      </div>
+      <div class="document-hidden-panel">
+        <strong>{{ checklist_block.hidden_title }}</strong>
+        <ul>{% for item in checklist_block.hidden_items %}<li>{{ item }}</li>{% endfor %}</ul>
+      </div>
       <div class="locked-panel">
-        <strong>高级交付内容</strong>
-        <p>1999结构优化方案提供完整资料清单、优先级与30/90/180天执行计划。</p>
+        <strong>{{ checklist_block.upgrade_title }}</strong>
+        <p>{{ checklist_block.upgrade_text }}</p>
         <a class="btn btn-gold" href="/checkout/{{ assessment.id }}?product=1999_structure_plan&upgrade=1">解锁1999结构优化方案</a>
       </div>
       {% endif %}
     </section>
 
     <section class="upgrade-card">
-      <div>
-        <span>融资结构升级</span>
-        <h2>你的问题不是缺钱，而是融资结构还没有设计好。</h2>
-        <p>从一次申请，升级为额度、成本、期限和银行顺序的系统设计。</p>
-      </div>
+      <div><span>融资结构升级</span><h2>你的问题不是缺钱，而是融资结构还没有设计好。</h2><p>从一次申请，升级为额度、成本、期限和银行顺序的系统设计。</p></div>
       {% if current_product == '299_report' %}
       <a class="btn btn-gold btn-lg" href="/checkout/{{ assessment.id }}?product=699_bank_match&from_product=299_report&upgrade=1">升级银行匹配与额度预测报告 699元</a>
       {% elif current_product == '699_bank_match' %}
