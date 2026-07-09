@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models import User
-from services.auth_service import authenticate_user, verify_password
+from services.auth_service import authenticate_user, repair_default_admin_user, verify_password
+from utils.logger import logger
 
 
 router = APIRouter()
@@ -16,14 +17,24 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent
 BACKEND_LOGIN_ROLES = {"admin", "super_admin", "sales_manager", "sales", "consultant", "consultant_manager", "viewer"}
 
 
-def _default_backend_home(role: str | None) -> str:
-    return "/sales/workbench" if role == "sales" else "/admin"
+def get_login_redirect_path(user: User) -> str:
+    if user.role in {"super_admin", "admin"}:
+        return "/admin"
+    if user.role == "sales":
+        return "/sales/workbench"
+    if user.role == "sales_manager":
+        return "/sales/workbench"
+    if user.role in {"consultant", "consultant_manager"}:
+        return "/admin/consulting-cases"
+    return "/admin"
 
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, next: str = "/admin"):
     if request.session.get("user_id"):
-        return RedirectResponse(url=_default_backend_home(request.session.get("role")), status_code=303)
+        role = request.session.get("role")
+        redirect_path = "/sales/workbench" if role in {"sales", "sales_manager"} else "/admin"
+        return RedirectResponse(url=redirect_path, status_code=303)
     return templates.TemplateResponse(
         request=request,
         name="login.html",
@@ -40,6 +51,8 @@ def login(
     db: Session = Depends(get_db),
 ):
     candidate = db.query(User).filter(User.username == username.strip()).first()
+    if candidate and (candidate.username or "").strip().lower() == "admin":
+        repair_default_admin_user(db, candidate)
     if candidate and not candidate.is_active and verify_password(password, candidate.password_hash):
         return templates.TemplateResponse(
             request=request,
@@ -67,7 +80,8 @@ def login(
     request.session["username"] = user.username
     request.session["role"] = user.role
     request.session["session_version"] = user.session_version or 1
-    destination = _default_backend_home(user.role)
+    destination = get_login_redirect_path(user)
+    logger.info("LOGIN_REDIRECT username=%s role=%s redirect=%s", user.username, user.role, destination)
     return RedirectResponse(url=destination, status_code=303)
 
 

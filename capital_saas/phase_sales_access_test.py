@@ -42,9 +42,20 @@ def _assessment_payload(company_name: str, phone: str):
 
 def run():
     with TestClient(app) as client:
+        with SessionLocal() as db:
+            admin = db.query(User).filter_by(username="admin").first()
+            assert admin is not None
+            admin.role = "sales"
+            admin.is_active = False
+            db.commit()
+
         login = client.post("/login", data={"username": "admin", "password": "admin123", "next_url": "/admin"}, follow_redirects=False)
         assert login.status_code == 303
         assert login.headers["location"] == "/admin"
+        with SessionLocal() as db:
+            admin = db.query(User).filter_by(username="admin").first()
+            assert admin.role in {"admin", "super_admin"}
+            assert admin.is_active is True
 
         client.get("/logout")
         admin_login_ignores_sales_next = client.post(

@@ -17,7 +17,7 @@
     <nav>
       <a href="/assessment">免费测评</a><a href="/products">产品服务</a>
       {% if request.session.get('user_id') %}
-        <a href="/admin">管理后台</a>
+        <a href="{{ '/sales/workbench' if request.session.get('role') == 'sales' else '/admin' }}">管理后台</a>
         <a href="/admin/notifications">通知{% if request.state.unread_notifications %}（{{ request.state.unread_notifications }}）{% endif %}</a>
         <a href="/logout">退出</a>
       {% else %}

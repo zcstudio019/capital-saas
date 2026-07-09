@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from core.config import settings
 from db.database import get_db
 from db.models import User
+from utils.logger import logger
 
 
 def hash_password(password: str) -> str:
@@ -38,9 +39,33 @@ def verify_password(password: str, encoded: str) -> bool:
         return False
 
 
+def repair_default_admin_user(db: Session, user: User | None) -> bool:
+    if not user or (user.username or "").strip().lower() != "admin":
+        return False
+    changed = False
+    if user.role not in {"admin", "super_admin"}:
+        logger.warning(
+            "DEFAULT_ADMIN_ROLE_REPAIR username=%s old_role=%s new_role=super_admin",
+            user.username,
+            user.role,
+        )
+        user.role = "super_admin"
+        changed = True
+    if not user.is_active:
+        logger.warning("DEFAULT_ADMIN_ACTIVE_REPAIR username=%s", user.username)
+        user.is_active = True
+        changed = True
+    if changed:
+        user.updated_at = datetime.now()
+        db.commit()
+        db.refresh(user)
+    return changed
+
+
 def ensure_default_admin(db: Session) -> User:
     user = db.query(User).filter(User.username == settings.admin_default_username).first()
     if user:
+        repair_default_admin_user(db, user)
         if settings.force_password_change and not user.password_changed_at and verify_password(settings.admin_default_password,user.password_hash):
             user.force_password_change=True;db.commit()
         return user
@@ -82,6 +107,9 @@ def current_user_optional(request: Request, db: Session) -> User | None:
     if not user_id:
         return None
     user = db.get(User, int(user_id))
+    if user and (user.username or "").strip().lower() == "admin":
+        repair_default_admin_user(db, user)
+        request.session["role"] = user.role
     return user if user and user.is_active else None
 
 

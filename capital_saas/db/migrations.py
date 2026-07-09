@@ -1,6 +1,7 @@
 from sqlalchemy import inspect, text
 
 from db.database import engine
+from utils.logger import logger
 
 
 SQLITE_COLUMNS = {
@@ -200,4 +201,14 @@ def migrate_database() -> list[str]:
                     "WHERE pay_channel IS NULL OR pay_channel=''"
                 )
             )
+        if "users" in existing_tables:
+            result = connection.execute(
+                text(
+                    "UPDATE users SET role='super_admin', is_active=1 "
+                    "WHERE username='admin' AND (role NOT IN ('admin', 'super_admin') OR is_active=0)"
+                )
+            )
+            if result.rowcount:
+                changed.append("users.admin_role_repaired")
+                logger.warning("DEFAULT_ADMIN_ROLE_REPAIR migration repaired rows=%s", result.rowcount)
     return changed
