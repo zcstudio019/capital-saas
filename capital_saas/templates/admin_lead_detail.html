@@ -56,8 +56,8 @@
     <a href="/admin/leads/{{ lead.id }}/journey">客户旅程</a>
   </nav>
 
-  <div class="lead-follow-layout">
-    <main class="lead-follow-main">
+  <div class="lead-detail-layout">
+    <main class="lead-detail-main">
       {% if can_edit %}
       <section class="card detail-card" id="follow-status">
         <div class="task-section-head"><h2>跟进状态</h2><span>当前：{{ lead.follow_status|zh }}</span></div>
@@ -139,7 +139,7 @@
       <section class="card detail-card pilot-suggestion-card"><h2>试运营跟进建议</h2><p>当前阶段：<b>{{ lead.pilot_stage or '未加入试运营' }}</b> · 批次ID：{{ lead.pilot_batch_id or '-' }}</p>{% if pilot_sop %}<div class="script-block"><span>{{ pilot_sop.owner_role }} · {{ pilot_sop.priority }}</span><p><b>{{ pilot_sop.next_action }}</b></p><p>{{ pilot_sop.suggested_message }}</p><small>{{ pilot_sop.risk }}</small></div>{% endif %}<p><a class="btn" href="/admin/leads/{{ lead.id }}/journey">查看客户旅程</a></p>{% if can_edit %}{% if pilot_batches %}<form method="post" action="/admin/leads/{{ lead.id }}/assign-pilot-batch" class="pilot-batch-form"><label>选择试运营批次<select name="pilot_batch_id" required><option value="" disabled selected>请选择要加入的试运营批次</option>{% for b in pilot_batches %}<option value="{{ b.id }}">{{ b.batch_name }}</option>{% endfor %}</select></label><label>备注<input name="pilot_note" placeholder="备注"></label><button class="btn btn-primary">加入试运营批次</button></form>{% else %}<p class="empty">暂无可加入的试运营批次</p>{% endif %}{% endif %}</section>
     </main>
 
-    <aside class="lead-side-stack">
+    <aside class="lead-detail-sidebar">
       {% if can_assign_sales %}
       <section class="card detail-card" id="assign-sales">
         <h2>分配销售</h2>
