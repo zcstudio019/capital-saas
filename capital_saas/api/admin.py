@@ -24,6 +24,7 @@ from core.next_best_action_engine import calculate_next_best_action
 from core.pilot_sop_engine import pilot_sop_recommendation
 from core.data_masking import mask_phone,mask_wechat
 from services.auth_service import require_roles, update_password, verify_password
+from services.audit_service import write_audit_log
 from services.crm_service import list_leads, list_orders, list_reports
 from services.event_service import track_event
 from services.follow_task_service import create_manual_task
@@ -49,6 +50,23 @@ def _visible_leads(db, user, items):
     if scope.role=="partner":return [x for x in items if x.source_partner_id in scope.allowed_partner_ids]
     if scope.role=="sales":return [x for x in items if x.owner_user_id==user.id or x.assigned_sales_id==user.id]
     return [x for x in items if x.owner_org_id in scope.allowed_org_ids or x.org_id in scope.allowed_org_ids]
+
+
+def _sales_owns_lead(user: User, lead: Lead | None) -> bool:
+    return bool(lead and (lead.assigned_sales_id == user.id or (not lead.assigned_sales_id and lead.owner_user_id == user.id)))
+
+
+def _assert_lead_access(db: Session, user: User, lead: Lead | None) -> None:
+    if not lead:
+        raise HTTPException(status_code=404, detail="线索不存在")
+    scope = get_access_scope(db, user)
+    if scope.can_view_all:
+        return
+    if scope.role == "sales" and _sales_owns_lead(user, lead):
+        return
+    if scope.role not in {"sales", "partner"} and (lead.owner_org_id in scope.allowed_org_ids or lead.org_id in scope.allowed_org_ids):
+        return
+    raise HTTPException(status_code=403, detail="无权访问该线索")
 
 
 def _dashboard_context(db: Session, show_test: bool = False) -> dict:
@@ -178,13 +196,16 @@ def leads(
     recommended_product: str = "",
     source_channel: str = "",
     tag_id: int = 0,
+    sales_user_id: int = 0,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*BACKEND_READ_ROLES)),
 ):
     lead_items=_visible_leads(db,user,list_leads(db, lead_grade, follow_status, recommended_product, source_channel, tag_id))
+    if sales_user_id and effective_role(user)!="sales":
+        lead_items=[lead for lead in lead_items if lead.assigned_sales_id==sales_user_id or (not lead.assigned_sales_id and lead.owner_user_id==sales_user_id)]
     role=effective_role(user);contacts={}
     for item in lead_items:
-        full=role=="super_admin" or (role=="sales" and item.owner_user_id==user.id)
+        full=role=="super_admin" or (role=="sales" and _sales_owns_lead(user,item))
         contacts[item.id]={"phone":item.phone if full else mask_phone(item.phone),"wechat":item.wechat_id if full else mask_wechat(item.wechat_id)}
     return templates.TemplateResponse(
         request=request,
@@ -198,6 +219,7 @@ def leads(
                 "recommended_product": recommended_product,
                 "source_channel": source_channel,
                 "tag_id": tag_id,
+                "sales_user_id": sales_user_id,
             },
             "products": products,
             "product_labels": recommended_product_labels,
@@ -206,6 +228,7 @@ def leads(
             "channels": [
                 row[0] for row in db.query(Lead.source_channel).distinct().all() if row[0]
             ],
+            "sales_users": db.query(User).filter(User.role == "sales", User.is_active.is_(True)).order_by(User.id).all(),
             "next_actions": {
                 lead.id: calculate_next_best_action(
                     lead,
@@ -226,6 +249,7 @@ def lead_detail(
     user: User = Depends(require_roles(*BACKEND_READ_ROLES)),
 ):
     lead = db.get(Lead, lead_id)
+    _assert_lead_access(db,user,lead)
     if not lead:
         raise HTTPException(status_code=404, detail="线索不存在")
     if lead not in _visible_leads(db,user,[lead]): raise HTTPException(status_code=403,detail="无权查看该线索")
@@ -284,6 +308,9 @@ def update_lead(
     lead = db.get(Lead, lead_id)
     if not lead:
         raise HTTPException(status_code=404, detail="线索不存在")
+    _assert_lead_access(db,user,lead)
+    if effective_role(user)=="sales":
+        assigned_sales_id = lead.assigned_sales_id or lead.owner_user_id or 0
     old_follow, old_conversion, old_sales_id = lead.follow_status, lead.conversion_status, lead.assigned_sales_id
     lead.follow_status = follow_status.strip()
     lead.conversion_status = conversion_status.strip()
@@ -291,6 +318,8 @@ def update_lead(
     lead.last_follow_note = last_follow_note.strip()
     lead.assigned_sales = assigned_sales.strip()
     lead.assigned_sales_id = assigned_sales_id or None
+    if lead.assigned_sales_id:
+        lead.owner_user_id = lead.assigned_sales_id
     lead.updated_at = datetime.now()
     track_event(
         db, "lead_updated", assessment_id=lead.assessment_id, lead_id=lead.id,
@@ -311,6 +340,33 @@ def update_lead(
     return RedirectResponse(url=f"/admin/leads/{lead_id}", status_code=303)
 
 
+@router.post("/admin/leads/{lead_id}/assign-sales")
+def assign_sales_to_lead(
+    request: Request,
+    lead_id: int,
+    sales_user_id: int = Form(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "super_admin", "sales_manager")),
+):
+    lead = db.get(Lead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="线索不存在")
+    sales_user = db.get(User, sales_user_id)
+    if not sales_user or sales_user.role != "sales" or not sales_user.is_active:
+        raise HTTPException(status_code=400, detail="请选择启用中的销售账号")
+    old_sales_id = lead.assigned_sales_id or lead.owner_user_id
+    lead.assigned_sales_id = sales_user.id
+    lead.owner_user_id = sales_user.id
+    lead.assigned_sales = sales_user.display_name or sales_user.username
+    lead.updated_at = datetime.now()
+    content = f"管理员将线索分配给销售{sales_user.display_name or sales_user.username}"
+    add_follow_log(db, lead.id, user, "assign_sales", content, str(old_sales_id or ""), str(sales_user.id))
+    track_event(db, "lead_sales_assigned", lead.assessment_id, lead.id, {"sales_user_id": sales_user.id, "operator": user.username}, commit=False)
+    write_audit_log(db, "lead_sales_assigned", "lead", lead.id, user_id=user.id, before={"assigned_sales_id": old_sales_id}, after={"assigned_sales_id": sales_user.id}, request=request, risk_level="medium", commit=False)
+    db.commit()
+    return RedirectResponse(url="/admin/leads", status_code=303)
+
+
 @router.post("/admin/leads/{lead_id}/tasks/create")
 def create_lead_task(
     lead_id: int,
@@ -325,6 +381,7 @@ def create_lead_task(
     lead = db.get(Lead, lead_id)
     if not lead:
         raise HTTPException(status_code=404, detail="线索不存在")
+    _assert_lead_access(db,user,lead)
     create_manual_task(
         db, lead, task_type, task_title.strip(), task_content.strip(),
         priority, datetime.fromisoformat(due_time)
@@ -371,6 +428,7 @@ def _update_task_status(db: Session, task_id: int, status: str, user: User) -> F
     task = db.get(FollowTask, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
+    _assert_lead_access(db,user,db.get(Lead, task.lead_id))
     old_status = task.status
     task.status = status
     task.updated_at = datetime.now()
@@ -416,10 +474,14 @@ def reports(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*BACKEND_READ_ROLES)),
 ):
+    reports = list_reports(db)
+    if effective_role(user) == "sales":
+        allowed_assessment_ids = [lead.assessment_id for lead in db.query(Lead).filter(or_(Lead.assigned_sales_id == user.id, Lead.owner_user_id == user.id)).all()]
+        reports = [report for report in reports if report.assessment_id in allowed_assessment_ids]
     return templates.TemplateResponse(
         request=request,
         name="admin_reports.html",
-        context={"reports": list_reports(db), "current_user": user},
+        context={"reports": reports, "current_user": user},
     )
 
 
@@ -433,6 +495,8 @@ def report_detail(
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="报告不存在")
+    if report.assessment and report.assessment.lead:
+        _assert_lead_access(db,user,report.assessment.lead)
     paid_orders = db.query(Order).filter(
         Order.assessment_id == report.assessment_id, Order.status == "paid"
     ).all()

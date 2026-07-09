@@ -1,1 +1,103 @@
-{% extends 'base.html' %}{% block content %}<section class="admin-shell container"><div class="admin-top"><h1>后台用户管理</h1><a href="/admin/audit-logs">审计日志</a></div><div class="card table-card"><table><thead><tr><th>ID/账号</th><th>角色</th><th>组织</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead><tbody>{% for x in items %}<tr><td>#{{ x.id }} {{ x.username }}</td><td>{{ x.role|role_label }}</td><td>{{ x.org_id or '-' }}</td><td>{{ '启用' if x.is_active else '停用' }}{% if x.locked_until %}<br>锁定至{{ x.locked_until }}{% endif %}</td><td>{{ x.last_login_at or '-' }}</td><td>{% if can_edit %}<form method="post" action="/admin/users/{{ x.id }}/update"><select name="role">{% for r in roles %}<option value="{{ r }}" {{ 'selected' if x.role==r else '' }}>{{ r|role_label }}</option>{% endfor %}</select><select name="org_id"><option value="0">无组织</option>{% for o in organizations %}<option value="{{ o.id }}" {{ 'selected' if x.org_id==o.id else '' }}>{{ o.org_name }}</option>{% endfor %}</select><button>保存</button></form><form method="post" action="/admin/users/{{ x.id }}/reset-password"><input type="password" name="new_password" minlength="10" placeholder="新初始密码" required><button>重置</button></form><form method="post" action="/admin/users/{{ x.id }}/{{ 'disable' if x.is_active else 'enable' }}"><button>{{ '停用' if x.is_active else '启用' }}</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% if can_edit %}<form class="card detail-card" method="post" action="/admin/users/create"><h2>新增用户</h2><label>用户名<input name="username" required></label><label>初始密码<input type="password" name="password" minlength="10" required></label><label>角色<select name="role">{% for r in roles %}<option value="{{ r }}">{{ r|role_label }}</option>{% endfor %}</select></label><label>组织<select name="org_id"><option value="0">无组织</option>{% for o in organizations %}<option value="{{ o.id }}">{{ o.org_name }}</option>{% endfor %}</select></label><button class="btn btn-primary">创建</button></form>{% endif %}</section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}后台账号管理{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top">
+    <div>
+      <div class="eyebrow">账号与权限</div>
+      <h1>后台账号管理</h1>
+      <p>销售账号只能由管理员创建；客户账号不在后台登录。</p>
+    </div>
+    <div class="admin-links">
+      <a href="/admin">总览</a>
+      <a class="active" href="/admin/users">账号管理</a>
+      <a href="/admin/audit-logs">审计日志</a>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>ID/账号</th>
+          <th>姓名</th>
+          <th>手机</th>
+          <th>角色</th>
+          <th>状态</th>
+          <th>最近登录</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for x in items %}
+        <tr>
+          <td>#{{ x.id }} {{ x.username }}</td>
+          <td>{{ x.display_name or '-' }}</td>
+          <td>{{ x.phone or '-' }}</td>
+          <td>{{ x.role|role_label }}</td>
+          <td>{{ '启用' if x.is_active else '停用' }}{% if x.locked_until %}<br><small>锁定至 {{ x.locked_until }}</small>{% endif %}</td>
+          <td>{{ x.last_login_at.strftime('%Y-%m-%d %H:%M') if x.last_login_at else '暂无' }}<br><small>{{ x.last_login_ip or '-' }}</small></td>
+          <td>
+            {% if can_edit %}
+            <form class="inline-add-form" method="post" action="/admin/users/{{ x.id }}/update">
+              <input name="display_name" value="{{ x.display_name or '' }}" placeholder="姓名">
+              <input name="phone" value="{{ x.phone or '' }}" placeholder="手机号">
+              <select name="role">
+                {% for r in roles %}
+                <option value="{{ r }}" {{ 'selected' if x.role == r else '' }}>{{ r|role_label }}</option>
+                {% endfor %}
+              </select>
+              <select name="org_id">
+                <option value="0">无组织</option>
+                {% for o in organizations %}
+                <option value="{{ o.id }}" {{ 'selected' if x.org_id == o.id else '' }}>{{ o.org_name }}</option>
+                {% endfor %}
+              </select>
+              <label class="checkbox-line"><input type="checkbox" name="is_active" value="true" {{ 'checked' if x.is_active else '' }}>启用</label>
+              <button>保存</button>
+            </form>
+            <form class="inline-add-form" method="post" action="/admin/users/{{ x.id }}/reset-password">
+              <input type="password" name="new_password" minlength="10" placeholder="新初始密码" required>
+              <button>重置密码</button>
+            </form>
+            <form class="inline-form" method="post" action="/admin/users/{{ x.id }}/{{ 'disable' if x.is_active else 'enable' }}">
+              <button>{{ '停用' if x.is_active else '启用' }}</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="empty">暂无后台账号</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if can_edit %}
+  <form class="card detail-card manual-task-form" method="post" action="/admin/users/create">
+    <h2 class="wide">新增销售/只读账号</h2>
+    <label>用户名<input name="username" required></label>
+    <label>初始密码<input type="password" name="password" minlength="10" required></label>
+    <label>姓名<input name="display_name"></label>
+    <label>手机号<input name="phone"></label>
+    <label>角色
+      <select name="role">
+        {% for r in roles %}
+        <option value="{{ r }}">{{ r|role_label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>组织
+      <select name="org_id">
+        <option value="0">无组织</option>
+        {% for o in organizations %}
+        <option value="{{ o.id }}">{{ o.org_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="checkbox-line"><input type="checkbox" name="is_active" value="true" checked>启用</label>
+    <button class="btn btn-primary">创建账号</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

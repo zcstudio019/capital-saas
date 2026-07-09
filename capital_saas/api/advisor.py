@@ -520,7 +520,7 @@ def report_versions(
     request: Request,
     report_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "sales", "viewer")),
+    user: User = Depends(require_roles("admin", "viewer")),
 ):
     report = _report_or_404(db, report_id)
     versions = db.query(ReportVersion).filter(

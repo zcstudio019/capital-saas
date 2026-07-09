@@ -7,11 +7,13 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from services.auth_service import authenticate_user
+from db.models import User
+from services.auth_service import authenticate_user, verify_password
 
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
+BACKEND_LOGIN_ROLES = {"admin", "super_admin", "sales_manager", "sales", "consultant", "consultant_manager", "viewer"}
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -33,6 +35,14 @@ def login(
     next_url: str = Form("/admin"),
     db: Session = Depends(get_db),
 ):
+    candidate = db.query(User).filter(User.username == username.strip()).first()
+    if candidate and not candidate.is_active and verify_password(password, candidate.password_hash):
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={"next_url": next_url, "error": "账号已停用，请联系管理员"},
+            status_code=403,
+        )
     user = authenticate_user(db, username.strip(), password, request)
     if not user:
         return templates.TemplateResponse(
@@ -41,12 +51,24 @@ def login(
             context={"next_url": next_url, "error": "用户名或密码错误"},
             status_code=400,
         )
+    if user.role not in BACKEND_LOGIN_ROLES:
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={"next_url": next_url, "error": "客户请通过专属客户门户链接访问"},
+            status_code=403,
+        )
     request.session.clear()
     request.session["user_id"] = user.id
     request.session["username"] = user.username
     request.session["role"] = user.role
     request.session["session_version"] = user.session_version or 1
-    destination = next_url if next_url.startswith("/") else "/admin"
+    if user.role == "sales":
+        destination = "/sales/workbench"
+    elif user.role in {"admin", "super_admin", "viewer"}:
+        destination = next_url if next_url.startswith("/") else "/admin"
+    else:
+        destination = next_url if next_url.startswith("/") else "/admin"
     return RedirectResponse(url=destination, status_code=303)
 
 

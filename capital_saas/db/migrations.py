@@ -103,7 +103,7 @@ SQLITE_COLUMNS = {
         "uploaded_source": "VARCHAR(30) NOT NULL DEFAULT 'staff'",
         "deleted_at":"DATETIME","deleted_by":"INTEGER","delete_reason":"TEXT NOT NULL DEFAULT ''",
     },
-    "users": {"org_id": "INTEGER","last_login_at":"DATETIME","last_login_ip":"VARCHAR(100) NOT NULL DEFAULT ''",
+    "users": {"display_name":"VARCHAR(100) NOT NULL DEFAULT ''","phone":"VARCHAR(50) NOT NULL DEFAULT ''","org_id": "INTEGER","last_login_at":"DATETIME","last_login_ip":"VARCHAR(100) NOT NULL DEFAULT ''",
         "failed_login_count":"INTEGER NOT NULL DEFAULT 0","locked_until":"DATETIME","password_changed_at":"DATETIME",
         "force_password_change":"BOOLEAN NOT NULL DEFAULT 0","two_factor_enabled":"BOOLEAN NOT NULL DEFAULT 0",
         "two_factor_secret_mock":"VARCHAR(200) NOT NULL DEFAULT ''","session_version":"INTEGER NOT NULL DEFAULT 1"},

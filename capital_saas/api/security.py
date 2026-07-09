@@ -24,6 +24,7 @@ from services.event_service import track_event
 router=APIRouter();templates=Jinja2Templates(directory=str(BASE_DIR/'templates'))
 ADMIN=("admin","super_admin");USER_VIEW=("admin","super_admin","city_manager")
 ROLES=("super_admin","city_manager","sales_manager","sales","consultant_manager","consultant","finance","viewer","partner")
+MANAGED_USER_ROLES=("sales","sales_manager","viewer")
 
 def _csv_bytes(headers,rows):
     out=io.StringIO();w=csv.writer(out);w.writerow(headers);w.writerows(rows);return ('\ufeff'+out.getvalue()).encode('utf-8')
@@ -44,6 +45,35 @@ def account_password_update(request:Request,current_password:str=Form(...),new_p
 @router.post('/admin/account/logout-all')
 def logout_all(request:Request,db:Session=Depends(get_db),user:User=Depends(require_roles(*ROLES,"admin"))):
     user.session_version=(user.session_version or 1)+1;write_audit_log(db,'logout_all_sessions','user',user.id,user_id=user.id,request=request,risk_level='high');db.commit();request.session.clear();return RedirectResponse('/login',303)
+
+@router.get('/admin/users',response_class=HTMLResponse)
+def managed_users_page(request:Request,db:Session=Depends(get_db),user:User=Depends(require_roles("admin","super_admin"))):
+    return templates.TemplateResponse(request=request,name='admin_users.html',context={'items':db.query(User).order_by(User.id).all(),'organizations':db.query(Organization).filter_by(status='active').all(),'roles':MANAGED_USER_ROLES,'current_user':user,'can_edit':True})
+
+@router.post('/admin/users/create')
+def managed_user_create(request:Request,username:str=Form(...),password:str=Form(...),display_name:str=Form(''),phone:str=Form(''),role:str=Form('sales'),is_active:bool=Form(True),org_id:int=Form(0),db:Session=Depends(get_db),user:User=Depends(require_roles("admin","super_admin"))):
+    if role not in MANAGED_USER_ROLES and user.role!='super_admin':raise HTTPException(403,'无权创建该角色')
+    if db.query(User).filter_by(username=username.strip()).first():raise HTTPException(400,'用户名已存在')
+    if len(password)<10:raise HTTPException(400,'初始密码至少10位')
+    item=User(username=username.strip(),display_name=display_name.strip(),phone=phone.strip(),password_hash=hash_password(password),role=role,org_id=org_id or None,is_active=is_active,force_password_change=True,session_version=1);db.add(item);db.flush();write_audit_log(db,'user_created','user',item.id,user_id=user.id,after={'username':item.username,'display_name':item.display_name,'phone':item.phone,'role':role,'org_id':org_id,'is_active':is_active},request=request,risk_level='high');track_event(db,'user_created',data={'user_id':item.id},commit=False);db.commit();return RedirectResponse('/admin/users',303)
+
+@router.post('/admin/users/{user_id}/update')
+def managed_user_update(request:Request,user_id:int,display_name:str=Form(''),phone:str=Form(''),role:str=Form(...),is_active:bool=Form(False),org_id:int=Form(0),db:Session=Depends(get_db),operator:User=Depends(require_roles("admin","super_admin"))):
+    if role not in MANAGED_USER_ROLES and operator.role!='super_admin':raise HTTPException(403,'无权分配该角色')
+    item=_user(db,user_id);before={'display_name':item.display_name,'phone':item.phone,'role':item.role,'org_id':item.org_id,'is_active':item.is_active};item.display_name=display_name.strip();item.phone=phone.strip();item.role=role;item.org_id=org_id or None;item.is_active=is_active;item.updated_at=datetime.now();write_audit_log(db,'user_updated','user',item.id,user_id=operator.id,before=before,after={'display_name':item.display_name,'phone':item.phone,'role':role,'org_id':org_id,'is_active':is_active},request=request,risk_level='high');db.commit();return RedirectResponse('/admin/users',303)
+
+@router.post('/admin/users/{user_id}/reset-password')
+def managed_reset_password(request:Request,user_id:int,new_password:str=Form(...),db:Session=Depends(get_db),operator:User=Depends(require_roles("admin","super_admin"))):
+    if len(new_password)<10:raise HTTPException(400,'密码至少10位')
+    item=_user(db,user_id);item.password_hash=hash_password(new_password);item.force_password_change=True;item.password_changed_at=None;item.session_version=(item.session_version or 1)+1;write_audit_log(db,'user_password_reset','user',item.id,user_id=operator.id,request=request,risk_level='critical');db.commit();return RedirectResponse('/admin/users',303)
+
+@router.post('/admin/users/{user_id}/disable')
+def managed_disable_user(request:Request,user_id:int,db:Session=Depends(get_db),operator:User=Depends(require_roles("admin","super_admin"))):
+    return _set_user_active(db,_user(db,user_id),False,operator,request)
+
+@router.post('/admin/users/{user_id}/enable')
+def managed_enable_user(request:Request,user_id:int,db:Session=Depends(get_db),operator:User=Depends(require_roles("admin","super_admin"))):
+    return _set_user_active(db,_user(db,user_id),True,operator,request)
 
 @router.get('/admin/users',response_class=HTMLResponse)
 def users_page(request:Request,db:Session=Depends(get_db),user:User=Depends(require_roles(*USER_VIEW))):

@@ -3,9 +3,9 @@
 {% block content %}
 <section class="login-shell">
   <form class="card login-card" method="post" action="/login">
-    <div class="eyebrow">安全后台</div>
+    <div class="eyebrow">内部安全后台</div>
     <h1>后台登录</h1>
-    <p>登录后管理线索、任务、报告和订单。</p>
+    <p>仅限管理员、销售、顾问及只读内部账号登录。客户请通过专属客户门户链接访问。</p>
     {% if error %}<div class="form-error">{{ error }}</div>{% endif %}
     <input type="hidden" name="next_url" value="{{ next_url }}">
     <label>用户名<input name="username" required autocomplete="username"></label>
@@ -14,4 +14,3 @@
   </form>
 </section>
 {% endblock %}
-
