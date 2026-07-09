@@ -118,7 +118,7 @@ def run():
         assert login(client, "phase5_sales", "phase5-sales-pass").status_code == 303
         workbench = client.get("/sales/workbench?show_test=1")
         assert workbench.status_code == 200
-        assert PAYLOAD["company_name"] in workbench.text
+        assert f"/sales/leads/{lead_id}" in workbench.text
         copied = client.post(
             "/api/events/script-copied",
             data={"lead_id": lead_id, "template_id": "1"},

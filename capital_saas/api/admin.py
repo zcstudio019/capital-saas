@@ -368,6 +368,57 @@ def assign_sales_to_lead(
     return RedirectResponse(url="/admin/leads", status_code=303)
 
 
+@router.post("/admin/leads/batch-assign-sales")
+def batch_assign_sales_to_leads(
+    request: Request,
+    lead_ids: list[int] = Form(...),
+    sales_user_id: int = Form(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "super_admin", "sales_manager")),
+):
+    sales_user = db.get(User, sales_user_id)
+    if not sales_user or sales_user.role != "sales" or not sales_user.is_active:
+        raise HTTPException(status_code=400, detail="请选择启用中的销售账号")
+    unique_lead_ids = list(dict.fromkeys(lead_ids))
+    leads_to_assign = db.query(Lead).filter(Lead.id.in_(unique_lead_ids)).all()
+    if not leads_to_assign:
+        raise HTTPException(status_code=400, detail="请先选择要分配的线索。")
+    sales_name = sales_user.display_name or sales_user.username
+    content = f"管理员将线索分配给销售{sales_name}"
+    for lead in leads_to_assign:
+        old_sales_id = lead.assigned_sales_id or lead.owner_user_id
+        lead.assigned_sales_id = sales_user.id
+        lead.owner_user_id = sales_user.id
+        lead.assigned_sales = sales_name
+        lead.updated_at = datetime.now()
+        add_follow_log(db, lead.id, user, "assign_sales", content, str(old_sales_id or ""), str(sales_user.id))
+        track_event(
+            db,
+            "lead_sales_assigned",
+            lead.assessment_id,
+            lead.id,
+            {"sales_user_id": sales_user.id, "operator": user.username, "batch": True},
+            commit=False,
+        )
+        write_audit_log(
+            db,
+            "lead_sales_assigned",
+            "lead",
+            lead.id,
+            user_id=user.id,
+            before={"assigned_sales_id": old_sales_id},
+            after={"assigned_sales_id": sales_user.id},
+            request=request,
+            risk_level="medium",
+            commit=False,
+        )
+    db.commit()
+    return RedirectResponse(
+        url=f"/admin/leads?assign_success={len(leads_to_assign)}&sales_name={sales_name}",
+        status_code=303,
+    )
+
+
 @router.post("/admin/leads/{lead_id}/tasks/create")
 def create_lead_task(
     lead_id: int,

@@ -25,6 +25,7 @@
     </div>
   </div>
 
+  {% set can_batch_assign = current_user.role in ['admin','super_admin','sales_manager'] %}
   <form class="card filter-bar" method="get">
     <label>线索等级
       <select name="lead_grade"><option value="">全部</option>{% for grade in ['S','A','B','C','D'] %}<option value="{{ grade }}" {{ 'selected' if filters.lead_grade == grade else '' }}>{{ grade|lead_grade_label }}</option>{% endfor %}</select>
@@ -48,15 +49,40 @@
       </select>
     </label>
     {% endif %}
-    <button class="btn btn-primary">筛选</button><a class="text-link inline" href="{{ '/sales/leads' if current_user.role == 'sales' else '/admin/leads' }}">重置</a>
+    <button class="btn btn-primary">筛选</button><a class="text-link inline" href="{{ '/sales/leads' if current_user.role == 'sales' else '/admin/leads' }}">重置</a>{% if can_batch_assign %}<button class="btn btn-primary" type="button" id="open-batch-assign">分配线索</button>{% endif %}
   </form>
 
+  {% if request.query_params.get('assign_success') %}
+  <div class="alert success">已成功分配 {{ request.query_params.get('assign_success') }} 条线索给销售：{{ request.query_params.get('sales_name') }}</div>
+  {% endif %}
+
   {% if current_user.role == 'admin' %}<div class="admin-toolbar"><a class="btn" href="/admin/export/leads.csv">导出线索CSV</a></div>{% endif %}
+
+  {% if can_batch_assign %}
+  <form id="batch-assign-form" method="post" action="/admin/leads/batch-assign-sales">
+    <dialog class="batch-assign-dialog" id="batch-assign-dialog">
+      <div class="task-section-head"><h2>分配线索给销售</h2><button class="text-link" type="button" id="close-batch-assign">取消</button></div>
+      <p>已选择线索数量：<strong id="selected-lead-count">0</strong></p>
+      <label>销售账号下拉框
+        <select name="sales_user_id" required>
+          {% for sales in sales_users %}
+          <option value="{{ sales.id }}">{{ sales|user_display_name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="inline-add-form">
+        <button class="btn btn-primary" type="submit">确认分配</button>
+        <button class="btn" type="button" id="cancel-batch-assign">取消</button>
+      </div>
+    </dialog>
+  </form>
+  {% endif %}
 
   <div class="card table-card">
     <table class="wide-table">
       <thead>
         <tr>
+          {% if can_batch_assign %}<th><input type="checkbox" id="select-all-leads" aria-label="全选线索"></th>{% endif %}
           <th>ID</th>
           <th>企业</th>
           <th>联系人</th>
@@ -73,6 +99,7 @@
       <tbody>
         {% for x in leads %}
         <tr data-company-name="{{ x.company_name }}">
+          {% if can_batch_assign %}<td><input type="checkbox" class="lead-select" name="lead_ids" value="{{ x.id }}" form="batch-assign-form" aria-label="选择线索 #{{ x.id }}"></td>{% endif %}
           <td>#{{ x.id }}</td>
           <td>{{ x.company_name|display_company_name }}<br><small>{{ x.city or '-' }}</small></td>
           <td>{{ x.contact_name }}<br><small>{{ contacts[x.id].phone }} · {{ contacts[x.id].wechat or '-' }}</small></td>
@@ -98,10 +125,60 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="11" class="empty">暂无符合条件的线索</td></tr>
+        <tr><td colspan="{{ 12 if can_batch_assign else 11 }}" class="empty">暂无符合条件的线索</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+{% if can_batch_assign %}
+<script>
+  (function () {
+    const checkboxes = Array.from(document.querySelectorAll(".lead-select"));
+    const selectAll = document.getElementById("select-all-leads");
+    const openButton = document.getElementById("open-batch-assign");
+    const dialog = document.getElementById("batch-assign-dialog");
+    const closeButtons = [document.getElementById("close-batch-assign"), document.getElementById("cancel-batch-assign")];
+    const countNode = document.getElementById("selected-lead-count");
+    function selectedCount() {
+      return checkboxes.filter((item) => item.checked).length;
+    }
+    function updateCount() {
+      const count = selectedCount();
+      countNode.textContent = String(count);
+      if (selectAll) {
+        selectAll.checked = count > 0 && count === checkboxes.length;
+        selectAll.indeterminate = count > 0 && count < checkboxes.length;
+      }
+    }
+    checkboxes.forEach((item) => item.addEventListener("change", updateCount));
+    if (selectAll) {
+      selectAll.addEventListener("change", () => {
+        checkboxes.forEach((item) => { item.checked = selectAll.checked; });
+        updateCount();
+      });
+    }
+    if (openButton) {
+      openButton.addEventListener("click", () => {
+        updateCount();
+        if (!selectedCount()) {
+          alert("请先选择要分配的线索。");
+          return;
+        }
+        if (dialog.showModal) {
+          dialog.showModal();
+        } else {
+          dialog.setAttribute("open", "open");
+        }
+      });
+    }
+    closeButtons.forEach((button) => {
+      if (button) {
+        button.addEventListener("click", () => dialog.close ? dialog.close() : dialog.removeAttribute("open"));
+      }
+    });
+    updateCount();
+  })();
+</script>
+{% endif %}
 {% endblock %}

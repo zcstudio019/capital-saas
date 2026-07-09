@@ -14,7 +14,7 @@ from utils.logger import logger
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
-BACKEND_LOGIN_ROLES = {"admin", "super_admin", "sales_manager", "sales", "consultant", "consultant_manager", "viewer"}
+BACKEND_LOGIN_ROLES = {"admin", "super_admin", "city_manager", "sales_manager", "sales", "consultant", "consultant_manager", "finance", "viewer", "partner"}
 
 
 def get_login_redirect_path(user: User) -> str:

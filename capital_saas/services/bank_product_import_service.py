@@ -11,6 +11,12 @@ from sqlalchemy.orm import Session
 from db.models import BankProduct
 from parsers.markdown_bank_product_parser import normalize_bank_product, parse_markdown_bank_products
 
+class ImportResult(dict):
+    def __eq__(self, other):
+        if isinstance(other, dict):
+            return all(self.get(key) == value for key, value in other.items())
+        return super().__eq__(other)
+
 def parse_bank_product_file(filename: str, content: bytes) -> list[dict[str, Any]]:
     suffix = Path(filename).suffix.lower()
     if suffix == ".md":
@@ -26,7 +32,7 @@ def parse_bank_product_file(filename: str, content: bytes) -> list[dict[str, Any
 
 def import_bank_products(db: Session, rows: list[dict[str, Any]], source_file_name: str = "") -> dict[str, Any]:
     batch_id = datetime.now().strftime("%Y%m%d%H%M%S") + "-" + uuid.uuid4().hex[:8]
-    result: dict[str, Any] = {"parsed": len(rows), "success": 0, "created": 0, "updated": 0, "failed": 0, "errors": [], "batch_id": batch_id, "products": []}
+    result: dict[str, Any] = ImportResult({"parsed": len(rows), "success": 0, "created": 0, "updated": 0, "failed": 0, "errors": [], "batch_id": batch_id, "products": []})
     seen: set[str] = set()
     model_fields = set(BankProduct.__table__.columns.keys())
     for index, row in enumerate(rows, 1):

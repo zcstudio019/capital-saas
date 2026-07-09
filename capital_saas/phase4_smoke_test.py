@@ -99,6 +99,10 @@ def run():
         with SessionLocal() as db:
             lead = db.query(Lead).filter(Lead.assessment_id == assessment_id).one()
             lead_id = lead.id
+            sales_demo = db.query(User).filter(User.username == "sales_demo").one()
+            lead.assigned_sales_id = sales_demo.id
+            lead.owner_user_id = sales_demo.id
+            db.commit()
 
         checkout = client.get(f"/checkout/{assessment_id}?product=299_report")
         assert checkout.status_code == 200

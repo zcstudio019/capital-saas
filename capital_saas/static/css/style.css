@@ -243,6 +243,12 @@ td a { color: #1b5f93; font-weight: 700; }
 .filter-bar select { padding: 9px 12px; }
 .text-link.inline { display: inline-flex; min-height: 44px; margin: 0; align-items: center; }
 .wide-table { min-width: 1650px; }
+.alert { margin: 0 0 18px; padding: 13px 16px; border-radius: 8px; background: #eef3f8; color: #435266; }
+.alert.success { color: #17654d; background: #e6f5ef; }
+.batch-assign-dialog { width: min(460px, calc(100% - 32px)); padding: 26px; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 70px rgba(7,24,45,.22); }
+.batch-assign-dialog::backdrop { background: rgba(7,24,45,.36); }
+.batch-assign-dialog label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.batch-assign-dialog .text-link { margin: 0; padding: 0; border: 0; background: transparent; cursor: pointer; }
 .table-action { white-space: nowrap; }
 .advisor-booking-table table { min-width: 1180px; }
 .sticky-action { position: sticky; right: 0; z-index: 2; min-width: 210px; background: #fff; box-shadow: -8px 0 12px rgba(8, 28, 51, .04); }
