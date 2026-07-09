@@ -1,7 +1,65 @@
 {% extends "base.html" %}
+{% set order_status_labels = {'paid':'已支付','pending':'待支付','refunded':'已退款','cancelled':'已取消','failed':'支付失败'} %}
 {% block title %}订单详情 #{{ order.id }}{% endblock %}
 {% block content %}
-<section class="admin-shell container"><div class="admin-top"><div><div class="eyebrow">ORDER #{{ order.id }}</div><h1>{{ order.product_name }}</h1></div><a class="btn" href="/admin/orders">返回订单</a></div>
-<div class="lead-detail-grid"><section class="card detail-card"><h2>订单信息</h2><div class="detail-data"><div><span>企业</span><strong>{{ order.assessment.company_name }}</strong></div><div><span>联系人</span><strong>{{ order.assessment.contact_name }}</strong></div><div><span>金额</span><strong>¥{{ "%.2f"|format(order.amount) }}</strong></div><div><span>状态</span><strong>{{ order.status|zh }}</strong></div><div><span>支付渠道</span><strong>{{ order.pay_channel|zh }}</strong></div><div><span>交易号</span><strong>{{ order.transaction_id or '-' }}</strong></div><div><span>支付时间</span><strong>{{ order.paid_at or '-' }}</strong></div><div><span>退款时间</span><strong>{{ order.refund_at or '-' }}</strong></div></div></section>
-{% if current_user.role == 'admin' %}<aside class="card detail-card follow-form"><h2>订单操作</h2>{% if order.status in ['pending','failed'] %}<form method="post" action="/admin/orders/{{ order.id }}/mark-paid"><label>交易流水号<input name="transaction_id" placeholder="可选"></label><button class="btn btn-primary btn-block">手动标记已支付</button></form><form method="post" action="/admin/orders/{{ order.id }}/cancel"><button class="btn btn-block">取消订单</button></form>{% endif %}{% if order.status == 'paid' %}<form method="post" action="/admin/orders/{{ order.id }}/refund"><button class="btn btn-block">标记退款</button></form>{% endif %}</aside>{% endif %}</div></section>
+<section class="admin-shell container">
+  <div class="admin-top">
+    <div><div class="eyebrow">ORDER #{{ order.id }}</div><h1>{{ order.product_name }}</h1></div>
+    <a class="btn" href="/admin/orders">返回订单</a>
+  </div>
+  {% if refund_success %}<div class="alert success">订单已标记为退款。</div>{% endif %}
+
+  <div class="lead-detail-grid">
+    <section class="card detail-card">
+      <h2>订单信息</h2>
+      <div class="detail-data">
+        <div><span>企业</span><strong>{{ order.assessment.company_name }}</strong></div>
+        <div><span>联系人</span><strong>{{ order.assessment.contact_name }}</strong></div>
+        <div><span>金额</span><strong>¥{{ "%.2f"|format(order.amount) }}</strong></div>
+        <div><span>状态</span><strong>{{ order_status_labels.get(order.status, order.status|zh) }}</strong></div>
+        <div><span>支付渠道</span><strong>{{ order.pay_channel|zh }}</strong></div>
+        <div><span>交易号</span><strong>{{ order.transaction_id or '-' }}</strong></div>
+        <div><span>支付时间</span><strong>{{ order.paid_at.strftime('%Y-%m-%d %H:%M') if order.paid_at else '-' }}</strong></div>
+        <div><span>退款时间</span><strong>{{ order.refund_at.strftime('%Y-%m-%d %H:%M') if order.refund_at else '-' }}</strong></div>
+      </div>
+    </section>
+
+    <aside class="card detail-card follow-form">
+      <h2>订单操作</h2>
+      {% if order.status == 'paid' %}
+        {% if can_manage_order %}
+          <form method="post" action="/admin/orders/{{ order.id }}/refund" onsubmit="return confirm('确定要将该订单标记为已退款吗？该操作会影响收入统计和提成结算。');">
+            <button class="btn btn-danger btn-block">标记退款</button>
+          </form>
+          <form method="post" action="/admin/orders/{{ order.id }}/cancel">
+            <button class="btn btn-block">取消订单</button>
+          </form>
+        {% else %}
+          <p class="safe-note">当前订单已支付。你没有退款操作权限。</p>
+        {% endif %}
+      {% elif order.status in ['pending', 'failed'] %}
+        {% if can_manage_order %}
+          <form method="post" action="/admin/orders/{{ order.id }}/mark-paid">
+            <label>交易流水号<input name="transaction_id" placeholder="可选"></label>
+            <button class="btn btn-primary btn-block">确认支付</button>
+          </form>
+          <form method="post" action="/admin/orders/{{ order.id }}/cancel">
+            <button class="btn btn-block">取消订单</button>
+          </form>
+        {% else %}
+          <p class="safe-note">当前订单待支付。你没有订单操作权限。</p>
+        {% endif %}
+      {% elif order.status == 'refunded' %}
+        <div class="detail-data">
+          <div><span>状态</span><strong>已退款</strong></div>
+          <div><span>退款时间</span><strong>{{ order.refund_at.strftime('%Y-%m-%d %H:%M') if order.refund_at else '-' }}</strong></div>
+        </div>
+      {% elif order.status == 'cancelled' %}
+        <p class="safe-note">已取消</p>
+      {% else %}
+        <p class="safe-note">当前状态：{{ order_status_labels.get(order.status, order.status|zh) }}</p>
+      {% endif %}
+    </aside>
+  </div>
+</section>
 {% endblock %}

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from core.pricing_engine import get_product
-from db.models import Assessment, CustomerAccount, Order
+from db.models import Assessment, CommissionRecord, CustomerAccount, Order
 from services.event_service import track_event
 from services.attribution_service import ATTRIBUTION_FIELDS
 from utils.logger import logger
@@ -151,15 +151,46 @@ def refund_order(db: Session, order: Order, operator: str) -> Order:
         raise ValueError("只有已支付订单可以退款")
     order.status = "refunded"
     order.refund_at = datetime.now()
+    cancelled = (
+        db.query(CommissionRecord)
+        .filter(CommissionRecord.related_order_id == order.id)
+        .update({
+            "settlement_status": "cancelled",
+            "settlement_note": f"订单#{order.id}已退款，提成记录已取消。",
+            "updated_at": datetime.now(),
+        }, synchronize_session=False)
+    )
+    assessment = order.assessment
+    track_event(
+        db,
+        "order_refunded",
+        assessment_id=assessment.id if assessment else None,
+        lead_id=assessment.lead.id if assessment and assessment.lead else None,
+        data={
+            "order_id": order.id,
+            "product_code": order.product_code,
+            "amount": order.amount,
+            "operator": operator,
+            "cancelled_commissions": cancelled,
+        },
+        attribution={key: getattr(assessment, key, "") for key in ATTRIBUTION_FIELDS} if assessment else {},
+        commit=False,
+    )
     db.commit()
     logger.info("订单退款 order_id=%s operator=%s", order.id, operator)
     return order
 
 
 def cancel_order(db: Session, order: Order, operator: str) -> Order:
-    if order.status not in {"pending", "failed"}:
-        raise ValueError("只有待支付或失败订单可以取消")
+    if order.status not in {"pending", "failed", "paid"}:
+        raise ValueError("只有待支付、失败或已支付订单可以取消")
     order.status = "cancelled"
+    if order.paid_at:
+        db.query(CommissionRecord).filter(CommissionRecord.related_order_id == order.id).update({
+            "settlement_status": "cancelled",
+            "settlement_note": f"订单#{order.id}已取消，提成记录已取消。",
+            "updated_at": datetime.now(),
+        }, synchronize_session=False)
     db.commit()
     logger.info("订单取消 order_id=%s operator=%s", order.id, operator)
     return order

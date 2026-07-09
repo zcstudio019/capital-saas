@@ -744,6 +744,7 @@ def orders(
 def order_detail(
     request: Request,
     order_id: int,
+    refunded: int = 0,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*BACKEND_READ_ROLES)),
 ):
@@ -761,7 +762,12 @@ def order_detail(
     return templates.TemplateResponse(
         request=request,
         name="admin_order_detail.html",
-        context={"order": order, "current_user": user},
+        context={
+            "order": order,
+            "current_user": user,
+            "can_manage_order": user.role in {"admin", "super_admin", "finance"},
+            "refund_success": bool(refunded),
+        },
     )
 
 
@@ -771,7 +777,7 @@ def admin_mark_paid(
     order_id: int,
     transaction_id: str = Form(""),
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin")),
+    user: User = Depends(require_roles("admin", "super_admin", "finance")),
 ):
     order = db.get(Order, order_id)
     if not order:
@@ -796,7 +802,7 @@ def admin_refund(
     request: Request,
     order_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin")),
+    user: User = Depends(require_roles("admin", "super_admin", "finance")),
 ):
     order = db.get(Order, order_id)
     if not order:
@@ -807,7 +813,7 @@ def admin_refund(
         write_audit_log(db,"order_refunded","order",order.id,user_id=user.id,after={"status":"refunded"},request=request,risk_level="critical",commit=True)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return RedirectResponse(url=f"/admin/orders/{order_id}", status_code=303)
+    return RedirectResponse(url=f"/admin/orders/{order_id}?refunded=1", status_code=303)
 
 
 @router.post("/admin/orders/{order_id}/cancel")
@@ -815,7 +821,7 @@ def admin_cancel(
     request: Request,
     order_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin")),
+    user: User = Depends(require_roles("admin", "super_admin", "finance")),
 ):
     order = db.get(Order, order_id)
     if not order:
