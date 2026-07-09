@@ -9,8 +9,10 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from core.access_scope import get_access_scope
 from core.assessment_autofill_engine import build_autofill_suggestions
 from core.bank_product_matcher import match_bank_products
 from core.config import BASE_DIR, settings
@@ -18,7 +20,7 @@ from core.document_completeness_engine import check_document_completeness
 from core.document_request_script_engine import generate_document_request_script
 from core.scoring_engine import calculate_score
 from db.database import get_db
-from db.models import (BankProduct, DocumentParseTask, DueDiligenceReport,
+from db.models import (BankProduct, ConsultingCase, DocumentParseTask, DueDiligenceReport,
     FinancingApplicationPackage, Lead, UploadedDocument, User)
 from services.auth_service import require_roles
 from services.document_parse_service import classify_document, run_parse_task
@@ -31,8 +33,10 @@ router = APIRouter()
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 UPLOAD_ROOT = BASE_DIR / "data" / "uploads"
 ALLOWED = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg"}
-CATEGORIES = ["自动识别", "企业基础资料", "营业执照/工商资料", "财务报表", "银行流水",
-    "纳税资料", "征信资料", "经营合同", "应收账款资料", "抵押物资料", "法人/股东资料", "其他资料"]
+CATEGORIES = [
+    "营业执照/工商资料", "财务报表", "银行流水", "纳税资料", "征信资料",
+    "经营合同", "应收账款资料", "抵押物资料", "法人/股东资料", "其他资料",
+]
 AUTOFILL_FIELDS = {"annual_revenue", "net_profit", "monthly_cashflow", "debt_total", "short_debt",
     "receivable_days", "tax_status", "credit_status", "has_collateral", "funding_purpose"}
 
@@ -59,25 +63,61 @@ def _analysis(db, lead):
         lead.company_name, lead.contact_name, completeness["missing_required_documents"])
 
 
+def _assert_document_center_access(db: Session, lead: Lead, user: User, *, write: bool = False) -> bool:
+    if write and user.role == "viewer":
+        raise HTTPException(403, "只读账号不能上传资料")
+    if user.role == "viewer":
+        return False
+    scope = get_access_scope(db, user)
+    if scope.can_view_all:
+        can_upload = user.role in {"admin", "super_admin"}
+        if write and not can_upload:
+            raise HTTPException(403, "无权上传该客户资料")
+        return can_upload
+    if scope.role == "sales":
+        if lead.assigned_sales_id == user.id or lead.owner_user_id == user.id:
+            return True
+        raise HTTPException(403, "无权访问该客户资料")
+    if scope.role == "consultant":
+        case = db.query(ConsultingCase).filter(
+            ConsultingCase.lead_id == lead.id,
+            or_(ConsultingCase.consultant_user_id == user.id, ConsultingCase.consultant_id == user.id),
+        ).first()
+        if case:
+            return True
+        raise HTTPException(403, "无权访问该客户资料")
+    if lead.owner_org_id in scope.allowed_org_ids or lead.org_id in scope.allowed_org_ids:
+        can_upload = user.role in {"admin", "super_admin"}
+        if write and not can_upload:
+            raise HTTPException(403, "无权上传该客户资料")
+        return can_upload
+    raise HTTPException(403, "无权访问该客户资料")
+
+
 @router.get("/admin/leads/{lead_id}/document-center", response_class=HTMLResponse)
 def document_center(request: Request, lead_id: int, duplicate: int = 0,
-    db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "sales", "viewer"))):
+    uploaded: int = 0, db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "super_admin", "sales_manager", "sales", "consultant_manager", "consultant", "viewer"))):
     lead = _lead(db, lead_id)
+    can_upload = _assert_document_center_access(db, lead, user)
     documents, completeness, script = _analysis(db, lead)
-    groups = {category: [d for d in documents if d.document_category == category] for category in CATEGORIES[1:]}
+    groups = {category: [d for d in documents if d.document_category == category] for category in CATEGORIES}
     return templates.TemplateResponse(request=request, name="admin_document_center.html", context={
         "lead": lead, "documents": documents, "groups": groups, "completeness": completeness,
         "request_script": script, "categories": CATEGORIES, "duplicate_count": duplicate,
+        "uploaded_count": uploaded,
         "max_mb": int(get_setting(db, "upload_max_mb", str(settings.upload_max_mb))),
         "parse_tasks": db.query(DocumentParseTask).filter(DocumentParseTask.lead_id == lead.id).order_by(DocumentParseTask.created_at.desc()).limit(50).all(),
-        "current_user": user, "can_upload": user.role in {"admin", "sales"}, "can_delete": user.role == "admin"})
+        "current_user": user, "can_upload": can_upload, "can_delete": user.role in {"admin", "super_admin"}})
 
 
 @router.post("/admin/leads/{lead_id}/document-center/upload")
-async def upload_documents(request:Request,lead_id: int, document_category: str = Form("自动识别"), note: str = Form(""),
+@router.post("/admin/leads/{lead_id}/documents/upload")
+async def upload_documents(request:Request,lead_id: int, document_category: str = Form("其他资料"), note: str = Form(""),
     uploads: list[UploadFile] = File(...), db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "sales"))):
+    user: User = Depends(require_roles("admin", "super_admin", "sales_manager", "sales", "consultant_manager", "consultant"))):
     lead = _lead(db, lead_id)
+    _assert_document_center_access(db, lead, user, write=True)
     max_bytes = int(get_setting(db, "upload_max_mb", str(settings.upload_max_mb))) * 1024 * 1024
     prepared = []
     from utils.file_security import enforce_lead_total,validate_upload_metadata
@@ -113,7 +153,7 @@ async def upload_documents(request:Request,lead_id: int, document_category: str 
     db.commit()
     for item in created:
         run_parse_task(db, item)
-    return RedirectResponse(f"/admin/leads/{lead.id}/document-center?duplicate={duplicates}", 303)
+    return RedirectResponse(f"/admin/leads/{lead.id}/document-center?duplicate={duplicates}&uploaded={len(created)}", 303)
 
 
 @router.post("/admin/documents/{document_id}/parse")
