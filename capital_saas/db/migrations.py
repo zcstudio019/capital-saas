@@ -116,6 +116,7 @@ SQLITE_COLUMNS = {
         "city": "VARCHAR(100) NOT NULL DEFAULT ''",
         "service_type": "VARCHAR(80) NOT NULL DEFAULT 'high_ticket_consulting'",
         "urgency": "VARCHAR(30) NOT NULL DEFAULT 'normal'",
+        "internal_note": "TEXT NOT NULL DEFAULT ''",
         "owner_user_id": "INTEGER",
         "consultant_user_id": "INTEGER",
     },

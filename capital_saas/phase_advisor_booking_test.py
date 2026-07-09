@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fastapi.testclient import TestClient
 
 from db.database import SessionLocal
-from db.models import AdvisorBooking, FollowTask
+from db.models import AdvisorBooking, ConsultingCase, Event, FollowTask, LeadFollowLog
 from main import app
 
 
@@ -95,6 +95,9 @@ def run():
         assert "13900001111" in admin_page.text
         assert "上海" in admin_page.text
         assert "融资结构设计" in admin_page.text
+        assert "标记已联系" in admin_page.text
+        assert "标记已安排" in admin_page.text
+        assert "标记已完成" in admin_page.text
         assert "financing_structure_consulting" not in admin_page.text
 
         detail_page = client.get("/admin/advisor-bookings/1")
@@ -102,6 +105,54 @@ def run():
         assert "13900001111" in detail_page.text
         assert "上海" in detail_page.text
         assert "融资结构设计" in detail_page.text
+        assert "一键复制联系话术" in detail_page.text
+        assert "预约跟进" in detail_page.text
+
+        contacted = client.post(
+            "/admin/advisor-bookings/1/quick-status",
+            data={"status": "contacted"},
+            follow_redirects=False,
+        )
+        assert contacted.status_code == 303
+
+        after_contact = client.get("/admin/advisor-bookings/1")
+        assert after_contact.status_code == 200
+        assert "已联系" in after_contact.text
+        assert "确认顾问沟通时间" in after_contact.text
+
+        scheduled = client.post(
+            "/admin/advisor-bookings/1/follow-up",
+            data={
+                "booking_status": "scheduled",
+                "owner_user_id": "0",
+                "consultant_user_id": "0",
+                "internal_note": "已约定明天下午电话沟通",
+                "next_follow_time": "2026-07-10T15:00",
+                "scheduled_time": "2026-07-10 15:00",
+                "service_result": "",
+            },
+            follow_redirects=False,
+        )
+        assert scheduled.status_code == 303
+
+        completed = client.post(
+            "/admin/advisor-bookings/1/follow-up",
+            data={
+                "booking_status": "completed",
+                "owner_user_id": "0",
+                "consultant_user_id": "0",
+                "internal_note": "客户希望继续做融资结构设计",
+                "service_result": "已确认客户有进一步融资结构优化需求",
+                "create_consulting_case": "true",
+            },
+            follow_redirects=False,
+        )
+        assert completed.status_code == 303
+
+        final_detail = client.get("/admin/advisor-bookings/1")
+        assert final_detail.status_code == 200
+        assert "已完成" in final_detail.text
+        assert "客户希望继续做融资结构设计" in final_detail.text
 
     with SessionLocal() as db:
         booking = db.query(AdvisorBooking).order_by(AdvisorBooking.id.desc()).first()
@@ -109,12 +160,18 @@ def run():
         assert booking.city == "上海"
         assert booking.service_type == "financing_structure_consulting"
         assert booking.urgency == "urgent"
-        assert booking.booking_status == "submitted"
+        assert booking.booking_status == "completed"
+        assert booking.internal_note == "客户希望继续做融资结构设计"
         assert booking.follow_task_id is not None
         task = db.get(FollowTask, booking.follow_task_id)
         assert task is not None
         assert task.task_type == "advisor_booking"
         assert task.status == "pending"
+        assert db.query(FollowTask).filter(FollowTask.task_title == "确认顾问沟通时间").count() >= 1
+        assert db.query(FollowTask).filter(FollowTask.task_title == "按预约时间联系客户").count() >= 1
+        assert db.query(LeadFollowLog).filter(LeadFollowLog.action_type == "advisor_booking").count() >= 3
+        assert db.query(Event).filter(Event.event_type == "advisor_booking_followed").count() >= 3
+        assert db.query(ConsultingCase).count() >= 1
 
     print("PHASE_ADVISOR_BOOKING_OK")
 

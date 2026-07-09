@@ -36,43 +36,114 @@
     </div>
   </div>
 
-  <div class="detail-layout">
-    <section class="card detail-card">
-      <h2>预约信息</h2>
-      <div class="detail-grid">
-        <div><span>企业名称</span><strong>{{ booking.company_name or '-' }}</strong></div>
-        <div><span>联系人</span><strong>{{ booking.contact_name or '-' }}</strong></div>
-        <div><span>手机号</span><strong>{{ booking.phone or '-' }}</strong></div>
-        <div><span>微信号</span><strong>{{ booking.wechat_id or '-' }}</strong></div>
-        <div><span>城市</span><strong>{{ booking.city or '-' }}</strong></div>
-        <div><span>服务类型</span><strong>{{ service_labels.get(booking.service_type, booking.service_type or '-') }}</strong></div>
-        <div><span>紧急程度</span><strong>{{ urgency_labels.get(booking.urgency, booking.urgency or '-') }}</strong></div>
-        <div><span>预约状态</span><strong>{{ status_labels.get(booking.booking_status, booking.booking_status or '-') }}</strong></div>
-        <div><span>负责销售</span><strong>{{ owner|user_display_name if owner else '-' }}</strong></div>
-        <div><span>负责顾问</span><strong>{{ consultant|user_display_name if consultant else '-' }}</strong></div>
-        <div><span>提交时间</span><strong>{{ booking.created_at.strftime('%Y-%m-%d %H:%M') if booking.created_at else '-' }}</strong></div>
-        <div><span>希望沟通时间</span><strong>{{ booking.preferred_time or '-' }}</strong></div>
-      </div>
-    </section>
+  <div class="lead-detail-grid">
+    <div class="lead-main">
+      <section class="card detail-card">
+        <h2>预约信息</h2>
+        <div class="detail-data">
+          <div><span>企业名称</span><strong>{{ booking.company_name or '-' }}</strong></div>
+          <div><span>联系人</span><strong>{{ booking.contact_name or '-' }}</strong></div>
+          <div><span>手机号</span><strong>{{ booking.phone or '-' }}</strong></div>
+          <div><span>微信号</span><strong>{{ booking.wechat_id or '-' }}</strong></div>
+          <div><span>城市</span><strong>{{ booking.city or '-' }}</strong></div>
+          <div><span>服务类型</span><strong>{{ service_labels.get(booking.service_type, booking.service_type or '-') }}</strong></div>
+          <div><span>咨询重点</span><strong>{{ booking.consultation_focus or '-' }}</strong></div>
+          <div><span>紧急程度</span><strong>{{ urgency_labels.get(booking.urgency, booking.urgency or '-') }}</strong></div>
+          <div><span>预约状态</span><strong>{{ status_labels.get(booking.booking_status, booking.booking_status or '-') }}</strong></div>
+          <div><span>客户留言</span><strong>{{ booking.note or '-' }}</strong></div>
+          <div><span>负责销售</span><strong>{{ owner|user_display_name if owner else '-' }}</strong></div>
+          <div><span>负责顾问</span><strong>{{ consultant|user_display_name if consultant else '-' }}</strong></div>
+          <div><span>创建时间</span><strong>{{ booking.created_at.strftime('%Y-%m-%d %H:%M') if booking.created_at else '-' }}</strong></div>
+          <div><span>希望沟通时间</span><strong>{{ booking.preferred_time or '-' }}</strong></div>
+          <div><span>内部备注</span><strong>{{ booking.internal_note or '-' }}</strong></div>
+        </div>
+      </section>
 
-    <section class="card detail-card">
-      <h2>咨询重点</h2>
-      <p>{{ booking.consultation_focus or '未填写' }}</p>
-      <h2>补充说明</h2>
-      <p>{{ booking.note or '无' }}</p>
-    </section>
+      <section class="card detail-card">
+        <h2>一键复制联系话术</h2>
+        <div class="script-block">
+          <p>{{ contact_script }}</p>
+          <button type="button" class="copy-script" data-copy-text="{{ contact_script }}">一键复制联系话术</button>
+        </div>
+      </section>
 
-    <section class="card detail-card">
-      <h2>关联信息</h2>
-      <div class="detail-grid">
-        <div><span>报告ID</span><strong>{% if booking.report_id %}<a href="/admin/reports/{{ booking.report_id }}">#{{ booking.report_id }}</a>{% else %}-{% endif %}</strong></div>
-        <div><span>线索ID</span><strong>{% if lead %}<a href="/admin/leads/{{ lead.id }}">#{{ lead.id }}</a>{% else %}-{% endif %}</strong></div>
-        <div><span>跟进任务</span><strong>{% if task %}#{{ task.id }} · {{ task.status }}{% else %}-{% endif %}</strong></div>
-      </div>
-      {% if task %}
-      <p class="safe-note">系统已自动创建跟进任务：{{ task.task_title }}</p>
+      <section class="card detail-card">
+        <h2>关联信息</h2>
+        <div class="detail-data">
+          <div><span>关联线索</span><strong>{% if lead %}<a href="/admin/leads/{{ lead.id }}">#{{ lead.id }} {{ lead.company_name }}</a>{% else %}-{% endif %}</strong></div>
+          <div><span>关联报告</span><strong>{% if booking.report_id %}<a href="/admin/reports/{{ booking.report_id }}">#{{ booking.report_id }}</a>{% else %}-{% endif %}</strong></div>
+          <div><span>跟进任务</span><strong>{% if task %}#{{ task.id }} · {{ task.task_title }} · {{ task.status }}{% else %}-{% endif %}</strong></div>
+        </div>
+      </section>
+
+      <section class="card detail-card">
+        <h2>跟进记录</h2>
+        <div class="timeline-list">
+          {% for log in follow_logs %}
+          <article>
+            <span>{{ log.created_at.strftime('%m-%d %H:%M') }}</span>
+            <div>
+              <strong>{{ status_labels.get(log.new_status, log.new_status or log.action_type) }}</strong>
+              <p>{{ log.content }}</p>
+              <small>{{ log.user|user_display_name if log.user else '系统' }}{% if log.old_status or log.new_status %} · {{ status_labels.get(log.old_status, log.old_status) }} → {{ status_labels.get(log.new_status, log.new_status) }}{% endif %}</small>
+            </div>
+          </article>
+          {% else %}
+          <p class="empty">暂无跟进记录</p>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <aside class="card detail-card follow-form" id="follow-form">
+      <h2>预约跟进</h2>
+      {% if can_edit %}
+      <form method="post" action="/admin/advisor-bookings/{{ booking.id }}/follow-up">
+        <label>预约状态
+          <select name="booking_status">
+            {% for item in ['submitted','contacted','scheduled','completed','cancelled','invalid'] %}
+            <option value="{{ item }}" {{ 'selected' if booking.booking_status == item else '' }}>{{ status_labels.get(item, item) }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>负责销售
+          <select name="owner_user_id">
+            <option value="0">不调整</option>
+            {% for item in sales_users %}
+            <option value="{{ item.id }}" {{ 'selected' if booking.owner_user_id == item.id else '' }}>{{ item|user_display_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>负责顾问
+          <select name="consultant_user_id">
+            <option value="0">不调整</option>
+            {% for item in consultant_users %}
+            <option value="{{ item.id }}" {{ 'selected' if booking.consultant_user_id == item.id else '' }}>{{ item|user_display_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>预约沟通时间
+          <input name="scheduled_time" value="{{ booking.preferred_time or '' }}" placeholder="例如：明天下午3点">
+        </label>
+        <label>下次跟进时间
+          <input type="datetime-local" name="next_follow_time">
+        </label>
+        <label>内部备注
+          <textarea name="internal_note">{{ booking.internal_note or '' }}</textarea>
+        </label>
+        <label>服务结果
+          <textarea name="service_result" placeholder="标记已完成时填写，例如：已确认客户需要进一步融资结构设计"></textarea>
+        </label>
+        <label class="checkbox-line">
+          <input type="checkbox" name="create_consulting_case" value="true">
+          客户有进一步需求，创建顾问案件
+        </label>
+        <button class="btn btn-primary" type="submit">保存跟进</button>
+      </form>
+      {% else %}
+      <p class="safe-note">当前为只读账号，仅可查看预约和跟进记录。</p>
       {% endif %}
-    </section>
+    </aside>
   </div>
 </section>
 {% endblock %}

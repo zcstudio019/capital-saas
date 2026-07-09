@@ -18,11 +18,13 @@ from core.document_request_script_engine import generate_document_request_script
 from db.database import get_db
 from db.models import (
     AdvisorBooking, AIGenerationLog, BankProduct, ConsultingCase, CustomerTask,
-    DocumentParseTask, FollowTask, Lead, Report, ReportVersion, UploadedDocument, User,
+    DocumentParseTask, FollowTask, Lead, LeadFollowLog, Report, ReportVersion, UploadedDocument, User,
 )
 from services.auth_service import require_roles
 from services.bank_product_import_service import disable_mock_products, import_bank_products, parse_bank_product_file
+from services.consulting_service import ensure_consulting_case
 from services.event_service import track_event
+from services.follow_log_service import add_follow_log
 from services.report_service import generate_full_report
 from services.settings_service import get_setting
 from services.document_parse_service import run_parse_task
@@ -33,6 +35,12 @@ router = APIRouter()
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 UPLOAD_DIR = BASE_DIR / "data" / "uploads"
 ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg"}
+ADVISOR_BOOKING_STATUSES = {"submitted", "contacted", "scheduled", "completed", "cancelled", "invalid"}
+ADVISOR_CONTACT_SCRIPT = (
+    "您好，我是沪上银企业融资顾问。您刚刚提交了1对1融资顾问服务预约，"
+    "我这边想先和您确认几个信息：企业目前主要是想了解银行产品匹配、融资结构设计，"
+    "还是资料准备和申请推进？方便的话我先加您微信，帮您看一下下一步怎么安排。"
+)
 
 
 def _report_or_404(db: Session, report_id: int) -> Report:
@@ -40,6 +48,155 @@ def _report_or_404(db: Session, report_id: int) -> Report:
     if not report:
         raise HTTPException(status_code=404, detail="报告不存在")
     return report
+
+
+def _parse_datetime_local(value: str | None) -> datetime | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            parsed = datetime.strptime(value, fmt)
+            if fmt == "%Y-%m-%d":
+                return parsed.replace(hour=9, minute=0)
+            return parsed
+        except ValueError:
+            continue
+    return None
+
+
+def _advisor_booking_or_404(db: Session, booking_id: int) -> AdvisorBooking:
+    booking = db.get(AdvisorBooking, booking_id)
+    if not booking:
+        raise HTTPException(status_code=404, detail="顾问预约不存在")
+    return booking
+
+
+def _assert_booking_access(db: Session, booking: AdvisorBooking, user: User, *, write: bool = False) -> Lead | None:
+    if write and user.role == "viewer":
+        raise HTTPException(status_code=403, detail="只读账号不能修改预约")
+    scope = get_access_scope(db, user)
+    lead = db.get(Lead, booking.lead_id) if booking.lead_id else None
+    if scope.role == "sales" and not (
+        booking.owner_user_id == user.id
+        or (lead and (lead.owner_user_id == user.id or lead.assigned_sales_id == user.id))
+    ):
+        raise HTTPException(status_code=403, detail="无权查看该预约")
+    if scope.role == "consultant" and booking.consultant_user_id != user.id:
+        raise HTTPException(status_code=403, detail="无权查看该预约")
+    if scope.role not in {"sales", "consultant"} and not scope.can_view_all:
+        if not lead or lead.owner_org_id not in (scope.allowed_org_ids or []):
+            raise HTTPException(status_code=403, detail="无权查看该预约")
+    return lead
+
+
+def _create_booking_task(
+    db: Session,
+    booking: AdvisorBooking,
+    lead: Lead | None,
+    title: str,
+    content: str,
+    due_time: datetime | None = None,
+) -> FollowTask | None:
+    if not lead:
+        return None
+    task = FollowTask(
+        lead_id=lead.id,
+        assessment_id=lead.assessment_id,
+        task_type="advisor_booking",
+        task_title=title,
+        task_content=content,
+        priority="high",
+        due_time=due_time or datetime.now() + timedelta(hours=24),
+        status="pending",
+    )
+    db.add(task)
+    db.flush()
+    booking.follow_task_id = task.id
+    lead.next_follow_time = task.due_time
+    lead.last_follow_note = content
+    return task
+
+
+def _record_booking_follow(
+    db: Session,
+    booking: AdvisorBooking,
+    lead: Lead | None,
+    user: User,
+    old_status: str,
+    new_status: str,
+    content: str,
+):
+    if lead:
+        add_follow_log(db, lead.id, user, "advisor_booking", content, old_status, new_status)
+    track_event(
+        db,
+        "advisor_booking_followed",
+        assessment_id=booking.assessment_id,
+        lead_id=booking.lead_id,
+        data={"booking_id": booking.id, "old_status": old_status, "new_status": new_status, "operator": user.username},
+        commit=False,
+    )
+
+
+def _apply_booking_status(
+    db: Session,
+    booking: AdvisorBooking,
+    lead: Lead | None,
+    user: User,
+    status: str,
+    *,
+    note: str = "",
+    next_follow_time: datetime | None = None,
+    scheduled_time_text: str = "",
+    service_result: str = "",
+    create_case: bool = False,
+):
+    if status not in ADVISOR_BOOKING_STATUSES:
+        raise HTTPException(status_code=400, detail="预约状态不合法")
+    old_status = booking.booking_status or "submitted"
+    booking.booking_status = status
+    booking.updated_at = datetime.now()
+    if note:
+        booking.internal_note = note
+    if scheduled_time_text:
+        booking.preferred_time = scheduled_time_text
+    status_text = {
+        "submitted": "已提交",
+        "contacted": "已联系",
+        "scheduled": "已安排",
+        "completed": "已完成",
+        "cancelled": "已取消",
+        "invalid": "无效预约",
+    }.get(status, status)
+    content_parts = [f"顾问预约状态更新为{status_text}"]
+    if note:
+        content_parts.append(f"内部备注：{note}")
+    if scheduled_time_text:
+        content_parts.append(f"预约沟通时间：{scheduled_time_text}")
+    if service_result:
+        content_parts.append(f"服务结果：{service_result}")
+    content = "；".join(content_parts)
+    _record_booking_follow(db, booking, lead, user, old_status, status, content)
+    if status == "contacted":
+        _create_booking_task(db, booking, lead, "确认顾问沟通时间", "客户预约已联系，请确认具体顾问沟通时间。", next_follow_time)
+    elif status == "scheduled":
+        _create_booking_task(db, booking, lead, "按预约时间联系客户", "顾问沟通时间已安排，请按预约时间联系客户。", next_follow_time)
+    elif status == "completed":
+        if service_result and lead:
+            lead.last_follow_note = service_result
+        if create_case:
+            report = db.get(Report, booking.report_id) if booking.report_id else None
+            assessment = report.assessment if report else (lead.assessment if lead else None)
+            if assessment:
+                case = ensure_consulting_case(db, assessment, "1999_structure_plan")
+                if case:
+                    case.case_summary = f"{booking.company_name or assessment.company_name}顾问预约完成后转入顾问案件。"
+                    case.service_goal = service_result or booking.consultation_focus or "继续推进融资结构设计与银行申请执行。"
+                    case.consultant_user_id = booking.consultant_user_id
+                    case.consultant_id = booking.consultant_user_id
+                    case.owner_user_id = booking.owner_user_id
+                    case.case_status = "in_progress"
 
 
 @router.get("/advisor/book/{report_id}", response_class=HTMLResponse)
@@ -228,6 +385,98 @@ def admin_advisor_bookings(
 
 
 @router.get("/admin/advisor-bookings/{booking_id}", response_class=HTMLResponse)
+def admin_advisor_booking_follow_detail(
+    request: Request,
+    booking_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "super_admin", "city_manager", "sales_manager", "sales", "consultant_manager", "consultant", "viewer")),
+):
+    booking = _advisor_booking_or_404(db, booking_id)
+    lead = _assert_booking_access(db, booking, user)
+    report = db.get(Report, booking.report_id) if booking.report_id else None
+    assessment = report.assessment if report else None
+    follow_logs = []
+    if lead:
+        follow_logs = db.query(LeadFollowLog).filter(
+            LeadFollowLog.lead_id == lead.id,
+            LeadFollowLog.action_type == "advisor_booking",
+        ).order_by(LeadFollowLog.created_at.desc()).all()
+    sales_users = db.query(User).filter(User.role.in_(["admin", "super_admin", "sales_manager", "sales"])).order_by(User.id).all()
+    consultant_users = db.query(User).filter(User.role.in_(["consultant_manager", "consultant"])).order_by(User.id).all()
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_advisor_booking_detail.html",
+        context={
+            "booking": booking,
+            "lead": lead,
+            "assessment": assessment,
+            "task": db.get(FollowTask, booking.follow_task_id) if booking.follow_task_id else None,
+            "owner": db.get(User, booking.owner_user_id) if booking.owner_user_id else None,
+            "consultant": db.get(User, booking.consultant_user_id) if booking.consultant_user_id else None,
+            "follow_logs": follow_logs,
+            "sales_users": sales_users,
+            "consultant_users": consultant_users,
+            "contact_script": ADVISOR_CONTACT_SCRIPT,
+            "can_edit": user.role != "viewer",
+            "current_user": user,
+        },
+    )
+
+
+@router.post("/admin/advisor-bookings/{booking_id}/quick-status")
+def admin_advisor_booking_quick_status(
+    booking_id: int,
+    status: str = Form(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "super_admin", "city_manager", "sales_manager", "sales", "consultant_manager", "consultant")),
+):
+    booking = _advisor_booking_or_404(db, booking_id)
+    lead = _assert_booking_access(db, booking, user, write=True)
+    _apply_booking_status(db, booking, lead, user, status)
+    db.commit()
+    return RedirectResponse(url="/admin/advisor-bookings", status_code=303)
+
+
+@router.post("/admin/advisor-bookings/{booking_id}/follow-up")
+def admin_advisor_booking_follow_up(
+    booking_id: int,
+    booking_status: str = Form(...),
+    owner_user_id: int = Form(0),
+    consultant_user_id: int = Form(0),
+    internal_note: str = Form(""),
+    next_follow_time: str = Form(""),
+    scheduled_time: str = Form(""),
+    service_result: str = Form(""),
+    create_consulting_case: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "super_admin", "city_manager", "sales_manager", "sales", "consultant_manager", "consultant")),
+):
+    booking = _advisor_booking_or_404(db, booking_id)
+    lead = _assert_booking_access(db, booking, user, write=True)
+    if owner_user_id:
+        booking.owner_user_id = owner_user_id
+        if lead:
+            lead.owner_user_id = owner_user_id
+            lead.assigned_sales_id = owner_user_id
+    if consultant_user_id:
+        booking.consultant_user_id = consultant_user_id
+    _apply_booking_status(
+        db,
+        booking,
+        lead,
+        user,
+        booking_status,
+        note=internal_note.strip(),
+        next_follow_time=_parse_datetime_local(next_follow_time),
+        scheduled_time_text=scheduled_time.strip(),
+        service_result=service_result.strip(),
+        create_case=create_consulting_case == "true",
+    )
+    db.commit()
+    return RedirectResponse(url=f"/admin/advisor-bookings/{booking.id}", status_code=303)
+
+
+@router.get("/admin/advisor-bookings-legacy/{booking_id}", response_class=HTMLResponse)
 def admin_advisor_booking_detail(
     request: Request,
     booking_id: int,

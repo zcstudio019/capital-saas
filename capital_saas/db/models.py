@@ -212,6 +212,7 @@ class AdvisorBooking(Base):
     consultation_focus: Mapped[str] = mapped_column(Text, default="")
     preferred_time: Mapped[str] = mapped_column(String(200), default="")
     note: Mapped[str] = mapped_column(Text, default="")
+    internal_note: Mapped[str] = mapped_column(Text, default="")
     booking_status: Mapped[str] = mapped_column(String(30), default="submitted", index=True)
     owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     consultant_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)

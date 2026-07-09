@@ -42,7 +42,7 @@
     <label>预约状态
       <select name="status">
         <option value="">全部</option>
-        {% for item in ['submitted','contacted','scheduled','completed','cancelled','invalid'] %}
+        {% for item in ['submitted','contacted','scheduled','completed','cancelled'] %}
         <option value="{{ item }}" {{ 'selected' if filters.status == item else '' }}>{{ status_labels.get(item, item) }}</option>
         {% endfor %}
       </select>
@@ -50,8 +50,8 @@
     <button class="btn btn-primary">筛选</button>
   </form>
 
-  <div class="card table-card">
-    <table class="wide-table">
+  <div class="card table-card advisor-booking-table">
+    <table>
       <thead>
         <tr>
           <th>企业名称</th>
@@ -66,7 +66,7 @@
           <th>负责销售</th>
           <th>负责顾问</th>
           <th>提交时间</th>
-          <th>操作</th>
+          <th class="sticky-action">操作</th>
         </tr>
       </thead>
       <tbody>
@@ -80,13 +80,30 @@
           <td>{{ item.wechat_id or '-' }}</td>
           <td>{{ item.city or '-' }}</td>
           <td>{{ service_labels.get(item.service_type, item.service_type or '-') }}</td>
-          <td>{{ item.consultation_focus or '-' }}</td>
+          <td class="text-compact">{{ item.consultation_focus or '-' }}</td>
           <td>{{ urgency_labels.get(item.urgency, item.urgency or '-') }}</td>
           <td>{{ status_labels.get(item.booking_status, item.booking_status or '-') }}</td>
           <td>{{ owner|user_display_name if owner else '-' }}</td>
           <td>{{ consultant|user_display_name if consultant else '-' }}</td>
           <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else '-' }}</td>
-          <td><a href="/admin/advisor-bookings/{{ item.id }}">详情</a></td>
+          <td class="sticky-action table-action advisor-actions">
+            <a class="btn-mini" href="/admin/advisor-bookings/{{ item.id }}">查看详情</a>
+            <a class="btn-mini" href="/admin/advisor-bookings/{{ item.id }}#follow-form">跟进</a>
+            {% if current_user.role != 'viewer' %}
+            <form method="post" action="/admin/advisor-bookings/{{ item.id }}/quick-status">
+              <input type="hidden" name="status" value="contacted">
+              <button type="submit">标记已联系</button>
+            </form>
+            <form method="post" action="/admin/advisor-bookings/{{ item.id }}/quick-status">
+              <input type="hidden" name="status" value="scheduled">
+              <button type="submit">标记已安排</button>
+            </form>
+            <form method="post" action="/admin/advisor-bookings/{{ item.id }}/quick-status">
+              <input type="hidden" name="status" value="completed">
+              <button type="submit">标记已完成</button>
+            </form>
+            {% endif %}
+          </td>
         </tr>
         {% else %}
         <tr><td colspan="13" class="empty">暂无顾问预约记录</td></tr>
