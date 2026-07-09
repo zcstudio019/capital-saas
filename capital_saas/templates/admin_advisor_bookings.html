@@ -1,31 +1,10 @@
 {% extends "base.html" %}
 {% block title %}顾问预约管理{% endblock %}
 {% block content %}
-{% set status_labels = {
-  'submitted':'已提交',
-  'pending':'已提交',
-  'contacted':'已联系',
-  'scheduled':'已安排',
-  'completed':'已完成',
-  'cancelled':'已取消',
-  'invalid':'无效预约'
-} %}
-{% set service_labels = {
-  'financing_structure_consulting':'融资结构设计',
-  'bank_product_matching':'银行产品匹配',
-  'document_review':'资料准备与尽调',
-  'project_delivery':'融资项目推进',
-  'high_ticket_consulting':'高客单顾问服务'
-} %}
-{% set urgency_labels = {
-  'normal':'普通',
-  'urgent':'紧急',
-  'very_urgent':'非常紧急'
-} %}
 <section class="admin-shell container">
   <div class="admin-top">
     <div>
-      <div class="eyebrow">Advisor Bookings</div>
+      <div class="eyebrow">顾问预约</div>
       <h1>顾问预约</h1>
     </div>
     <div class="admin-links">
@@ -43,7 +22,7 @@
       <select name="status">
         <option value="">全部</option>
         {% for item in ['submitted','contacted','scheduled','completed','cancelled'] %}
-        <option value="{{ item }}" {{ 'selected' if filters.status == item else '' }}>{{ status_labels.get(item, item) }}</option>
+        <option value="{{ item }}" {{ 'selected' if filters.status == item else '' }}>{{ item|booking_status_label }}</option>
         {% endfor %}
       </select>
     </label>
@@ -79,10 +58,10 @@
           <td>{{ item.phone or '-' }}</td>
           <td>{{ item.wechat_id or '-' }}</td>
           <td>{{ item.city or '-' }}</td>
-          <td>{{ service_labels.get(item.service_type, item.service_type or '-') }}</td>
+          <td>{{ item.service_type|service_type_label }}</td>
           <td class="text-compact">{{ item.consultation_focus or '-' }}</td>
-          <td>{{ urgency_labels.get(item.urgency, item.urgency or '-') }}</td>
-          <td>{{ status_labels.get(item.booking_status, item.booking_status or '-') }}</td>
+          <td>{{ item.urgency|urgency_level_label }}</td>
+          <td>{{ item.booking_status|booking_status_label }}</td>
           <td>{{ owner|user_display_name if owner else '-' }}</td>
           <td>{{ consultant|user_display_name if consultant else '-' }}</td>
           <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else '-' }}</td>

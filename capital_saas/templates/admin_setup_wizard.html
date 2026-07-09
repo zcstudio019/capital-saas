@@ -7,7 +7,7 @@
   <section class="card">
     {% for step in steps %}
     <div class="client-row">
-      <div><b>{{ loop.index }}. {{ step.title }}</b><p class="muted">状态：{{ step.status }}{% if step.completed_at %} · {{ step.completed_at }}{% endif %}</p></div>
+      <div><b>{{ loop.index }}. {{ step.title }}</b><p class="muted">状态：{{ step.status|status_label }}{% if step.completed_at %} · {{ step.completed_at }}{% endif %}</p></div>
       <div class="actions">
         <a class="btn" href="{{ step.url }}">去配置</a>
         <form method="post" action="/admin/setup-wizard/mark-step" style="display:inline">

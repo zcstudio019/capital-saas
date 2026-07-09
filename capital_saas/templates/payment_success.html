@@ -11,7 +11,7 @@
   <p>请通过运营人员提供的银行账户或微信收款方式完成转账，并备注订单号 <strong>#{{ order.id }}</strong>。</p>
   <div class="manual-transfer-box"><span>应付金额</span><strong>¥{{ "%.2f"|format(order.amount) }}</strong><p>转账后请联系运营人员，后台确认到账后将自动解锁报告。</p>{% if contact_phone %}<p>电话：{{ contact_phone }}</p>{% endif %}{% if contact_wechat %}<p>微信：{{ contact_wechat }}</p>{% endif %}</div>
   {% else %}
-  <div class="result-symbol pending">…</div><h1>订单处理中</h1><p>当前订单状态：{{ order.status|zh }}</p>
+  <div class="result-symbol pending">…</div><h1>订单处理中</h1><p>当前订单状态：{{ order.status|order_status_label }}</p>
   {% endif %}
 </div></div></section>
 {% endblock %}

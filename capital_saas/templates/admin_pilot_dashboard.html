@@ -4,5 +4,5 @@
 <section class="card"><h2>运行中批次</h2>{% for b in active_batches %}<a class="pill" href="/admin/pilot-batches/{{b.id}}">{{b.batch_name}}</a>{% else %}<p class="muted">暂无运行中批次</p>{% endfor %}</section>
 <div class="stats-grid">{% for k,v in counts.items() %}<div class="stat-card"><span>今日 {{k}}</span><strong>{{v}}</strong></div>{% endfor %}</div>
 <section class="card"><h2>漏斗</h2>{% for k,v in funnel.items() %}<div class="client-row"><b>{{k}}</b><span>{{v}}</span></div>{% endfor %}<hr><p><b>最大掉点：</b>{{dropoff.largest_dropoff_stage}} / {{dropoff.dropoff_rate}}</p><ul>{% for x in dropoff.possible_reasons %}<li>{{x}}</li>{% endfor %}</ul></section>
-<section class="card"><h2>高优先级问题</h2>{% for issue in high_issues %}<div class="client-row"><b><a href="/admin/issues/{{issue.id}}">{{issue.title}}</a></b><span>{{issue.severity}} · {{issue.status}}</span></div>{% else %}<p class="muted">暂无高优先级问题</p>{% endfor %}</section>
+<section class="card"><h2>高优先级问题</h2>{% for issue in high_issues %}<div class="client-row"><b><a href="/admin/issues/{{issue.id}}">{{issue.title}}</a></b><span>{{issue.severity|zh }} · {{issue.status|status_label }}</span></div>{% else %}<p class="muted">暂无高优先级问题</p>{% endfor %}</section>
 </section>{% endblock %}

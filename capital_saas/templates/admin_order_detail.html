@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% set order_status_labels = {'paid':'已支付','pending':'待支付','refunded':'已退款','cancelled':'已取消','failed':'支付失败'} %}
 {% block title %}订单详情 #{{ order.id }}{% endblock %}
 {% block content %}
 <section class="admin-shell container">
@@ -16,8 +15,8 @@
         <div><span>企业</span><strong>{{ order.assessment.company_name }}</strong></div>
         <div><span>联系人</span><strong>{{ order.assessment.contact_name }}</strong></div>
         <div><span>金额</span><strong>¥{{ "%.2f"|format(order.amount) }}</strong></div>
-        <div><span>状态</span><strong>{{ order_status_labels.get(order.status, order.status|zh) }}</strong></div>
-        <div><span>支付渠道</span><strong>{{ order.pay_channel|zh }}</strong></div>
+        <div><span>状态</span><strong>{{ order.status|order_status_label }}</strong></div>
+        <div><span>支付渠道</span><strong>{{ order.pay_channel|payment_channel_label }}</strong></div>
         <div><span>交易号</span><strong>{{ order.transaction_id or '-' }}</strong></div>
         <div><span>支付时间</span><strong>{{ order.paid_at.strftime('%Y-%m-%d %H:%M') if order.paid_at else '-' }}</strong></div>
         <div><span>退款时间</span><strong>{{ order.refund_at.strftime('%Y-%m-%d %H:%M') if order.refund_at else '-' }}</strong></div>
@@ -57,7 +56,7 @@
       {% elif order.status == 'cancelled' %}
         <p class="safe-note">已取消</p>
       {% else %}
-        <p class="safe-note">当前状态：{{ order_status_labels.get(order.status, order.status|zh) }}</p>
+        <p class="safe-note">当前状态：{{ order.status|order_status_label }}</p>
       {% endif %}
     </aside>
   </div>

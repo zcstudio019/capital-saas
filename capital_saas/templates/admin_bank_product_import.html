@@ -4,7 +4,7 @@
 <section class="admin-shell container">
   <div class="admin-top"><div><div class="eyebrow">真实产品库</div><h1>导入银行产品</h1><p>支持 CSV / Excel / Markdown 产品库。</p></div><a class="btn" href="/admin/bank-products">返回产品库</a></div>
   {% if result %}<section class="card detail-card"><h2>导入结果</h2><div class="dashboard-grid"><div class="kpi"><span>解析产品数</span><strong>{{ result.parsed }}</strong></div><div class="kpi"><span>成功导入数</span><strong>{{ result.success }}</strong></div><div class="kpi"><span>新增数</span><strong>{{ result.created or 0 }}</strong></div><div class="kpi"><span>更新数</span><strong>{{ result.updated or 0 }}</strong></div><div class="kpi"><span>失败数</span><strong>{{ result.failed }}</strong></div></div>
-  {% if result.products %}<h3>本次产品</h3><ul>{% for item in result.products %}<li>{{ item.product_code }} {{ item.product_name }}</li>{% endfor %}</ul>{% endif %}
+  {% if result.products %}<h3>本次产品</h3><ul>{% for item in result.products %}<li>{{ item.product_code|safe_display_label }} {{ item.product_name }}</li>{% endfor %}</ul>{% endif %}
   {% if result.errors %}<h3>失败原因</h3><ul>{% for error in result.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}</section>{% endif %}
   <form class="card detail-card" method="post" enctype="multipart/form-data" action="/admin/bank-products/import"><h2>选择产品库文件</h2><label>CSV / Excel / Markdown 文件<input type="file" name="upload" accept=".csv,.xlsx,.md,text/markdown" required></label><p class="safe-note">文件最大 10MB。产品编码相同时更新；无编码时按机构与产品名称更新。</p><button class="btn btn-primary">解析并导入</button></form>
   <section class="card detail-card"><h2>Markdown 格式</h2><pre>## 1. 【BOCOM-001】 普惠e贷1.0

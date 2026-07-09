@@ -7,7 +7,7 @@ NAV_LABELS = {
     "admin_dashboard": "总览", "dashboard": "总览", "delivery_dashboard": "交付看板",
     "financing_projects": "融资项目", "sales_workbench": "销售工作台", "leads": "线索管理",
     "follow_tasks": "跟进任务", "reports": "报告管理", "bank_products": "银行产品",
-    "consulting_cases": "顾问案件", "orders": "订单管理", "growth": "增长看板",
+    "consulting_cases": "顾问案件", "advisor_bookings": "顾问预约", "orders": "订单管理", "growth": "增长看板",
     "hq_dashboard": "总部总览", "city_dashboard": "城市经营", "team_performance": "团队业绩",
     "organizations": "组织管理", "channel_partners": "渠道伙伴", "institution_contacts": "机构联系人",
     "commissions": "提成结算", "script_templates": "话术库", "backup": "数据备份",
@@ -48,9 +48,15 @@ def get_user_display_name(user):
 
 PRODUCT_LABELS = {
     "299_report": "基础诊断报告（299元）", "699_bank_match": "银行匹配报告（699元）",
-    "1999_structure_plan": "融资结构优化方案（1999元）", "high_ticket_consulting": "顾问服务", "free_nurture": "免费培育",
+    "1999_structure_plan": "融资结构优化方案（1999元）", "high_ticket_consulting": "高客单顾问服务", "free_nurture": "免费培育",
     "manual_consulting": "人工顾问服务", "structure_plan": "融资结构方案",
 }
+ORDER_STATUS_LABELS = {"pending": "待支付", "paid": "已支付", "refunded": "已退款", "cancelled": "已取消", "failed": "支付失败", "closed": "已关闭"}
+PAYMENT_CHANNEL_LABELS = {
+    "mock": "模拟支付", "manual_transfer": "人工转账", "wechat": "微信支付", "wechat_pay": "微信支付",
+    "alipay": "支付宝", "alipay_pay": "支付宝", "bank_transfer": "银行转账", "local": "本地模拟通道",
+}
+PAYMENT_STATUS_LABELS = ORDER_STATUS_LABELS.copy()
 LANDING_PAGE_LABELS = {
     "/": "官网首页", "/assessment": "免费测评页", "/lp/rongzi": "企业融资测评页",
     "/lp/cashflow": "现金流风险测评页", "/lp/bank": "银行贷款通过率测评页",
@@ -93,6 +99,45 @@ SOURCE_CHANNEL_LABELS = {
     "sales_call": "电销客户", "wx_private": "微信私域", "partner_caishui": "财税渠道",
 }
 LEAD_GRADE_LABELS = {"S": "S级线索", "A": "A级线索", "B": "B级线索", "C": "C级线索", "D": "D级线索"}
+FOLLOW_STATUS_LABELS = {
+    "uncontacted": "未联系", "contacted": "已联系", "wechat_added": "已加微信", "report_sent": "已发报告",
+    "paid": "已付费", "documents_uploaded": "已上传资料", "advisor_booked": "已预约顾问",
+    "project_created": "已进入项目", "dropped": "已流失",
+}
+BOOKING_STATUS_LABELS = {
+    "submitted": "已提交", "assigned": "已分配", "contacted": "已联系", "scheduled": "已安排",
+    "completed": "已完成", "cancelled": "已取消", "invalid": "无效预约",
+}
+SERVICE_TYPE_LABELS = {
+    "financing_structure_consulting": "融资结构设计", "bank_product_matching": "银行产品匹配",
+    "document_review": "资料准备与尽调", "project_delivery": "融资项目推进",
+    "high_ticket_consulting": "高客单顾问服务",
+}
+URGENCY_LEVEL_LABELS = {"normal": "普通", "urgent": "比较急", "very_urgent": "非常急"}
+AB_VARIANT_LABELS = {
+    "variant_a": "风险提示版", "variant_b": "机会收益版",
+    "free_result_conversion": "免费结果页转化实验", "ab_assigned": "A/B测试已分组",
+}
+DATA_SOURCE_LABELS = {"mock": "模拟数据", "imported": "导入数据", "manual": "手动维护", "system": "系统生成"}
+DOCUMENT_CATEGORY_LABELS = {
+    "营业执照/工商资料": "营业执照/工商资料", "企业基础资料": "企业基础资料", "财务报表": "财务报表",
+    "银行流水": "银行流水", "纳税资料": "纳税资料", "征信资料": "征信资料", "经营合同": "经营合同",
+    "应收账款资料": "应收账款资料", "抵押物资料": "抵押物资料", "法人/股东资料": "法人/股东资料",
+    "其他资料": "其他资料",
+}
+DOCUMENT_PARSE_STATUS_LABELS = {"pending_parse": "待解析", "parsed": "已解析", "parse_failed": "解析失败", "pending": "待处理"}
+DOCUMENT_VERIFY_STATUS_LABELS = {"verified": "已核验", "rejected": "已驳回", "unverified": "待核验", "pending": "待处理"}
+PROJECT_STATUS_LABELS = {
+    "draft": "草稿", "preparing": "准备资料", "submitted": "已提交", "bank_review": "银行审核中",
+    "supplement_required": "需补充资料", "approved": "已批复", "rejected": "未通过",
+    "disbursed": "已放款", "cancelled": "已取消", "archived": "已归档",
+}
+FUNDING_APPLICATION_STATUS_LABELS = {
+    "planned": "计划申请", "submitted": "已提交", "reviewing": "审核中", "supplement_required": "需补资料",
+    "approved": "已批复", "rejected": "未通过", "disbursed": "已放款", "withdrawn": "已撤回",
+}
+NOTIFICATION_STATUS_LABELS = {"queued": "待发送", "sending": "发送中", "success": "发送成功", "failed": "发送失败", "cancelled": "已取消", "skipped": "已跳过"}
+NOTIFICATION_CHANNEL_LABELS = {"in_app": "站内通知", "email": "邮件", "sms": "短信", "wecom_webhook": "企业微信机器人", "mock": "模拟通道"}
 
 
 def get_landing_page_label(path):
@@ -133,7 +178,7 @@ def get_boolean_label(value):
         enabled = value.strip().lower() in {"1", "true", "yes", "on", "active"}
     else:
         enabled = bool(value)
-    return "已启用" if enabled else "已停用"
+    return "是" if enabled else "否"
 
 
 def get_settlement_status_label(code):
@@ -147,6 +192,30 @@ def get_lead_grade_label(code):
 
 def get_source_channel_label(code):
     return SOURCE_CHANNEL_LABELS.get(str(code or "").strip().lower(), "其他渠道")
+
+def get_channel_label(code): return get_source_channel_label(code)
+def get_order_status_label(code): return ORDER_STATUS_LABELS.get(str(code or "").strip().lower(), "未知订单状态")
+def get_payment_channel_label(code): return PAYMENT_CHANNEL_LABELS.get(str(code or "").strip().lower(), "其他支付渠道")
+def get_payment_status_label(code): return PAYMENT_STATUS_LABELS.get(str(code or "").strip().lower(), "未知支付状态")
+def get_follow_status_label(code):
+    value = "" if code is None else str(code).strip()
+    if re.search(r"[\u4e00-\u9fff]", value):
+        return value
+    return FOLLOW_STATUS_LABELS.get(value.lower(), "未知跟进状态")
+def get_booking_status_label(code): return BOOKING_STATUS_LABELS.get(str(code or "").strip().lower(), "未知预约状态")
+def get_service_type_label(code): return SERVICE_TYPE_LABELS.get(str(code or "").strip().lower(), "其他顾问服务")
+def get_urgency_level_label(code): return URGENCY_LEVEL_LABELS.get(str(code or "").strip().lower(), "普通")
+def get_ab_variant_label(code): return AB_VARIANT_LABELS.get(str(code or "").strip().lower(), "实验版本")
+def get_data_source_label(code): return DATA_SOURCE_LABELS.get(str(code or "").strip().lower(), "其他来源")
+def get_document_category_label(code):
+    value = "" if code is None else str(code).strip()
+    return DOCUMENT_CATEGORY_LABELS.get(value, "其他资料")
+def get_document_parse_status_label(code): return DOCUMENT_PARSE_STATUS_LABELS.get(str(code or "").strip().lower(), "未知解析状态")
+def get_document_verify_status_label(code): return DOCUMENT_VERIFY_STATUS_LABELS.get(str(code or "").strip().lower(), "未知核验状态")
+def get_project_status_label(code): return PROJECT_STATUS_LABELS.get(str(code or "").strip().lower(), "未知项目状态")
+def get_funding_application_status_label(code): return FUNDING_APPLICATION_STATUS_LABELS.get(str(code or "").strip().lower(), "未知申请状态")
+def get_notification_status_label(code): return NOTIFICATION_STATUS_LABELS.get(str(code or "").strip().lower(), "未知通知状态")
+def get_notification_channel_label(code): return NOTIFICATION_CHANNEL_LABELS.get(str(code or "").strip().lower(), "其他通知渠道")
 
 EVENT_LABELS = {
     "audit_log_created": "审计日志已创建", "unhandled_exception": "系统异常", "assessment_page_viewed": "测评页面被访问",
@@ -199,6 +268,9 @@ EVENT_LABELS.update({
     "funding_application_rejected": "资金申请未通过", "funding_application_disbursed": "已放款",
     "customer_feedback_submitted": "客户反馈已提交", "operation_issue_created": "运营问题已创建",
     "daily_report_generated": "运营日报已生成", "weekly_report_generated": "运营周报已生成",
+    "advisor_booking_submitted": "顾问预约已提交", "advisor_booking_updated": "顾问预约已更新",
+    "advisor_booking_followed": "顾问预约已跟进", "lead_sales_assigned": "线索已分配销售",
+    "order_refunded": "订单已退款",
 })
 EVENT_SUBJECT_LABELS = {
     "sales_workbench": "销售工作台", "launch_dashboard": "试运营看板", "pilot_dashboard": "试运营看板",
@@ -233,13 +305,13 @@ EVENT_ACTION_LABELS.update({
     "approved": "已批复", "rejected": "未通过", "disbursed": "已放款", "completed": "已完成",
     "cancelled": "已取消", "retried": "已重试", "run": "已执行", "read": "已读", "logged_in": "已登录",
 })
-TASK_STATUS_LABELS = {"pending": "待跟进", "done": "已完成", "cancelled": "已取消"}
+TASK_STATUS_LABELS = {"pending": "待跟进", "done": "已完成", "cancelled": "已取消", "overdue": "已逾期"}
 TASK_PRIORITY_LABELS = {"high": "高优先级", "medium": "中优先级", "low": "低优先级"}
 TASK_TYPE_LABELS = {
     "call": "电话联系", "wechat": "微信跟进", "send_report": "发送报告", "payment_follow": "付款跟进",
     "upsell": "升级跟进", "revisit": "回访", "collect_documents": "补充资料", "verify_documents": "资料核验",
     "client_clarification": "客户补充说明", "repayment_reminder": "还款提醒", "post_loan_check": "贷后检查",
-    "renewal_prepare": "续贷准备", "cashflow_review": "现金流复查",
+    "renewal_prepare": "续贷准备", "cashflow_review": "现金流复查", "advisor_booking_follow": "顾问预约跟进",
 }
 
 def _label(mapping, code):
@@ -265,6 +337,54 @@ def get_event_label(code):
 def get_task_status_label(code): return _label(TASK_STATUS_LABELS, code)
 def get_task_priority_label(code): return _label(TASK_PRIORITY_LABELS, code)
 def get_task_type_label(code): return _label(TASK_TYPE_LABELS, code)
+
+
+SAFE_CATEGORY_FALLBACKS = {
+    "product": "其他业务产品", "order_status": "未知订单状态", "payment_channel": "其他支付渠道",
+    "event": "系统事件", "role": "系统账号", "status": "未知状态", "task_status": "未知任务状态",
+    "task_type": "其他任务", "booking_status": "未知预约状态", "service_type": "其他顾问服务",
+    "commission_trigger": "其他业务触发", "commission_type": "其他结算方式", "landing_page": "其他落地页",
+    "channel": "其他渠道", "data_source": "其他来源", "notification": "系统通知",
+}
+
+
+def safe_display_label(value, category=None):
+    if value is None or value == "":
+        return ""
+    dispatch = {
+        "product": get_product_label, "order_status": get_order_status_label,
+        "payment_channel": get_payment_channel_label, "payment_status": get_payment_status_label,
+        "event": get_event_label, "role": get_role_label, "nav": get_nav_label,
+        "task_status": get_task_status_label, "task_priority": get_task_priority_label,
+        "task_type": get_task_type_label, "lead_grade": get_lead_grade_label,
+        "follow_status": get_follow_status_label, "booking_status": get_booking_status_label,
+        "service_type": get_service_type_label, "urgency": get_urgency_level_label,
+        "commission_trigger": get_commission_trigger_label, "commission_type": get_commission_type_label,
+        "settlement_status": get_settlement_status_label, "landing_page": get_landing_page_label,
+        "channel": get_channel_label, "ab_variant": get_ab_variant_label, "data_source": get_data_source_label,
+        "document_category": get_document_category_label, "document_parse_status": get_document_parse_status_label,
+        "document_verify_status": get_document_verify_status_label, "project_status": get_project_status_label,
+        "funding_status": get_funding_application_status_label, "notification_status": get_notification_status_label,
+        "notification_channel": get_notification_channel_label, "boolean": get_boolean_label,
+    }
+    if category in dispatch:
+        return dispatch[category](value)
+    text = str(value).strip()
+    if re.search(r"[\u4e00-\u9fff]", text) and "_" not in text:
+        return text
+    known = (
+        PRODUCT_LABELS | ORDER_STATUS_LABELS | PAYMENT_CHANNEL_LABELS | ROLE_LABELS | STATUS_LABELS |
+        TASK_STATUS_LABELS | TASK_PRIORITY_LABELS | TASK_TYPE_LABELS | BOOKING_STATUS_LABELS |
+        SERVICE_TYPE_LABELS | COMMISSION_TRIGGER_LABELS | COMMISSION_TYPE_LABELS | SETTLEMENT_STATUS_LABELS |
+        SOURCE_CHANNEL_LABELS | AB_VARIANT_LABELS | DATA_SOURCE_LABELS | PROJECT_STATUS_LABELS |
+        FUNDING_APPLICATION_STATUS_LABELS | NOTIFICATION_STATUS_LABELS | NOTIFICATION_CHANNEL_LABELS
+    )
+    lowered = text.lower()
+    if lowered in known:
+        return known[lowered]
+    if "_" in text or re.fullmatch(r"[a-z0-9_./-]+", text):
+        return SAFE_CATEGORY_FALLBACKS.get(category or "", "系统记录")
+    return text
 
 
 def get_display_company_name(company_name):

@@ -66,7 +66,7 @@
       <div class="doc-grid">
         {% for group in checklist_block.required_documents %}
         <div class="doc-card">
-          <h3>{{ group.category }} <span class="pill">{{ group.priority }}</span></h3>
+          <h3>{{ group.category }} <span class="pill">{{ group.priority|task_priority_label }}</span></h3>
           <p><strong>用途说明：</strong>{{ group.purpose }}</p>
           <strong>资料明细：</strong><ul>{% for item in group['items'] %}<li>{{ item }}</li>{% endfor %}</ul>
           <p class="doc-risk"><strong>缺失风险：</strong>{{ group.missing_risk }}</p>
