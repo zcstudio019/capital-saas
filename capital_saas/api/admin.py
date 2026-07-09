@@ -16,8 +16,9 @@ from core.pricing_engine import products, recommended_product_labels
 from core.config import settings
 from db.database import get_db
 from db.models import (
-    AIGenerationLog, Assessment, CustomerAccount, CustomerTask, Event, FollowTask, Lead, LeadFollowLog, Order,
-    Organization, PilotBatch, ProjectTask, Report, ReportVersion, Tag, User
+    AdvisorBooking, AIGenerationLog, Assessment, CustomerAccount, CustomerTask, Event, FinancingProject,
+    FollowTask, Lead, LeadFollowLog, Order, Organization, PilotBatch, ProjectTask, Report, ReportVersion,
+    Tag, UploadedDocument, User
 )
 from core.access_scope import effective_role, get_access_scope
 from core.next_best_action_engine import calculate_next_best_action
@@ -67,6 +68,43 @@ def _assert_lead_access(db: Session, user: User, lead: Lead | None) -> None:
     if scope.role not in {"sales", "partner"} and (lead.owner_org_id in scope.allowed_org_ids or lead.org_id in scope.allowed_org_ids):
         return
     raise HTTPException(status_code=403, detail="无权访问该线索")
+
+
+def _format_follow_log(log: LeadFollowLog) -> dict:
+    method = ""
+    result = ""
+    note = log.content or ""
+    next_follow_time = ""
+    if log.action_type == "manual_followup":
+        try:
+            payload = json.loads(log.content or "{}")
+            method = payload.get("method", "")
+            result = payload.get("result", "")
+            note = payload.get("note", "")
+            next_follow_time = payload.get("next_follow_time", "")
+        except json.JSONDecodeError:
+            pass
+    elif log.action_type == "follow_status_changed":
+        method = "状态更新"
+        result = log.new_status
+        note = log.content or "修改跟进状态"
+    elif log.action_type == "assign_sales":
+        method = "分配销售"
+        result = log.new_status
+    elif log.action_type == "note_added":
+        method = "备注"
+    else:
+        method = log.action_type
+        result = log.new_status
+    return {
+        "created_at": log.created_at,
+        "user": log.user,
+        "method": method or "-",
+        "result": result or "-",
+        "note": note or "-",
+        "next_follow_time": next_follow_time or "-",
+        "raw": log,
+    }
 
 
 def _dashboard_context(db: Session, show_test: bool = False) -> dict:
@@ -258,7 +296,18 @@ def lead_detail(
         sales_script = json.loads(lead.sales_script or "{}")
     except json.JSONDecodeError:
         sales_script = {}
-    orders = db.query(Order).filter(Order.assessment_id == lead.assessment_id).all()
+    orders = db.query(Order).filter(Order.assessment_id == lead.assessment_id).order_by(Order.created_at.desc()).all()
+    reports = db.query(Report).filter(Report.assessment_id == lead.assessment_id).order_by(Report.created_at.desc()).all()
+    advisor_bookings = db.query(AdvisorBooking).filter(
+        or_(AdvisorBooking.lead_id == lead.id, AdvisorBooking.assessment_id == lead.assessment_id)
+    ).order_by(AdvisorBooking.created_at.desc()).all()
+    documents = db.query(UploadedDocument).filter(
+        UploadedDocument.lead_id == lead.id, UploadedDocument.deleted_at.is_(None)
+    ).order_by(UploadedDocument.created_at.desc()).all()
+    projects = db.query(FinancingProject).filter(FinancingProject.lead_id == lead.id).order_by(FinancingProject.updated_at.desc()).all()
+    raw_follow_logs = db.query(LeadFollowLog).filter(
+        LeadFollowLog.lead_id == lead.id
+    ).order_by(LeadFollowLog.created_at.desc()).all()
     tasks = db.query(FollowTask).filter(FollowTask.lead_id == lead.id).order_by(FollowTask.due_time).all()
     next_action = calculate_next_best_action(lead, orders, tasks)
     track_event(
@@ -274,16 +323,22 @@ def lead_detail(
             "sales_script": sales_script,
             "products": products,
             "product_labels": recommended_product_labels,
+            "orders": orders,
+            "reports": reports,
+            "advisor_bookings": advisor_bookings,
+            "documents": documents,
+            "projects": projects,
             "tasks": tasks,
             "current_user": user,
             "can_edit": user.role in SALES_WRITE_ROLES,
+            "can_assign_sales": user.role in {"admin", "super_admin", "sales_manager"},
+            "follow_status_options": ["未联系", "已联系", "已加微信", "已发报告", "已付费", "已上传资料", "已预约顾问", "已进入项目", "已流失"],
             "next_action": next_action,
             "matched_scripts": matched_scripts(db, lead),
             "all_tags": db.query(Tag).order_by(Tag.name).all(),
             "lead_tags": [link.tag for link in lead.tag_links],
-            "follow_logs": db.query(LeadFollowLog).filter(
-                LeadFollowLog.lead_id == lead.id
-            ).order_by(LeadFollowLog.created_at.desc()).all(),
+            "follow_logs": raw_follow_logs,
+            "follow_log_rows": [_format_follow_log(log) for log in raw_follow_logs],
             "sales_users": db.query(User).filter(User.role == "sales", User.is_active.is_(True)).all(),
             "organizations": db.query(Organization).filter(Organization.status=="active").all(),
             "customer_account": db.query(CustomerAccount).filter(CustomerAccount.lead_id==lead.id).first(),
@@ -339,6 +394,64 @@ def update_lead(
     db.commit()
     logger.info("线索更新 lead_id=%s operator=%s", lead.id, user.username)
     return RedirectResponse(url=f"/admin/leads/{lead_id}", status_code=303)
+
+
+@router.post("/admin/leads/{lead_id}/follow-status")
+def update_lead_follow_status(
+    lead_id: int,
+    follow_status: str = Form(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*SALES_WRITE_ROLES)),
+):
+    lead = db.get(Lead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="线索不存在")
+    _assert_lead_access(db, user, lead)
+    old_status = lead.follow_status
+    lead.follow_status = follow_status.strip()
+    lead.updated_at = datetime.now()
+    add_follow_log(db, lead.id, user, "follow_status_changed", "修改跟进状态", old_status, lead.follow_status)
+    track_event(db, "lead_follow_status_updated", lead.assessment_id, lead.id, {"operator": user.username, "follow_status": lead.follow_status}, commit=False)
+    db.commit()
+    return RedirectResponse(url=f"/admin/leads/{lead_id}#follow-status", status_code=303)
+
+
+@router.post("/admin/leads/{lead_id}/follow-records/create")
+def create_lead_follow_record(
+    lead_id: int,
+    follow_method: str = Form(...),
+    follow_result: str = Form(...),
+    follow_note: str = Form(""),
+    next_follow_time: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*SALES_WRITE_ROLES)),
+):
+    lead = db.get(Lead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="线索不存在")
+    _assert_lead_access(db, user, lead)
+    parsed_next = datetime.fromisoformat(next_follow_time) if next_follow_time else None
+    lead.next_follow_time = parsed_next
+    lead.last_follow_note = follow_note.strip()
+    lead.updated_at = datetime.now()
+    payload = {
+        "method": follow_method.strip(),
+        "result": follow_result.strip(),
+        "note": follow_note.strip(),
+        "next_follow_time": parsed_next.strftime("%Y-%m-%d %H:%M") if parsed_next else "",
+    }
+    add_follow_log(
+        db,
+        lead.id,
+        user,
+        "manual_followup",
+        json.dumps(payload, ensure_ascii=False),
+        "",
+        follow_result.strip(),
+    )
+    track_event(db, "lead_follow_record_created", lead.assessment_id, lead.id, {"operator": user.username, "result": follow_result.strip()}, commit=False)
+    db.commit()
+    return RedirectResponse(url=f"/admin/leads/{lead_id}#follow-history", status_code=303)
 
 
 @router.post("/admin/leads/{lead_id}/assign-sales")

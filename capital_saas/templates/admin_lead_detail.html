@@ -2,20 +2,189 @@
 {% block title %}线索详情｜{{ lead.company_name }}{% endblock %}
 {% block content %}
 <section class="admin-shell container">
-  <div class="admin-top"><div><div class="eyebrow">线索 #{{ lead.id }}</div><h1>{{ lead.company_name }}</h1></div><div class="admin-links"><form method="post" action="/admin/leads/{{ lead.id }}/client-portal/open"><button class="btn btn-gold">开通/管理客户门户</button></form><a href="/admin/leads/{{ lead.id }}/document-center">企业资料中心</a><a href="/admin/leads/{{ lead.id }}/due-diligence">尽调底稿</a><a href="/admin/leads/{{ lead.id }}/application-package">材料包</a><a class="btn" href="/admin/leads">返回线索列表</a></div></div>
-  <div class="lead-detail-grid"><div class="lead-main">
-    <section class="card detail-card"><h2>试运营作战信息</h2><p>当前阶段：<b>{{ lead.pilot_stage or '未加入试运营' }}</b> · 批次ID：{{ lead.pilot_batch_id or '-' }}</p>{% if pilot_sop %}<div class="script-block"><span>{{ pilot_sop.owner_role }} · {{ pilot_sop.priority }}</span><p><b>{{ pilot_sop.next_action }}</b></p><p>{{ pilot_sop.suggested_message }}</p><small>{{ pilot_sop.risk }}</small></div>{% endif %}<p><a class="btn" href="/admin/leads/{{ lead.id }}/journey">查看客户旅程</a></p>{% if can_edit %}<form method="post" action="/admin/leads/{{ lead.id }}/assign-pilot-batch" class="inline-add-form"><select name="pilot_batch_id">{% for b in pilot_batches %}<option value="{{ b.id }}">{{ b.batch_name }}</option>{% endfor %}</select><input name="pilot_note" placeholder="备注"><button class="btn">加入试运营批次</button></form>{% endif %}</section>
-    <section class="card detail-card"><div class="task-section-head"><h2>客户门户待办</h2>{% if customer_account %}<a href="/admin/client-portals/{{ customer_account.id }}">管理门户</a>{% endif %}</div>{% for task in customer_tasks %}<div class="client-row"><b>{{ task.task_title }}</b><span>{{ task.status|zh }}</span></div>{% else %}<p class="empty">暂无客户任务</p>{% endfor %}</section>
-    <section class="card detail-card"><h2>企业与来源</h2><div class="detail-data"><div><span>联系人</span><strong>{{ lead.contact_name }}</strong></div><div><span>手机号</span><strong>{{ lead.phone }}</strong></div><div><span>微信</span><strong>{{ lead.wechat_id or '-' }}</strong></div><div><span>渠道</span><strong>{{ (lead.source_channel or 'direct')|source_channel_label }}</strong></div><div><span>活动</span><strong>{{ lead.utm_campaign or lead.source_campaign or '-' }}</strong></div><div><span>落地页</span><strong>{{ lead.source_landing_page|landing_page_label }}</strong></div></div></section>
-    <section class="card detail-card nba-card"><div class="task-section-head"><h2>下一步最佳动作</h2><span>{{ next_action.priority|zh }}</span></div><h3>{{ next_action.next_action }}</h3><p>{{ next_action.reason }}</p><div class="script-block"><span>建议话术</span><p>{{ next_action.suggested_script }}</p><button type="button" class="copy-script" data-copy-text="{{ next_action.suggested_script }}" data-lead-id="{{ lead.id }}">一键复制</button></div></section>
-    {% if can_edit %}<section class="card detail-card"><h2>融资项目立项</h2><form class="inline-add-form" method="post" action="/admin/financing-projects/create"><input type="hidden" name="lead_id" value="{{ lead.id }}"><input name="project_name" value="{{ lead.company_name }}融资交付项目" required><input type="number" name="target_amount" value="{{ assessment.funding_need }}" required><input type="hidden" name="priority" value="high"><button class="btn btn-primary">创建融资项目</button></form></section>{% endif %}
-    <section class="card detail-card"><h2>客户标签</h2><div>{% for tag in lead_tags %}<span class="lead-tag" style="--tag-color:{{ tag.color }}">{{ tag.name }}{% if can_edit %}<form class="inline-form" method="post" action="/admin/leads/{{ lead.id }}/tags/{{ tag.id }}/remove"><button>×</button></form>{% endif %}</span>{% else %}<p>暂无标签</p>{% endfor %}</div>{% if can_edit %}<form class="inline-add-form" method="post" action="/admin/leads/{{ lead.id }}/tags/add"><select name="tag_id">{% for tag in all_tags %}<option value="{{ tag.id }}">{{ tag.name }}</option>{% endfor %}</select><button class="btn">添加标签</button></form>{% endif %}</section>
-    <section class="card detail-card"><h2>匹配话术库</h2>{% for script in matched_scripts %}<div class="script-block"><span>{{ script.name }} · {{ script.scenario|script_scenario_label }}</span><p>{{ script.content }}</p><button type="button" class="copy-script" data-copy-text="{{ script.content }}" data-lead-id="{{ lead.id }}" data-template-id="{{ script.id }}">一键复制</button></div>{% else %}<p>暂无匹配话术</p>{% endfor %}</section>
-    <section class="card detail-card"><h2>AI销售话术</h2>{% for key, label in [('opening_script','开场话术'),('pain_point_script','痛点话术'),('offer_script','方案话术'),('follow_up_script','跟进话术'),('upgrade_script','升级话术')] %}<div class="script-block"><span>{{ label }}</span><p>{{ sales_script.get(key, '暂无话术') }}</p></div>{% endfor %}</section>
-    <section class="card detail-card"><div class="task-section-head"><h2>跟进任务</h2><span>{{ tasks|length }}项</span></div>{% for task in tasks %}<article class="lead-task {{ task.status|zh }}"><div><span>{{ task.task_type|zh }} · {{ task.priority|zh }}</span><h3>{{ task.task_title }}</h3><p>{{ task.task_content }}</p><small>{{ task.due_time.strftime('%Y-%m-%d %H:%M') }} · {{ task.status|zh }}</small></div>{% if task.status == 'pending' and can_edit %}<div class="task-actions"><form method="post" action="/admin/follow-tasks/{{ task.id }}/done"><input type="hidden" name="next_url" value="/admin/leads/{{ lead.id }}"><button>完成</button></form><form method="post" action="/admin/follow-tasks/{{ task.id }}/cancel"><input type="hidden" name="next_url" value="/admin/leads/{{ lead.id }}"><button class="muted-button">取消</button></form></div>{% endif %}</article>{% else %}<p>暂无任务</p>{% endfor %}</section>
-    <section class="card detail-card"><h2>跟进时间线</h2><div class="timeline-list">{% for log in follow_logs %}<article><span>{{ log.created_at.strftime('%m-%d %H:%M') }}</span><div><strong>{{ log.action_type }}</strong><p>{{ log.content }}</p><small>{{ log.user.username if log.user else '系统' }}{% if log.old_status or log.new_status %} · {{ log.old_status }} → {{ log.new_status }}{% endif %}</small></div></article>{% else %}<p>暂无跟进记录</p>{% endfor %}</div></section>
+  <div class="admin-top">
+    <div>
+      <div class="eyebrow">线索 #{{ lead.id }}</div>
+      <h1>销售跟进详情页</h1>
+    </div>
+    <div class="admin-links">
+      <a href="/admin/leads">返回线索列表</a>
+      <a href="/admin/leads/{{ lead.id }}/journey">客户旅程</a>
+      <a href="/admin/leads/{{ lead.id }}/document-center">资料中心</a>
+    </div>
   </div>
-  {% if can_edit %}<aside class="card detail-card follow-form"><h2>更新跟进</h2><form method="post" action="/admin/leads/{{ lead.id }}/update"><label>跟进状态<select name="follow_status">{% for status in ['待联系','已联系','跟进中','已付款','暂缓','无效'] %}<option {{ 'selected' if lead.follow_status == status else '' }}>{{ status }}</option>{% endfor %}</select></label><label>成交状态<select name="conversion_status">{% for status in ['未成交','意向中','高客单意向','已成交','已流失'] %}<option {{ 'selected' if lead.conversion_status == status else '' }}>{{ status }}</option>{% endfor %}</select></label><label>分配销售<select name="assigned_sales_id"><option value="0">未分配</option>{% for sales in sales_users %}<option value="{{ sales.id }}" {{ 'selected' if lead.assigned_sales_id == sales.id else '' }}>{{ sales.username }}</option>{% endfor %}</select></label><label>销售备注名<input name="assigned_sales" value="{{ lead.assigned_sales or '' }}"></label><label>下次跟进<input type="datetime-local" name="next_follow_time" value="{{ lead.next_follow_time.strftime('%Y-%m-%dT%H:%M') if lead.next_follow_time else '' }}"></label><label>备注<textarea name="last_follow_note">{{ lead.last_follow_note or '' }}</textarea></label><button class="btn btn-primary btn-block">保存</button></form></aside>{% endif %}
+
+  <section class="card detail-card lead-profile-card">
+    <div class="lead-profile-main">
+      <div class="task-section-head">
+        <div>
+          <span class="badge grade-{{ lead.lead_grade|lower }}">{{ lead.lead_grade|lead_grade_label }}</span>
+          <h2>{{ lead.company_name|display_company_name }}</h2>
+        </div>
+        <span class="priority-pill">{{ lead.follow_status|zh }}</span>
+      </div>
+      <div class="lead-info-grid">
+        <div><span>企业名称</span><strong>{{ lead.company_name|display_company_name }}</strong></div>
+        <div><span>联系人</span><strong>{{ lead.contact_name or '-' }}</strong></div>
+        <div><span>手机号</span><strong>{{ lead.phone or '-' }}</strong></div>
+        <div><span>微信号</span><strong>{{ lead.wechat_id or '-' }}</strong></div>
+        <div><span>城市</span><strong>{{ lead.city or '-' }}</strong></div>
+        <div><span>线索等级</span><strong>{{ lead.lead_grade|lead_grade_label }}</strong></div>
+        <div><span>推荐产品</span><strong>{{ lead.recommended_product|product_label }}</strong></div>
+        <div><span>来源渠道</span><strong>{{ (lead.source_channel or 'direct')|source_channel_label }}</strong></div>
+        <div><span>负责销售</span><strong>{% if lead.assigned_sales_user %}{{ lead.assigned_sales_user|user_display_name }}{% elif lead.assigned_sales %}{{ lead.assigned_sales }}{% else %}未分配{% endif %}</strong></div>
+        <div><span>提交时间</span><strong>{{ lead.created_at.strftime('%Y-%m-%d %H:%M') }}</strong></div>
+      </div>
+    </div>
+    <aside class="lead-quick-actions">
+      <button class="btn" type="button" data-copy-text="{{ lead.phone or '' }}">复制电话</button>
+      <button class="btn" type="button" data-copy-text="{{ lead.wechat_id or '' }}">复制微信</button>
+      <a class="btn btn-primary" href="#follow-form">添加跟进</a>
+      {% if reports %}<a class="btn" href="/admin/reports/{{ reports[0].id }}">查看报告</a>{% else %}<a class="btn" href="/report/{{ lead.assessment_id }}">查看报告</a>{% endif %}
+      <a class="btn" href="/admin/advisor-bookings">顾问预约</a>
+      {% if can_assign_sales %}<a class="btn btn-primary" href="#assign-sales">分配销售</a>{% endif %}
+    </aside>
+  </section>
+
+  <nav class="lead-section-tabs">
+    <a href="#assessment">测评结果</a>
+    <a href="#orders">订单记录</a>
+    <a href="#reports">报告记录</a>
+    <a href="#advisor-bookings">顾问预约</a>
+    <a href="#documents">资料上传</a>
+    <a href="#projects">融资项目</a>
+    <a href="/admin/leads/{{ lead.id }}/journey">客户旅程</a>
+  </nav>
+
+  <div class="lead-follow-layout">
+    <main class="lead-follow-main">
+      {% if can_edit %}
+      <section class="card detail-card" id="follow-status">
+        <div class="task-section-head"><h2>跟进状态</h2><span>当前：{{ lead.follow_status|zh }}</span></div>
+        <form class="follow-status-grid" method="post" action="/admin/leads/{{ lead.id }}/follow-status">
+          {% for status in follow_status_options %}
+          <button class="btn {{ 'btn-primary' if lead.follow_status == status else '' }}" name="follow_status" value="{{ status }}" type="submit">{{ status }}</button>
+          {% endfor %}
+        </form>
+      </section>
+
+      <section class="card detail-card" id="follow-form">
+        <h2>添加跟进记录</h2>
+        <form class="lead-follow-record-form" method="post" action="/admin/leads/{{ lead.id }}/follow-records/create">
+          <label>跟进方式
+            <select name="follow_method" required>
+              <option value="电话">电话</option>
+              <option value="微信">微信</option>
+              <option value="短信">短信</option>
+              <option value="面谈">面谈</option>
+              <option value="系统">系统</option>
+            </select>
+          </label>
+          <label>跟进结果
+            <select name="follow_result" required>
+              {% for status in follow_status_options %}
+              <option value="{{ status }}">{{ status }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>下次跟进时间<input type="datetime-local" name="next_follow_time" value="{{ lead.next_follow_time.strftime('%Y-%m-%dT%H:%M') if lead.next_follow_time else '' }}"></label>
+          <label class="wide">跟进备注<textarea name="follow_note" placeholder="记录客户意向、异议点、承诺动作或下一步安排">{{ lead.last_follow_note or '' }}</textarea></label>
+          <button class="btn btn-primary">保存跟进记录</button>
+        </form>
+      </section>
+      {% endif %}
+
+      <section class="card detail-card" id="follow-history">
+        <div class="task-section-head"><h2>历史跟进记录 / 跟进时间线</h2><span>{{ follow_log_rows|length }} 条</span></div>
+        <div class="table-card follow-history-table">
+          <table>
+            <thead><tr><th>时间</th><th>跟进人</th><th>跟进方式</th><th>跟进结果</th><th>备注</th><th>下次跟进时间</th></tr></thead>
+            <tbody>
+              {% for row in follow_log_rows %}
+              <tr>
+                <td>{{ row.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ row.user|user_display_name if row.user else '系统' }}</td>
+                <td>{{ row.method }}</td>
+                <td>{{ row.result }}</td>
+                <td>{{ row.note }}</td>
+                <td>{{ row.next_follow_time }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="6" class="empty">暂无跟进记录</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card detail-card nba-card">
+        <div class="task-section-head"><h2>下一步最佳动作</h2><span>{{ next_action.priority|zh }}</span></div>
+        <h3>{{ next_action.next_action }}</h3>
+        <p>{{ next_action.reason }}</p>
+        <div class="script-block">
+          <span>建议话术</span>
+          <p>{{ next_action.suggested_script }}</p>
+          <button type="button" class="copy-script" data-copy-text="{{ next_action.suggested_script }}" data-lead-id="{{ lead.id }}">一键复制</button>
+        </div>
+      </section>
+
+      <section class="card detail-card"><div class="task-section-head"><h2>跟进任务</h2><span>{{ tasks|length }} 项</span></div>{% for task in tasks %}<article class="lead-task {{ task.status|zh }}"><div><span>{{ task.task_type|zh }} · {{ task.priority|zh }}</span><h3>{{ task.task_title }}</h3><p>{{ task.task_content }}</p><small>{{ task.due_time.strftime('%Y-%m-%d %H:%M') }} · {{ task.status|zh }}</small></div>{% if task.status == 'pending' and can_edit %}<div class="task-actions"><form method="post" action="/admin/follow-tasks/{{ task.id }}/done"><input type="hidden" name="next_url" value="/admin/leads/{{ lead.id }}"><button>完成</button></form><form method="post" action="/admin/follow-tasks/{{ task.id }}/cancel"><input type="hidden" name="next_url" value="/admin/leads/{{ lead.id }}"><button class="muted-button">取消</button></form></div>{% endif %}</article>{% else %}<p>暂无任务</p>{% endfor %}</section>
+
+      <section class="card detail-card"><h2>客户标签</h2><div>{% for tag in lead_tags %}<span class="lead-tag" style="--tag-color:{{ tag.color }}">{{ tag.name }}{% if can_edit %}<form class="inline-form" method="post" action="/admin/leads/{{ lead.id }}/tags/{{ tag.id }}/remove"><button>×</button></form>{% endif %}</span>{% else %}<p>暂无标签</p>{% endfor %}</div>{% if can_edit %}<form class="inline-add-form" method="post" action="/admin/leads/{{ lead.id }}/tags/add"><select name="tag_id">{% for tag in all_tags %}<option value="{{ tag.id }}">{{ tag.name }}</option>{% endfor %}</select><button class="btn">添加标签</button></form>{% endif %}</section>
+
+      <section class="card detail-card"><h2>匹配话术库</h2>{% for script in matched_scripts %}<div class="script-block"><span>{{ script.name }} · {{ script.scenario|script_scenario_label }}</span><p>{{ script.content }}</p><button type="button" class="copy-script" data-copy-text="{{ script.content }}" data-lead-id="{{ lead.id }}" data-template-id="{{ script.id }}">一键复制</button></div>{% else %}<p>暂无匹配话术</p>{% endfor %}</section>
+
+      <section class="card detail-card"><h2>AI销售话术</h2>{% for key, label in [('opening_script','开场话术'),('pain_point_script','痛点话术'),('offer_script','方案话术'),('follow_up_script','跟进话术'),('upgrade_script','升级话术')] %}<div class="script-block"><span>{{ label }}</span><p>{{ sales_script.get(key, '暂无话术') }}</p></div>{% endfor %}</section>
+
+      <section class="card detail-card pilot-suggestion-card"><h2>试运营跟进建议</h2><p>当前阶段：<b>{{ lead.pilot_stage or '未加入试运营' }}</b> · 批次ID：{{ lead.pilot_batch_id or '-' }}</p>{% if pilot_sop %}<div class="script-block"><span>{{ pilot_sop.owner_role }} · {{ pilot_sop.priority }}</span><p><b>{{ pilot_sop.next_action }}</b></p><p>{{ pilot_sop.suggested_message }}</p><small>{{ pilot_sop.risk }}</small></div>{% endif %}<p><a class="btn" href="/admin/leads/{{ lead.id }}/journey">查看客户旅程</a></p>{% if can_edit %}{% if pilot_batches %}<form method="post" action="/admin/leads/{{ lead.id }}/assign-pilot-batch" class="pilot-batch-form"><label>选择试运营批次<select name="pilot_batch_id" required><option value="" disabled selected>请选择要加入的试运营批次</option>{% for b in pilot_batches %}<option value="{{ b.id }}">{{ b.batch_name }}</option>{% endfor %}</select></label><label>备注<input name="pilot_note" placeholder="备注"></label><button class="btn btn-primary">加入试运营批次</button></form>{% else %}<p class="empty">暂无可加入的试运营批次</p>{% endif %}{% endif %}</section>
+    </main>
+
+    <aside class="lead-side-stack">
+      {% if can_assign_sales %}
+      <section class="card detail-card" id="assign-sales">
+        <h2>分配销售</h2>
+        <form class="side-form" method="post" action="/admin/leads/{{ lead.id }}/assign-sales">
+          <label>销售账号
+            <select name="sales_user_id" required>
+              {% for sales in sales_users %}
+              <option value="{{ sales.id }}" {{ 'selected' if lead.assigned_sales_id == sales.id else '' }}>{{ sales|user_display_name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button class="btn btn-primary btn-block">确认分配</button>
+        </form>
+      </section>
+      {% endif %}
+
+      <section class="card detail-card" id="assessment">
+        <h2>测评结果</h2>
+        <div class="detail-data single"><div><span>企业评分</span><strong>{{ assessment.score }} / {{ assessment.grade }}</strong></div><div><span>融资需求</span><strong>{{ assessment.funding_need }}</strong></div><div><span>行业</span><strong>{{ assessment.industry }}</strong></div></div>
+      </section>
+
+      <section class="card detail-card" id="orders"><h2>订单记录</h2>{% for order in orders %}<div class="client-row"><b>{{ order.product_code|product_label }}</b><span>{{ order.status|zh }} · ¥{{ "%.2f"|format(order.amount) }}</span></div>{% else %}<p>暂无订单</p>{% endfor %}</section>
+      <section class="card detail-card" id="reports"><h2>报告记录</h2>{% for report in reports %}<div class="client-row"><b><a href="/admin/reports/{{ report.id }}">报告 #{{ report.id }}</a></b><span>{{ report.review_status|zh }}</span></div>{% else %}<p>暂无报告</p>{% endfor %}</section>
+      <section class="card detail-card" id="advisor-bookings"><h2>顾问预约</h2>{% for booking in advisor_bookings %}<div class="client-row"><b><a href="/admin/advisor-bookings/{{ booking.id }}">{{ booking.service_type|product_label }}</a></b><span>{{ booking.booking_status|zh }}</span></div>{% else %}<p>暂无预约</p>{% endfor %}</section>
+      <section class="card detail-card" id="documents"><h2>资料上传</h2>{% for doc in documents[:5] %}<div class="client-row"><b>{{ doc.file_name }}</b><span>{{ doc.parse_status|zh }}</span></div>{% else %}<p>暂无资料</p>{% endfor %}<p><a class="btn" href="/admin/leads/{{ lead.id }}/document-center">进入资料中心</a></p></section>
+      <section class="card detail-card" id="projects"><h2>融资项目</h2>{% for project in projects %}<div class="client-row"><b><a href="/admin/financing-projects/{{ project.id }}">{{ project.project_name }}</a></b><span>{{ project.project_status|zh }}</span></div>{% else %}<p>暂无项目</p>{% endfor %}{% if can_edit %}<form class="side-form" method="post" action="/admin/financing-projects/create"><input type="hidden" name="lead_id" value="{{ lead.id }}"><input name="project_name" value="{{ lead.company_name }}融资交付项目" required><input type="number" name="target_amount" value="{{ assessment.funding_need }}" required><input type="hidden" name="priority" value="high"><button class="btn btn-primary btn-block">创建融资项目</button></form>{% endif %}</section>
+
+      <section class="card detail-card"><div class="task-section-head"><h2>客户门户待办</h2>{% if customer_account %}<a href="/admin/client-portals/{{ customer_account.id }}">管理门户</a>{% endif %}</div>{% for task in customer_tasks %}<div class="client-row"><b>{{ task.task_title }}</b><span>{{ task.status|zh }}</span></div>{% else %}<p>暂无客户任务</p>{% endfor %}</section>
+    </aside>
   </div>
 </section>
+<script>
+  document.querySelectorAll("[data-copy-text]").forEach((button) => {
+    const originalText = button.textContent;
+    button.addEventListener("click", async () => {
+      const text = button.getAttribute("data-copy-text") || "";
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        button.textContent = "已复制";
+        setTimeout(() => { button.textContent = originalText; }, 1200);
+      } catch (error) {
+        window.prompt("复制以下内容", text);
+      }
+    });
+  });
+</script>
 {% endblock %}
