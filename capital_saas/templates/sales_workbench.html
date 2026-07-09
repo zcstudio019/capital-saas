@@ -5,7 +5,7 @@
   <div class="admin-top">
     <div>
       <div class="eyebrow">销售工作台</div>
-      <h1>{{ current_user|user_display_name }}的工作台</h1>
+      <h1>销售工作台{% if current_user.role != 'sales' %}（查看模式）{% endif %}</h1>
     </div>
     <div class="admin-links">
       <a class="active" href="/sales/workbench">销售工作台</a>

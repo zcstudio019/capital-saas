@@ -179,7 +179,7 @@ def dashboard(
         scope=get_access_scope(db,user)
         if scope.allowed_partner_ids:return RedirectResponse(f"/admin/channel-partners/{scope.allowed_partner_ids[0]}",303)
     if role=="city_manager":return RedirectResponse('/admin/city-dashboard',303)
-    if role in {"sales_manager","sales"}:return RedirectResponse('/sales/workbench',303)
+    if role=="sales":return RedirectResponse('/sales/workbench',303)
     if role in {"consultant_manager","consultant"}:return RedirectResponse('/admin/delivery',303)
     return templates.TemplateResponse(
         request=request,

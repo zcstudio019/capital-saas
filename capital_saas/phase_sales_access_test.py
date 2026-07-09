@@ -44,6 +44,19 @@ def run():
     with TestClient(app) as client:
         login = client.post("/login", data={"username": "admin", "password": "admin123", "next_url": "/admin"}, follow_redirects=False)
         assert login.status_code == 303
+        assert login.headers["location"] == "/admin"
+
+        client.get("/logout")
+        admin_login_ignores_sales_next = client.post(
+            "/login",
+            data={"username": "admin", "password": "admin123", "next_url": "/sales/workbench"},
+            follow_redirects=False,
+        )
+        assert admin_login_ignores_sales_next.status_code == 303
+        assert admin_login_ignores_sales_next.headers["location"] == "/admin"
+        admin_dashboard = client.get("/admin", follow_redirects=False)
+        assert admin_dashboard.status_code == 200
+        assert "/admin/users" in admin_dashboard.text
 
         users_page = client.get("/admin/users")
         assert users_page.status_code == 200

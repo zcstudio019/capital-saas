@@ -16,10 +16,14 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent
 BACKEND_LOGIN_ROLES = {"admin", "super_admin", "sales_manager", "sales", "consultant", "consultant_manager", "viewer"}
 
 
+def _default_backend_home(role: str | None) -> str:
+    return "/sales/workbench" if role == "sales" else "/admin"
+
+
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, next: str = "/admin"):
     if request.session.get("user_id"):
-        return RedirectResponse(url=next if next.startswith("/") else "/admin", status_code=303)
+        return RedirectResponse(url=_default_backend_home(request.session.get("role")), status_code=303)
     return templates.TemplateResponse(
         request=request,
         name="login.html",
@@ -63,12 +67,7 @@ def login(
     request.session["username"] = user.username
     request.session["role"] = user.role
     request.session["session_version"] = user.session_version or 1
-    if user.role == "sales":
-        destination = "/sales/workbench"
-    elif user.role in {"admin", "super_admin", "viewer"}:
-        destination = next_url if next_url.startswith("/") else "/admin"
-    else:
-        destination = next_url if next_url.startswith("/") else "/admin"
+    destination = _default_backend_home(user.role)
     return RedirectResponse(url=destination, status_code=303)
 
 
