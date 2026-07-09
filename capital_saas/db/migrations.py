@@ -112,6 +112,13 @@ SQLITE_COLUMNS = {
         "consultant_user_id": "INTEGER",
         "show_consultant_contact": "BOOLEAN NOT NULL DEFAULT 0",
     },
+    "advisor_bookings": {
+        "city": "VARCHAR(100) NOT NULL DEFAULT ''",
+        "service_type": "VARCHAR(80) NOT NULL DEFAULT 'high_ticket_consulting'",
+        "urgency": "VARCHAR(30) NOT NULL DEFAULT 'normal'",
+        "owner_user_id": "INTEGER",
+        "consultant_user_id": "INTEGER",
+    },
     "financing_projects": {
         "org_id": "INTEGER", "owner_user_id": "INTEGER", "owner_org_id": "INTEGER",
         "consultant_user_id": "INTEGER",

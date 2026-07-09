@@ -31,6 +31,25 @@
         <label>微信
           <input name="wechat_id" value="{{ data.wechat_id or assessment.wechat_id or (lead.wechat_id if lead else '') }}">
         </label>
+        <label>城市
+          <input name="city" value="{{ data.city or assessment.city or (lead.city if lead else '') }}">
+        </label>
+        <label>服务类型
+          <select name="service_type">
+            {% set selected_service = data.service_type or 'high_ticket_consulting' %}
+            {% for value, label in [('financing_structure_consulting','融资结构设计'),('bank_product_matching','银行产品匹配'),('document_review','资料准备与尽调'),('project_delivery','融资项目推进'),('high_ticket_consulting','高客单顾问服务')] %}
+            <option value="{{ value }}" {{ 'selected' if selected_service == value else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>紧急程度
+          <select name="urgency">
+            {% set selected_urgency = data.urgency or 'normal' %}
+            {% for value, label in [('normal','普通'),('urgent','紧急'),('very_urgent','非常紧急')] %}
+            <option value="{{ value }}" {{ 'selected' if selected_urgency == value else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
         <label class="full">咨询重点
           <textarea name="consultation_focus" placeholder="例如：融资额度、银行选择、资料准备、被拒原因、还款压力等">{{ data.consultation_focus or '' }}</textarea>
         </label>

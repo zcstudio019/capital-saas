@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}顾问预约详情{% endblock %}
+{% block content %}
+{% set status_labels = {
+  'submitted':'已提交',
+  'pending':'已提交',
+  'contacted':'已联系',
+  'scheduled':'已安排',
+  'completed':'已完成',
+  'cancelled':'已取消',
+  'invalid':'无效预约'
+} %}
+{% set service_labels = {
+  'financing_structure_consulting':'融资结构设计',
+  'bank_product_matching':'银行产品匹配',
+  'document_review':'资料准备与尽调',
+  'project_delivery':'融资项目推进',
+  'high_ticket_consulting':'高客单顾问服务'
+} %}
+{% set urgency_labels = {
+  'normal':'普通',
+  'urgent':'紧急',
+  'very_urgent':'非常紧急'
+} %}
+<section class="admin-shell container">
+  <div class="admin-top">
+    <div>
+      <div class="eyebrow">顾问预约 #{{ booking.id }}</div>
+      <h1>{{ booking.company_name or (assessment.company_name if assessment else '未填写企业名称') }}</h1>
+      <p>{{ service_labels.get(booking.service_type, booking.service_type or '-') }} · {{ status_labels.get(booking.booking_status, booking.booking_status or '-') }}</p>
+    </div>
+    <div class="admin-links">
+      <a href="/admin">总览</a>
+      <a class="active" href="/admin/advisor-bookings">顾问预约</a>
+      <a class="btn" href="/admin/advisor-bookings">返回列表</a>
+    </div>
+  </div>
+
+  <div class="detail-layout">
+    <section class="card detail-card">
+      <h2>预约信息</h2>
+      <div class="detail-grid">
+        <div><span>企业名称</span><strong>{{ booking.company_name or '-' }}</strong></div>
+        <div><span>联系人</span><strong>{{ booking.contact_name or '-' }}</strong></div>
+        <div><span>手机号</span><strong>{{ booking.phone or '-' }}</strong></div>
+        <div><span>微信号</span><strong>{{ booking.wechat_id or '-' }}</strong></div>
+        <div><span>城市</span><strong>{{ booking.city or '-' }}</strong></div>
+        <div><span>服务类型</span><strong>{{ service_labels.get(booking.service_type, booking.service_type or '-') }}</strong></div>
+        <div><span>紧急程度</span><strong>{{ urgency_labels.get(booking.urgency, booking.urgency or '-') }}</strong></div>
+        <div><span>预约状态</span><strong>{{ status_labels.get(booking.booking_status, booking.booking_status or '-') }}</strong></div>
+        <div><span>负责销售</span><strong>{{ owner|user_display_name if owner else '-' }}</strong></div>
+        <div><span>负责顾问</span><strong>{{ consultant|user_display_name if consultant else '-' }}</strong></div>
+        <div><span>提交时间</span><strong>{{ booking.created_at.strftime('%Y-%m-%d %H:%M') if booking.created_at else '-' }}</strong></div>
+        <div><span>希望沟通时间</span><strong>{{ booking.preferred_time or '-' }}</strong></div>
+      </div>
+    </section>
+
+    <section class="card detail-card">
+      <h2>咨询重点</h2>
+      <p>{{ booking.consultation_focus or '未填写' }}</p>
+      <h2>补充说明</h2>
+      <p>{{ booking.note or '无' }}</p>
+    </section>
+
+    <section class="card detail-card">
+      <h2>关联信息</h2>
+      <div class="detail-grid">
+        <div><span>报告ID</span><strong>{% if booking.report_id %}<a href="/admin/reports/{{ booking.report_id }}">#{{ booking.report_id }}</a>{% else %}-{% endif %}</strong></div>
+        <div><span>线索ID</span><strong>{% if lead %}<a href="/admin/leads/{{ lead.id }}">#{{ lead.id }}</a>{% else %}-{% endif %}</strong></div>
+        <div><span>跟进任务</span><strong>{% if task %}#{{ task.id }} · {{ task.status }}{% else %}-{% endif %}</strong></div>
+      </div>
+      {% if task %}
+      <p class="safe-note">系统已自动创建跟进任务：{{ task.task_title }}</p>
+      {% endif %}
+    </section>
+  </div>
+</section>
+{% endblock %}

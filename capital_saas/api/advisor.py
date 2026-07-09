@@ -70,6 +70,9 @@ def submit_advisor_booking(
     contact_name: str = Form(""),
     phone: str = Form(""),
     wechat_id: str = Form(""),
+    city: str = Form(""),
+    service_type: str = Form("high_ticket_consulting"),
+    urgency: str = Form("normal"),
     consultation_focus: str = Form(""),
     preferred_time: str = Form(""),
     note: str = Form(""),
@@ -82,6 +85,15 @@ def submit_advisor_booking(
     contact_name = (contact_name or assessment.contact_name or (lead.contact_name if lead else "") or "").strip()
     phone = (phone or assessment.phone or (lead.phone if lead else "") or "").strip()
     wechat_id = (wechat_id or assessment.wechat_id or (lead.wechat_id if lead else "") or "").strip()
+    city = (city or assessment.city or (lead.city if lead else "") or "").strip()
+    service_type = service_type if service_type in {
+        "financing_structure_consulting",
+        "bank_product_matching",
+        "document_review",
+        "project_delivery",
+        "high_ticket_consulting",
+    } else "high_ticket_consulting"
+    urgency = urgency if urgency in {"normal", "urgent", "very_urgent"} else "normal"
     focus = consultation_focus.strip()
     preferred_time = preferred_time.strip()
     note = note.strip()
@@ -100,6 +112,9 @@ def submit_advisor_booking(
                     "contact_name": contact_name,
                     "phone": phone,
                     "wechat_id": wechat_id,
+                    "city": city,
+                    "service_type": service_type,
+                    "urgency": urgency,
                     "consultation_focus": focus,
                     "preferred_time": preferred_time,
                     "note": note,
@@ -132,10 +147,15 @@ def submit_advisor_booking(
         contact_name=contact_name,
         phone=phone,
         wechat_id=wechat_id,
+        city=city,
+        service_type=service_type,
+        urgency=urgency,
         consultation_focus=focus,
         preferred_time=preferred_time,
         note=note,
-        booking_status="pending",
+        booking_status="submitted",
+        owner_user_id=(lead.owner_user_id or lead.assigned_sales_id) if lead else None,
+        consultant_user_id=None,
         follow_task_id=task.id if task else None,
     )
     db.add(booking)
@@ -172,14 +192,27 @@ def admin_advisor_bookings(
     query = db.query(AdvisorBooking)
     if status:
         query = query.filter(AdvisorBooking.booking_status == status)
-    if not scope.can_view_all:
+    if scope.role == "sales":
+        lead_ids = [
+            lead.id for lead in db.query(Lead)
+            .filter((Lead.owner_user_id == user.id) | (Lead.assigned_sales_id == user.id))
+            .all()
+        ]
+        query = query.filter((AdvisorBooking.owner_user_id == user.id) | (AdvisorBooking.lead_id.in_(lead_ids or [-1])))
+    elif scope.role == "consultant":
+        query = query.filter(AdvisorBooking.consultant_user_id == user.id)
+    elif not scope.can_view_all:
         lead_ids = [lead.id for lead in db.query(Lead).filter(Lead.owner_org_id.in_(scope.allowed_org_ids or [-1])).all()]
-        if scope.role in {"sales", "consultant"}:
-            lead_ids = [lead.id for lead in db.query(Lead).filter((Lead.owner_user_id == user.id) | (Lead.assigned_sales_id == user.id)).all()]
         query = query.filter(AdvisorBooking.lead_id.in_(lead_ids or [-1]))
     bookings = query.order_by(AdvisorBooking.created_at.desc()).all()
     leads = {item.lead_id: db.get(Lead, item.lead_id) for item in bookings if item.lead_id}
     tasks = {item.follow_task_id: db.get(FollowTask, item.follow_task_id) for item in bookings if item.follow_task_id}
+    user_ids = {
+        user_id for item in bookings
+        for user_id in [item.owner_user_id, item.consultant_user_id]
+        if user_id
+    }
+    users = {user_id: db.get(User, user_id) for user_id in user_ids}
     return templates.TemplateResponse(
         request=request,
         name="admin_advisor_bookings.html",
@@ -187,7 +220,47 @@ def admin_advisor_bookings(
             "bookings": bookings,
             "leads": leads,
             "tasks": tasks,
+            "users": users,
             "filters": {"status": status},
+            "current_user": user,
+        },
+    )
+
+
+@router.get("/admin/advisor-bookings/{booking_id}", response_class=HTMLResponse)
+def admin_advisor_booking_detail(
+    request: Request,
+    booking_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "super_admin", "city_manager", "sales_manager", "sales", "consultant_manager", "consultant", "viewer")),
+):
+    booking = db.get(AdvisorBooking, booking_id)
+    if not booking:
+        raise HTTPException(status_code=404, detail="顾问预约不存在")
+    scope = get_access_scope(db, user)
+    lead = db.get(Lead, booking.lead_id) if booking.lead_id else None
+    if scope.role == "sales" and not (
+        booking.owner_user_id == user.id
+        or (lead and (lead.owner_user_id == user.id or lead.assigned_sales_id == user.id))
+    ):
+        raise HTTPException(status_code=403, detail="无权查看该预约")
+    if scope.role == "consultant" and booking.consultant_user_id != user.id:
+        raise HTTPException(status_code=403, detail="无权查看该预约")
+    if scope.role not in {"sales", "consultant"} and not scope.can_view_all:
+        if not lead or lead.owner_org_id not in (scope.allowed_org_ids or []):
+            raise HTTPException(status_code=403, detail="无权查看该预约")
+    report = db.get(Report, booking.report_id) if booking.report_id else None
+    assessment = report.assessment if report else None
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_advisor_booking_detail.html",
+        context={
+            "booking": booking,
+            "lead": lead,
+            "assessment": assessment,
+            "task": db.get(FollowTask, booking.follow_task_id) if booking.follow_task_id else None,
+            "owner": db.get(User, booking.owner_user_id) if booking.owner_user_id else None,
+            "consultant": db.get(User, booking.consultant_user_id) if booking.consultant_user_id else None,
             "current_user": user,
         },
     )
