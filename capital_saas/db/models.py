@@ -85,6 +85,24 @@ class Report(Base):
     assessment: Mapped[Assessment] = relationship(back_populates="report")
 
 
+class PromotionQRCode(Base):
+    __tablename__ = "promotion_qrcodes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), default="")
+    landing_page: Mapped[str] = mapped_column(String(100), index=True)
+    full_url: Mapped[str] = mapped_column(String(1000), default="")
+    channel: Mapped[str] = mapped_column(String(100), default="qr", index=True)
+    source: Mapped[str] = mapped_column(String(100), default="offline", index=True)
+    campaign: Mapped[str] = mapped_column(String(200), default="")
+    sales_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    qr_image_path: Mapped[str] = mapped_column(String(500), default="")
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+
 class Order(Base):
     __tablename__ = "orders"
 

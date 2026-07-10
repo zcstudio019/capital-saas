@@ -30,6 +30,7 @@ class Settings:
     admin_default_username: str = os.getenv("ADMIN_DEFAULT_USERNAME", "admin")
     admin_default_password: str = os.getenv("ADMIN_DEFAULT_PASSWORD", "admin123")
     site_base_url: str = os.getenv("SITE_BASE_URL", "http://127.0.0.1:8001")
+    promotion_qr_base_url: str = os.getenv("PROMOTION_QR_BASE_URL", "https://capital.linhongtech.com")
     wechat_pay_mch_id: str = os.getenv("WECHAT_PAY_MCH_ID", "")
     wechat_pay_api_key: str = os.getenv("WECHAT_PAY_API_KEY", "")
     alipay_app_id: str = os.getenv("ALIPAY_APP_ID", "")

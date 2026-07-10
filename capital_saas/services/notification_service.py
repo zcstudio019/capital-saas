@@ -295,6 +295,21 @@ def notify_lead_assigned(db: Session, lead, sales_user, commit: bool = False) ->
     if commit:
         db.commit()
 
+
+def notify_qr_lead_created(db: Session, lead, commit: bool = False) -> None:
+    company = getattr(lead, "company_name", "") or "客户"
+    sales_id = getattr(lead, "assigned_sales_id", None)
+    if sales_id:
+        create_internal_notification(db, sales_id, "你收到一条二维码线索",
+            f"客户 {company} 通过你的推广二维码提交了融资测评，请及时跟进。",
+            "qr_lead", related_type="lead", related_id=lead.id, action_url=f"/sales/leads/{lead.id}")
+    else:
+        create_notifications_for_roles(db, {"admin", "super_admin"}, "新二维码线索待分配",
+            f"客户 {company} 通过推广二维码提交了融资测评，请及时分配销售跟进。",
+            "qr_lead", related_type="lead", related_id=lead.id, action_url=f"/admin/leads/{lead.id}")
+    if commit:
+        db.commit()
+
 def notify_advisor_booking_submitted(db: Session, booking, commit: bool = False) -> None:
     company = getattr(booking, "company_name", "") or "客户"
     recipients = {getattr(booking, "owner_user_id", None), getattr(booking, "consultant_user_id", None)}

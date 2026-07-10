@@ -21,7 +21,7 @@ def capture_attribution(request: Request, landing_page: str = "") -> dict:
         "utm_term": request.query_params.get("utm_term", ""),
         "source_channel": request.query_params.get("channel", ""),
         "source_campaign": request.query_params.get("campaign", ""),
-        "source_keyword": request.query_params.get("keyword", ""),
+        "source_keyword": request.query_params.get("source", "") or request.query_params.get("keyword", ""),
     }
     if landing_page:
         mapping["source_landing_page"] = landing_page
@@ -34,6 +34,12 @@ def capture_attribution(request: Request, landing_page: str = "") -> dict:
     pilot = request.query_params.get("pilot", "").strip()
     if pilot:
         session["pilot_invite_code"] = pilot[:100]
+    qr_id = request.query_params.get("qr_id", "").strip()
+    if qr_id.isdigit():
+        session["qr_promotion_id"] = qr_id[:20]
+    sales_id = request.query_params.get("sales_id", "").strip()
+    if sales_id.isdigit():
+        session["qr_sales_id"] = sales_id[:20]
     if not session.get("source_channel") and session.get("utm_source"):
         session["source_channel"] = session["utm_source"]
     if not session.get("source_campaign") and session.get("utm_campaign"):

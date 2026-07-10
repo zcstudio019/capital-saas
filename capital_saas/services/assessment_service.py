@@ -5,12 +5,12 @@ from sqlalchemy.orm import Session
 from core.lead_scoring_engine import calculate_lead_score
 from core.sales_script_engine import generate_sales_script
 from core.scoring_engine import calculate_score
-from db.models import Assessment, ChannelPartner, Lead, Organization, Report
+from db.models import Assessment, ChannelPartner, Lead, Organization, PromotionQRCode, Report, User
 from services.attribution_service import ATTRIBUTION_FIELDS
 from services.event_service import track_event
 from services.follow_task_service import create_default_tasks
 from services.customer_portal_service import ensure_customer_account
-from services.notification_service import notify_new_lead
+from services.notification_service import notify_new_lead, notify_qr_lead_created
 from services.pilot_service import bind_by_invite_code, set_pilot_stage
 
 
@@ -18,6 +18,18 @@ def create_assessment(db: Session, form_data: dict) -> Assessment:
     form_data = dict(form_data)
     partner_code = form_data.pop("partner_source_code", "")
     pilot_invite_code = form_data.pop("pilot_invite_code", "")
+    qr_promotion_id = form_data.pop("qr_promotion_id", "")
+    qr_sales_id = form_data.pop("qr_sales_id", "")
+    qr_record = None
+    assigned_sales_user = None
+    if str(qr_promotion_id).isdigit() and form_data.get("source_channel") == "qr":
+        candidate = db.get(PromotionQRCode, int(qr_promotion_id))
+        if candidate and candidate.is_active:
+            qr_record = candidate
+            if candidate.sales_id and str(candidate.sales_id) == str(qr_sales_id):
+                sales_user = db.get(User, candidate.sales_id)
+                if sales_user and sales_user.is_active and sales_user.role == "sales":
+                    assigned_sales_user = sales_user
     partner = db.query(ChannelPartner).filter(
         ChannelPartner.source_code == partner_code, ChannelPartner.status == "active"
     ).first() if partner_code else None
@@ -75,6 +87,9 @@ def create_assessment(db: Session, form_data: dict) -> Assessment:
             conversion_status="未成交",
             sales_script=json.dumps(sales_script, ensure_ascii=False),
             org_id=org_id, owner_org_id=org_id,
+            assigned_sales_id=assigned_sales_user.id if assigned_sales_user else None,
+            owner_user_id=assigned_sales_user.id if assigned_sales_user else None,
+            assigned_sales=(assigned_sales_user.display_name or assigned_sales_user.username) if assigned_sales_user else "",
             source_partner_id=partner.id if partner else None,
             **{key: getattr(assessment, key, "") for key in ATTRIBUTION_FIELDS},
         )
@@ -99,10 +114,23 @@ def create_assessment(db: Session, form_data: dict) -> Assessment:
         attribution={key: getattr(assessment, key, "") for key in ATTRIBUTION_FIELDS},
         commit=False,
     )
+    if qr_record:
+        track_event(
+            db,
+            "qr_lead_created",
+            assessment_id=assessment.id,
+            lead_id=lead.id,
+            data={"promotion_qrcode_id": qr_record.id},
+            attribution={key: getattr(assessment, key, "") for key in ATTRIBUTION_FIELDS},
+            commit=False,
+        )
     if partner:
         track_event(db, "partner_lead_created", assessment.id, lead.id,
                     {"partner_id": partner.id, "source_code": partner.source_code}, commit=False)
-    notify_new_lead(db, lead, commit=False)
+    if qr_record:
+        notify_qr_lead_created(db, lead, commit=False)
+    else:
+        notify_new_lead(db, lead, commit=False)
     db.commit()
     db.refresh(assessment)
     return assessment

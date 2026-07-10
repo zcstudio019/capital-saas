@@ -13,3 +13,4 @@ pypdf==5.4.0
 pymysql==1.1.1
 psycopg2-binary==2.9.10
 requests==2.32.3
+qrcode[pil]==8.0

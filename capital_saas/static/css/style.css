@@ -346,6 +346,9 @@ th.sticky-action { z-index: 3; background: #f5f7f9; }
 .advisor-actions button, .btn-mini { padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; color: var(--navy-2); background: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
 .advisor-actions button:hover, .btn-mini:hover { border-color: var(--gold); color: #7a4f00; background: #fffaf0; }
 .text-compact { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qrcode-preview { display: block; width: 96px; height: 96px; object-fit: contain; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.qrcode-link { min-width: 260px; }
+.qrcode-link input { width: 100%; min-width: 220px; margin-bottom: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); font-size: 12px; }
 .checkbox-line { display: flex !important; grid-template-columns: none !important; align-items: center; gap: 8px; }
 .grade-s { color: #7a4f00; background: #f8e3aa; }
 .grade-a { color: #17654d; background: #e6f5ef; }

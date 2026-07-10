@@ -117,6 +117,8 @@ def submit_assessment(
         "fund_usage_plan": fund_usage_plan,
         "partner_source_code": str(request.session.get("partner_source_code", ""))[:100],
         "pilot_invite_code": str(request.session.get("pilot_invite_code", ""))[:100],
+        "qr_promotion_id": str(request.session.get("qr_promotion_id", ""))[:20],
+        "qr_sales_id": str(request.session.get("qr_sales_id", ""))[:20],
         **attribution_from_session(request),
     }
     assessment = create_assessment(db, data)

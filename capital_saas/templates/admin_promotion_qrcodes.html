@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}推广二维码管理{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top"><div><div class="eyebrow">推广二维码</div><h1>推广二维码管理</h1><p>二维码仅指向客户测评入口，扫码后提交测评会自动记录推广来源。</p></div><div class="admin-links"><a href="/admin">返回后台</a><a class="active" href="/admin/qrcodes">推广二维码</a></div></div>
+
+  {% if can_manage %}
+  <form class="card detail-card manual-task-form" method="post" action="/admin/qrcodes">
+    <h2 class="wide">生成推广二维码</h2>
+    <label>二维码名称<input name="name" placeholder="例如：线下企业融资测评二维码"></label>
+    <label>二维码类型<select name="channel"><option value="qr">客户推广二维码</option></select></label>
+    <label>客户入口<select name="landing_key">{% for key, item in landing_pages.items() %}<option value="{{ key }}">{{ item.label }}</option>{% endfor %}</select></label>
+    <label>渠道来源<select name="source"><option value="offline">线下推广</option><option value="sales_qr">销售专属推广</option><option value="partner_qr">合作推广</option></select></label>
+    <label>推广活动<input name="campaign" placeholder="可选，例如：2026春季地推"></label>
+    <label>绑定销售<select name="sales_id"><option value="0">不绑定销售</option>{% for sales in sales_users %}<option value="{{ sales.id }}">{{ sales|user_display_name }}</option>{% endfor %}</select></label>
+    <button class="btn btn-primary">生成二维码</button>
+  </form>
+  {% endif %}
+
+  <div class="card table-card"><table><thead><tr><th>二维码名称</th><th>指向页面</th><th>渠道来源</th><th>绑定销售</th><th>二维码预览</th><th>二维码链接</th><th>下载</th><th>创建时间</th><th>状态</th></tr></thead><tbody>
+    {% for item in qrcodes %}
+    {% set sales = sales_users|selectattr('id', 'equalto', item.sales_id)|first %}
+    <tr data-qrcode-id="{{ item.id }}"><td>{{ item.name }}</td><td>{{ landing_labels.get(item.landing_page, '客户测评入口') }}</td><td>{{ '销售专属推广' if item.source == 'sales_qr' else '合作推广' if item.source == 'partner_qr' else '线下推广' }}</td><td>{{ sales|user_display_name if sales else '未绑定销售' }}</td><td><img class="qrcode-preview" src="/admin/qrcodes/{{ item.id }}/image" alt="{{ item.name }}二维码"></td><td class="qrcode-link"><input value="{{ item.full_url }}" readonly><button class="btn-mini copy-qrcode-link" type="button" data-link="{{ item.full_url }}">复制链接</button></td><td><a class="btn-mini" href="/admin/qrcodes/{{ item.id }}/image?download=1">下载图片</a></td><td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ '已启用' if item.is_active else '已停用' }}</td></tr>
+    {% else %}<tr><td colspan="9" class="empty">暂无推广二维码</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<script>
+  document.querySelectorAll('.copy-qrcode-link').forEach((button) => {
+    button.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(button.dataset.link);
+      const original = button.textContent;
+      button.textContent = '已复制';
+      setTimeout(() => { button.textContent = original; }, 1200);
+    });
+  });
+</script>
+{% endblock %}

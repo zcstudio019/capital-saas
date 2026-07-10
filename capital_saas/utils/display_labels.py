@@ -6,7 +6,7 @@ import re
 NAV_LABELS = {
     "admin_dashboard": "总览", "dashboard": "总览", "delivery_dashboard": "交付看板",
     "financing_projects": "融资项目", "sales_workbench": "销售工作台", "leads": "线索管理",
-    "follow_tasks": "跟进任务", "reports": "报告管理", "bank_products": "银行产品",
+    "follow_tasks": "跟进任务", "reports": "报告管理", "qrcodes": "推广二维码", "bank_products": "银行产品",
     "consulting_cases": "顾问案件", "advisor_bookings": "顾问预约", "orders": "订单管理", "growth": "增长看板",
     "hq_dashboard": "总部总览", "city_dashboard": "城市经营", "team_performance": "团队业绩",
     "organizations": "组织管理", "channel_partners": "渠道伙伴", "institution_contacts": "机构联系人",
@@ -177,7 +177,7 @@ NOTIFICATION_TEMPLATE_LABELS = {
     "advisor_booking_submitted_customer": "顾问预约客户通知",
     "advisor_booking_submitted_internal": "顾问预约内部通知",
 }
-INTERNAL_NOTIFICATION_TYPE_LABELS = {"new_lead": "新线索", "lead_assigned": "线索分配", "advisor_booking": "顾问预约", "document_uploaded": "资料上传", "task_due": "任务到期", "task_overdue": "任务逾期", "payment_success": "支付成功", "report_ready": "报告完成", "system": "系统通知"}
+INTERNAL_NOTIFICATION_TYPE_LABELS = {"new_lead": "新线索", "lead_assigned": "线索分配", "qr_lead": "二维码线索", "advisor_booking": "顾问预约", "document_uploaded": "资料上传", "task_due": "任务到期", "task_overdue": "任务逾期", "payment_success": "支付成功", "report_ready": "报告完成", "system": "系统通知"}
 
 
 def get_landing_page_label(path):
@@ -291,7 +291,7 @@ EVENT_LABELS = {
 }
 
 EVENT_LABELS.update({
-    "landing_page_viewed": "落地页已查看", "ab_assigned": "A/B测试已分组",
+    "landing_page_viewed": "落地页已查看", "qr_lead_created": "二维码线索已创建", "ab_assigned": "A/B测试已分组",
     "notification_job_created": "通知任务已创建", "notification_job_sent": "通知任务已发送",
     "notification_job_failed": "通知任务发送失败", "notification_job_cancelled": "通知任务已取消",
     "notification_template_created": "通知模板已创建", "notification_template_updated": "通知模板已更新",
