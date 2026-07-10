@@ -1,6 +1,7 @@
 from typing import Any
 
 from ai.pipelines.section_generator import normalize_section
+from utils.report_display_mapper import display_value
 
 
 class ReportRewriter:
@@ -13,7 +14,7 @@ class ReportRewriter:
         cashflow = context["monthly_cashflow"] / 10000
         receivable = context["receivable_days"]
         funding = context["funding_need"] / 10000
-        grade = context["grade"]
+        grade = display_value("company_grade", context["grade"])
         enriched = []
         for raw in report.get("chapters", []):
             section = normalize_section(raw, raw.get("title", "报告章节"))

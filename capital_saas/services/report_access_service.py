@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from db.models import Assessment, BankProduct, Order
+from utils.report_display_mapper import display_report_text, display_value, sanitize_report_text
 
 
 BANK_MATCH_PRODUCTS = {"699_bank_match", "1999_structure_plan"}
@@ -268,10 +269,11 @@ def _normalize_full_group(group: Any) -> dict[str, Any] | None:
     if not category or not isinstance(items, list) or not items:
         return None
     default = next((item for item in DEFAULT_CHECKLIST_FULL if item["category"] == category), {})
+    priority = group.get("priority") or default.get("priority") or "中"
     return {
         "category": category,
         "purpose": group.get("purpose") or default.get("purpose") or f"用于银行审核{category}相关信息。",
-        "priority": group.get("priority") or default.get("priority") or "中",
+        "priority_display": display_value("priority", priority),
         "items": [str(item) for item in items if str(item).strip()],
         "missing_risk": group.get("missing_risk") or default.get("missing_risk") or "如果缺少该类资料，可能影响银行审批判断或导致补件。",
     }
@@ -287,7 +289,11 @@ def build_document_checklist_full(checklist: dict[str, Any] | None = None) -> di
     existing = {group["category"] for group in groups}
     for default_group in DEFAULT_CHECKLIST_FULL:
         if default_group["category"] not in existing:
-            groups.append(deepcopy(default_group))
+            default_group = deepcopy(default_group)
+            default_group["priority_display"] = display_value(
+                "priority", default_group.pop("priority", "中")
+            )
+            groups.append(default_group)
     return {
         "required_documents": groups,
         "optional_documents": checklist.get("optional_documents", []),
@@ -436,17 +442,27 @@ def build_bank_product_detail_context(
         "loan_term": getattr(product, "loan_term", "") if product else matched.get("loan_term", ""),
         "repayment_methods": getattr(product, "repayment_methods", "") if product else "",
         "application_requirements": getattr(product, "application_requirements", "") if product else "",
-        "access_conditions_json": getattr(product, "access_conditions_json", "") if product else "",
-        "prohibited_conditions_json": getattr(product, "prohibited_conditions_json", "") if product else "",
+        "access_conditions": display_report_text(
+            getattr(product, "application_requirements", "") or getattr(product, "access_conditions_json", "")
+        ) if product else "",
+        "prohibited_conditions": display_report_text(
+            getattr(product, "prohibited_conditions_json", "")
+        ) if product else "",
         "suitable_scenarios": getattr(product, "suitable_scenarios", "") if product else "",
         "target_customer_type": getattr(product, "target_customer_type", "") if product else "",
         "required_documents": getattr(product, "required_documents", "") if product else "",
-        "required_documents_json": getattr(product, "required_documents_json", "") if product else "",
+        "required_documents": display_report_text(
+            getattr(product, "required_documents", "") or getattr(product, "required_documents_json", "")
+        ) if product else "",
         "risk_notes": getattr(product, "risk_notes", "") if product else matched.get("risk_notes", ""),
         "update_note": getattr(product, "update_note", "") if product else "",
         "match_score": matched.get("match_score", ""),
         "reason": matched.get("reason", ""),
         "estimated_amount": matched.get("estimated_amount", ""),
+    }
+    product_data = {
+        key: sanitize_report_text(value) if isinstance(value, str) else value
+        for key, value in product_data.items()
     }
     if not product_data["amount_description"]:
         product_data["amount_description"] = matched.get("estimated_amount", "")

@@ -23,16 +23,15 @@
 
       {% if product_detail_unlocked %}
       <div class="product-detail-grid">
-        <div><h3>产品编码</h3><p>{{ product.product_code or '-' }}</p></div>
         <div><h3>银行类型/原章节</h3><p>{{ product.bank_type or '-' }}</p></div>
         <div><h3>担保方式</h3><p>{{ product.guarantee_method or '-' }}</p></div>
         <div><h3>额度区间</h3><p>{{ product.amount_description or product.estimated_amount or '-' }}</p></div>
         <div><h3>利率区间</h3><p>{{ product.interest_rate_range or '-' }}</p></div>
         <div><h3>期限</h3><p>{{ product.loan_term or '-' }}</p></div>
         <div><h3>还款方式</h3><p>{{ product.repayment_methods or '-' }}</p></div>
-        <div><h3>准入条件</h3><p>{{ product.application_requirements or product.access_conditions_json or '-' }}</p></div>
-        <div><h3>禁入条件</h3><p>{{ product.prohibited_conditions_json or '-' }}</p></div>
-        <div><h3>所需资料</h3><p>{{ product.required_documents_json or product.required_documents or '-' }}</p></div>
+        <div><h3>准入条件</h3><p>{{ product.access_conditions or '-' }}</p></div>
+        <div><h3>禁入条件</h3><p>{{ product.prohibited_conditions or '-' }}</p></div>
+        <div><h3>所需资料</h3><p>{{ product.required_documents or '-' }}</p></div>
         <div><h3>风险提示</h3><p>{{ product.risk_notes or '-' }}</p></div>
         <div><h3>备注</h3><p>{{ product.update_note or '-' }}</p></div>
         <div><h3>推荐理由</h3><p>{{ product.reason or '-' }}</p></div>

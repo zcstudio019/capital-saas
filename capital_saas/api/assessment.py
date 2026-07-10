@@ -13,7 +13,8 @@ from services.ab_test_service import assign_variant
 from services.assessment_service import create_assessment, get_assessment
 from services.attribution_service import attribution_from_session, capture_attribution
 from services.event_service import track_event
-from services.report_service import parse_report
+from services.report_service import parse_customer_free_summary
+from utils.report_display_mapper import display_value
 from services.tag_service import auto_tag_lead
 
 
@@ -128,7 +129,7 @@ def free_result(request: Request, assessment_id: int, db: Session = Depends(get_
     assessment = get_assessment(db, assessment_id)
     if not assessment or not assessment.report:
         raise HTTPException(status_code=404, detail="测评不存在")
-    free, _ = parse_report(assessment.report)
+    free = parse_customer_free_summary(assessment.report)
     session_id = request.session.get("visitor_session_id") or request.session.get("session_id") or "anonymous"
     variant = assign_variant(
         db, session_id, assessment.id, assessment.lead.id if assessment.lead else None
@@ -156,8 +157,12 @@ def assessment_api(assessment_id: int, db: Session = Depends(get_db)):
     return {
         "id": item.id, "company_name": item.company_name, "contact_name": item.contact_name,
         "phone": item.phone, "wechat_id": item.wechat_id, "city": item.city,
-        "industry": item.industry, "score": item.score, "grade": item.grade,
-        "risk_level": item.risk_level, "funding_probability": item.funding_probability,
+        "industry": item.industry, "score": item.score,
+        "company_grade_display": display_value("company_grade", item.grade),
+        "risk_level_display": display_value("risk_level", item.risk_level),
+        "finance_feasibility_display": display_value(
+            "finance_feasibility", item.funding_probability
+        ),
         "source_channel": item.source_channel, "utm_source": item.utm_source,
         "utm_campaign": item.utm_campaign, "source_landing_page": item.source_landing_page,
         "created_at": item.created_at,

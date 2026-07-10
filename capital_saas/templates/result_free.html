@@ -10,7 +10,7 @@
     </div>
     <div class="score-ring">
       <strong>{{ result.score }}</strong><span>/ 100</span>
-      <small>{{ result.grade }}级</small>
+      <small>{{ result.company_grade_display }}</small>
     </div>
   </div>
 </section>
@@ -18,9 +18,9 @@
   <div class="container result-layout">
     <div class="result-main">
       <div class="overview-grid">
-        <div class="card stat"><span>综合等级</span><strong>{{ result.grade }}级</strong><small>{{ result.grade_text }}</small></div>
-        <div class="card stat"><span>银行风险</span><strong class="risk-{{ result.risk_level }}">{{ result.risk_level|zh }}</strong><small>银行授信视角</small></div>
-        <div class="card stat"><span>融资可行性</span><strong>{{ result.funding_probability|zh }}</strong><small>{{ result.finance_now }}</small></div>
+        <div class="card stat"><span>综合评级</span><strong>{{ result.company_grade_display }}</strong><small>{{ result.grade_text }}</small></div>
+        <div class="card stat"><span>银行风险</span><strong>{{ result.risk_level_display }}</strong><small>银行授信视角</small></div>
+        <div class="card stat"><span>融资可行性</span><strong>{{ result.finance_feasibility_display }}</strong><small>{{ result.finance_now }}</small></div>
       </div>
       <div class="card insight danger">
         <div class="insight-icon">!</div><div><span>核心风险提示</span><h3>{{ result.core_risk }}</h3></div>

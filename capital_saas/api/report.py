@@ -18,7 +18,11 @@ from services.report_access_service import (
     build_bank_product_detail_context,
     build_report_access_context,
 )
-from services.report_service import generate_full_report, parse_report
+from services.report_service import (
+    generate_full_report,
+    parse_customer_free_summary,
+    parse_customer_report,
+)
 from services.settings_service import get_bool_setting
 from utils.logger import logger
 
@@ -74,7 +78,7 @@ def full_report(request: Request, assessment_id: int, db: Session = Depends(get_
             context={"assessment": assessment, "report_item": assessment.report},
             status_code=202,
         )
-    _, full = parse_report(assessment.report)
+    full = parse_customer_report(assessment.report)
     current_product = _current_product(db, assessment_id)
     access_context = build_report_access_context(
         db,
@@ -118,7 +122,7 @@ def print_report(request: Request, assessment_id: int, db: Session = Depends(get
             context={"assessment": assessment, "report_item": assessment.report},
             status_code=202,
         )
-    _, full = parse_report(assessment.report)
+    full = parse_customer_report(assessment.report)
     current_product = _current_product(db, assessment_id)
     access_context = build_report_access_context(
         db,
@@ -158,7 +162,7 @@ def bank_product_detail(
             context={"assessment": assessment, "report_item": assessment.report},
             status_code=202,
         )
-    _, full = parse_report(assessment.report)
+    full = parse_customer_report(assessment.report)
     detail_context = build_bank_product_detail_context(db, assessment, full, product_id)
     if detail_context is None:
         raise HTTPException(status_code=404, detail="银行产品不存在")
@@ -185,7 +189,7 @@ def public_report(request: Request, public_token: str, db: Session = Depends(get
     if report.review_status != "approved":
         raise HTTPException(status_code=403, detail="报告正在生成或审核中")
     generate_full_report(db, report.assessment)
-    _, full = parse_report(report)
+    full = parse_customer_report(report)
     access_context = build_report_access_context(
         db,
         report.assessment,
@@ -209,7 +213,8 @@ def report_api(request: Request, assessment_id: int, db: Session = Depends(get_d
     report = db.query(Report).filter(Report.assessment_id == assessment_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="报告不存在")
-    free, full = parse_report(report)
+    free = parse_customer_free_summary(report)
+    full = parse_customer_report(report)
     unlocked = _report_access_allowed(request, db, assessment_id)
     reviewed = not _review_blocks_customer(request, db, report)
     return {

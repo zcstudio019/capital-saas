@@ -36,7 +36,7 @@
   {% if bank_block.fallback_notice %}<p class="safe-note">{{ bank_block.fallback_notice }}</p>{% endif %}
   {% for item in bank_block.matched_products %}
   <a class="match-item match-card-link" href="{{ item.detail_url }}">
-    <div class="task-section-head"><h3>{{ item.product_name }}</h3><span>{{ item.match_level or '匹配' }} · {{ item.match_score }}分</span></div>
+    <div class="task-section-head"><h3>{{ item.product_name }}</h3><span>{{ item.match_level_display or '匹配' }} · {{ item.match_score }}分</span></div>
     {% if bank_match_unlocked %}
     <p>{{ item.recommendation_reason or item.reason }}</p>
     <small>{{ item.bank_name or item.bank_type }} · {{ item.estimated_amount }} · {{ item.interest_rate_range }} · {{ item.loan_term }}</small>
@@ -65,7 +65,7 @@
   <div class="document-full-grid">
     {% for group in checklist_block.required_documents %}
     <article class="document-full-card">
-      <div class="task-section-head"><h3>{{ group.category }}</h3><span class="priority-pill priority-{{ group.priority }}">{{ group.priority|task_priority_label }}</span></div>
+      <div class="task-section-head"><h3>{{ group.category }}</h3><span class="priority-pill">{{ group.priority_display }}</span></div>
       <p><strong>用途说明：</strong>{{ group.purpose }}</p>
       <div><strong>资料明细：</strong><ul>{% for item in group['items'] %}<li>{{ item }}</li>{% endfor %}</ul></div>
       <p class="document-risk"><strong>缺失风险：</strong>{{ group.missing_risk }}</p>

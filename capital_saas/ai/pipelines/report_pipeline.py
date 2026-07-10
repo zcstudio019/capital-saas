@@ -7,6 +7,7 @@ from ai.pipelines.section_generator import SectionGenerator
 from core.bank_approval_engine import simulate_bank_approval
 from core.bank_product_matcher import match_bank_products
 from core.document_checklist_engine import generate_document_checklist
+from utils.report_display_mapper import enrich_report_display_fields
 from utils.report_formatters import normalize_report_action_steps
 
 
@@ -41,6 +42,9 @@ class ReportPipeline:
         report["bank_approval"] = context["bank_approval"]
         report["bank_product_matches"] = context["bank_product_matches"]
         report["document_checklist"] = context["document_checklist"]
+        report["company_grade"] = context["grade"]
+        report["risk_level"] = context["risk_level"]
+        report["finance_feasibility"] = context["funding_probability"]
         report["product_code"] = product_code
         report["pipeline_version"] = 6
         if len(report["chapters"]) >= 5:
@@ -66,4 +70,4 @@ class ReportPipeline:
             "本报告基于用户提交信息及系统模型生成，仅用于企业融资规划参考，不构成贷款承诺、"
             "授信承诺、投资建议或法律意见。实际融资结果以银行、金融机构及相关审批结果为准。"
         )
-        return report, quality
+        return enrich_report_display_fields(report), quality

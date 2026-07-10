@@ -12,6 +12,11 @@ from core.pricing_engine import PRODUCT_RANK
 from ai.pipelines.report_pipeline import ReportPipeline
 from db.models import AIGenerationLog, Assessment, Order, Report, ReportVersion
 from services.settings_service import get_bool_setting
+from utils.report_display_mapper import (
+    build_customer_report_display,
+    display_value,
+    enrich_report_display_fields,
+)
 from utils.report_formatters import normalize_report_action_steps
 
 
@@ -62,6 +67,11 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
     financing = FinancingAgent().generate(data, score)
     risk = RiskAgent().generate(data, score)
     bank = simulate_bank_approval(data, assessment.score).to_dict()
+    company_grade_display = display_value("company_grade", assessment.grade)
+    finance_feasibility_display = display_value(
+        "finance_feasibility", assessment.funding_probability
+    )
+    risk_level_display = display_value("risk_level", assessment.risk_level)
 
     revenue = max(assessment.annual_revenue, 1)
     monthly_revenue = revenue / 12
@@ -74,10 +84,10 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
     weak = assessment.grade in {"C", "D"}
 
     overall_conclusion = (
-        f"企业评分{assessment.score}分（{assessment.grade}级），具备融资基础。当前重点不是简单判断“能否贷款”，"
+        f"企业评分{assessment.score}分（评级{company_grade_display}），具备融资基础。当前重点不是简单判断“能否贷款”，"
         f"而是围绕预计{bank['estimated_credit_limit']}的授信空间，优化成本、期限与申请顺序。"
         if strong
-        else f"企业评分{assessment.score}分（{assessment.grade}级），融资可行性为{assessment.funding_probability}。"
+        else f"企业评分{assessment.score}分（评级{company_grade_display}），融资可行性为{finance_feasibility_display}。"
         f"当前不宜盲目多头申请，应先处理影响审批的硬指标，再进入银行预审。"
     )
 
@@ -88,7 +98,7 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
         f"应收账款周期{assessment.receivable_days}天，直接影响银行对回款稳定性和第一还款来源的判断。",
     ]
     if weak:
-        financial_issues.append("企业等级低于B级，银行更可能要求增信、降低额度或直接暂缓审批。")
+        financial_issues.append("企业评级尚未达到良好水平，银行更可能要求增信、降低额度或暂缓审批。")
 
     allocation = [
         {"name": "主营业务周转与订单交付", "percent": 45 if funding_ratio < 0.35 else 40},
@@ -108,7 +118,7 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
                 *bank["likely_rejection_reasons"][:3],
             ],
             f"模拟审批通过概率约{bank['approval_probability'] * 100:.0f}%，预计可贷额度区间为{bank['estimated_credit_limit']}。"
-            f"银行风险等级为{assessment.risk_level}。",
+            f"银行风险等级为{risk_level_display}。",
             [
                 "先确定融资用途、提款节奏和还款来源，再决定申请产品。",
                 "把流水、纳税、合同、发票、财务报表统一到同一经营口径。",
@@ -319,7 +329,7 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
         ),
     ]
 
-    return {
+    return enrich_report_display_fields({
         "schema_version": 3,
         "generated_by": {
             "provider": (
@@ -342,7 +352,7 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
         },
         "bank_approval": bank,
         "chapters": chapters,
-    }
+    })
 
 
 def _current_product(db: Session, assessment_id: int) -> str:
@@ -405,7 +415,7 @@ def _refresh_bank_product_matches(db: Session, assessment: Assessment, content: 
         details = content["chapters"][4].setdefault("details", {})
         details["bank_product_matches"] = matches
         details["best_application_order"] = matches.get("best_application_order", [])
-    return _apply_product_depth(content, product_code)
+    return enrich_report_display_fields(_apply_product_depth(content, product_code))
 
 
 def _save_version(
@@ -474,7 +484,7 @@ def generate_full_report(
     product_code = desired_product
     fallback = _build_professional_report(db, assessment)
     content, quality = ReportPipeline(db, report).run(assessment, product_code, fallback)
-    content = _apply_product_depth(content, product_code)
+    content = enrich_report_display_fields(_apply_product_depth(content, product_code))
     normalize_report_action_steps(content)
     report.full_report_json = json.dumps(content, ensure_ascii=False)
     report.html_content = ""
@@ -500,3 +510,14 @@ def parse_report(report: Report) -> tuple[dict, dict | None]:
     full = json.loads(report.full_report_json) if report.full_report_json else None
     normalize_report_action_steps(full)
     return free, full
+
+
+def parse_customer_report(report: Report) -> dict | None:
+    """Read a customer-safe report payload with internal fields removed."""
+    _, full = parse_report(report)
+    return build_customer_report_display(full)
+
+
+def parse_customer_free_summary(report: Report) -> dict:
+    free, _ = parse_report(report)
+    return build_customer_report_display(free) or {}

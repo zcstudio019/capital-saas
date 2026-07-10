@@ -8,6 +8,14 @@ from db.models import AIGenerationLog
 from utils.report_formatters import format_action_steps
 
 
+REPORT_LANGUAGE_CONSTRAINT = """
+报告面向企业客户。JSON 中如需内部状态字段，可保留原始枚举值，
+但所有可读叙述、结论、问题、行动建议和风险提示必须使用中文展示词。
+禁止输出 medium、high、low、pending、approved、rejected、strong、weak、normal、excellent、unknown
+等英文枚举或数据库字段名。
+"""
+
+
 SECTION_PROMPTS = [
     ("企业整体评分", "overall_score_prompt.txt"),
     ("商业模式诊断", "business_model_prompt.txt"),
@@ -95,7 +103,7 @@ class SectionGenerator:
             try:
                 if self.client.mode == "openai" and self.client.api_key:
                     payload = self.client.generate_json(
-                        self._prompt(prompt_name),
+                        self._prompt(prompt_name) + REPORT_LANGUAGE_CONSTRAINT,
                         {**context, "section_name": title, "baseline_section": section},
                     )
                     if all(payload.get(key) for key in REQUIRED_KEYS):

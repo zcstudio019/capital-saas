@@ -7,10 +7,9 @@
     <h1>{{ assessment.company_name }}<br><span>企业融资顾问诊断报告</span></h1>
     <div class="cover-meta">
       <span>报告编号：CSY-{{ "%06d"|format(assessment.id) }}</span>
-      <span>企业等级：{{ assessment.grade }}级</span>
-      <span>银行模拟通过率：{{ "%.0f"|format(report.bank_approval.approval_probability * 100) }}%</span>
-      <span>交付版本：{{ report.delivery_scope.level }}（{{ current_product }}）</span>
-      <span>质量评分：{{ report.quality.quality_score }} / 100</span>
+      <span>企业评级：{{ report.company_grade_display }}</span>
+      <span>银行模拟通过率：{{ report.bank_approval.approval_probability_display }}</span>
+      <span>交付版本：{{ report.delivery_scope.level }}</span>
     </div>
     <a class="btn btn-gold print-entry" href="/report/{{ assessment.id }}/print" target="_blank">导出PDF报告</a>
   </div>
@@ -30,7 +29,7 @@
       <div class="consultant-conclusion"><span>本章结论</span><p>{{ chapter.conclusion }}</p></div>
       {% if loop.index == 1 or loop.index == 5 or loop.index == 10 %}
       <div class="bank-approval-panel">
-        <div><span>模拟通过概率</span><strong>{{ "%.0f"|format(report.bank_approval.approval_probability * 100) }}%</strong></div>
+        <div><span>模拟通过概率</span><strong>{{ report.bank_approval.approval_probability_display }}</strong></div>
         <div><span>预计可贷额度</span><strong>{{ report.bank_approval.estimated_credit_limit }}</strong></div>
       </div>
       {% endif %}
@@ -75,7 +74,7 @@
       {% if bank_block.fallback_notice %}<p class="safe-note">{{ bank_block.fallback_notice }}</p>{% endif %}
       {% for item in bank_block.matched_products %}
       <a class="match-item match-card-link" href="{{ item.detail_url }}">
-        <div class="task-section-head"><h3>{{ item.product_name }}</h3><span>{{ item.match_level or '匹配' }} · {{ item.match_score }}分</span></div>
+        <div class="task-section-head"><h3>{{ item.product_name }}</h3><span>{{ item.match_level_display or '匹配' }} · {{ item.match_score }}分</span></div>
         {% if bank_match_unlocked %}
         <p>{{ item.recommendation_reason or item.reason }}</p>
         <small>{{ item.bank_name or item.bank_type }} · {{ item.estimated_amount }} · {{ item.interest_rate_range }} · {{ item.loan_term }}</small>
@@ -104,7 +103,7 @@
       <div class="document-full-grid">
         {% for group in checklist_block.required_documents %}
         <article class="document-full-card">
-          <div class="task-section-head"><h3>{{ group.category }}</h3><span class="priority-pill priority-{{ group.priority }}">{{ group.priority|task_priority_label }}</span></div>
+          <div class="task-section-head"><h3>{{ group.category }}</h3><span class="priority-pill">{{ group.priority_display }}</span></div>
           <p><strong>用途说明：</strong>{{ group.purpose }}</p>
           <div><strong>资料明细：</strong><ul>{% for item in group['items'] %}<li>{{ item }}</li>{% endfor %}</ul></div>
           <p class="document-risk"><strong>缺失风险：</strong>{{ group.missing_risk }}</p>
