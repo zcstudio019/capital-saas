@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from db.models import Lead, LeadTag, Order, Report
 
 
-def list_leads(
+def build_lead_query(
     db: Session,
     lead_grade: str = "",
     follow_status: str = "",
@@ -21,8 +21,26 @@ def list_leads(
     if source_channel:
         query = query.filter(Lead.source_channel == source_channel)
     if tag_id:
-        query = query.join(LeadTag).filter(LeadTag.tag_id == tag_id)
-    return query.order_by(Lead.created_at.desc()).all()
+        query = query.join(LeadTag).filter(LeadTag.tag_id == tag_id).distinct()
+    return query
+
+
+def list_leads(
+    db: Session,
+    lead_grade: str = "",
+    follow_status: str = "",
+    recommended_product: str = "",
+    source_channel: str = "",
+    tag_id: int = 0,
+):
+    return build_lead_query(
+        db,
+        lead_grade,
+        follow_status,
+        recommended_product,
+        source_channel,
+        tag_id,
+    ).order_by(Lead.created_at.desc()).all()
 
 
 def list_reports(db: Session):

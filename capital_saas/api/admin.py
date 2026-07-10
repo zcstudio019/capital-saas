@@ -4,6 +4,7 @@ import json
 import secrets
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -26,7 +27,7 @@ from core.pilot_sop_engine import pilot_sop_recommendation
 from core.data_masking import mask_phone,mask_wechat
 from services.auth_service import require_roles, update_password, verify_password
 from services.audit_service import write_audit_log
-from services.crm_service import list_leads, list_orders, list_reports
+from services.crm_service import build_lead_query, list_leads, list_orders, list_reports
 from services.event_service import track_event
 from services.follow_task_service import create_manual_task
 from services.follow_log_service import add_follow_log
@@ -237,13 +238,69 @@ def leads(
     source_channel: str = "",
     tag_id: int = 0,
     sales_user_id: int = 0,
+    page: int = 1,
+    page_size: int = 10,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*BACKEND_READ_ROLES)),
 ):
-    lead_items=_visible_leads(db,user,list_leads(db, lead_grade, follow_status, recommended_product, source_channel, tag_id))
-    if sales_user_id and effective_role(user)!="sales":
-        lead_items=[lead for lead in lead_items if lead.assigned_sales_id==sales_user_id or (not lead.assigned_sales_id and lead.owner_user_id==sales_user_id)]
-    role=effective_role(user);contacts={}
+    page = max(page, 1)
+    page_size = page_size if page_size in {10, 20, 50} else 10
+    role = effective_role(user)
+    scope = get_access_scope(db, user)
+    lead_query = build_lead_query(
+        db,
+        lead_grade,
+        follow_status,
+        recommended_product,
+        source_channel,
+        tag_id,
+    )
+    if not scope.can_view_all:
+        if scope.role == "partner":
+            lead_query = lead_query.filter(Lead.source_partner_id.in_(scope.allowed_partner_ids or [-1]))
+        elif scope.role == "sales":
+            lead_query = lead_query.filter(Lead.assigned_sales_id == user.id)
+        else:
+            lead_query = lead_query.filter(
+                or_(Lead.owner_org_id.in_(scope.allowed_org_ids or [-1]), Lead.org_id.in_(scope.allowed_org_ids or [-1]))
+            )
+    if sales_user_id and role != "sales":
+        lead_query = lead_query.filter(
+            or_(Lead.assigned_sales_id == sales_user_id, Lead.owner_user_id == sales_user_id)
+        )
+
+    total_count = lead_query.count()
+    total_pages = max((total_count + page_size - 1) // page_size, 1)
+    page = min(page, total_pages)
+    lead_items = lead_query.order_by(Lead.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    pagination_params = {"page_size": page_size}
+    for key, value in {
+        "lead_grade": lead_grade,
+        "follow_status": follow_status,
+        "recommended_product": recommended_product,
+        "source_channel": source_channel,
+        "tag_id": tag_id or "",
+        "sales_user_id": sales_user_id or "",
+    }.items():
+        if value not in {"", 0, None}:
+            pagination_params[key] = value
+
+    def build_pagination_url(target_page: int) -> str:
+        return f"/admin/leads?{urlencode({**pagination_params, 'page': target_page})}"
+
+    page_start = max(1, page - 2)
+    page_end = min(total_pages, page + 2)
+    pagination = {
+        "page": page,
+        "page_size": page_size,
+        "total_count": total_count,
+        "total_pages": total_pages,
+        "pages": list(range(page_start, page_end + 1)),
+        "has_previous": page > 1,
+        "has_next": page < total_pages,
+    }
+    contacts={}
     for item in lead_items:
         full=role=="super_admin" or (role=="sales" and _sales_owns_lead(user,item))
         contacts[item.id]={"phone":item.phone if full else mask_phone(item.phone),"wechat":item.wechat_id if full else mask_wechat(item.wechat_id)}
@@ -260,7 +317,10 @@ def leads(
                 "source_channel": source_channel,
                 "tag_id": tag_id,
                 "sales_user_id": sales_user_id,
+                "page_size": page_size,
             },
+            "pagination": pagination,
+            "build_pagination_url": build_pagination_url,
             "products": products,
             "product_labels": recommended_product_labels,
             "current_user": user,

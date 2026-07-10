@@ -49,6 +49,13 @@
       </select>
     </label>
     {% endif %}
+    <label>每页数量
+      <select name="page_size">
+        {% for size in [10, 20, 50] %}
+        <option value="{{ size }}" {{ 'selected' if filters.page_size == size else '' }}>每页{{ size }}条</option>
+        {% endfor %}
+      </select>
+    </label>
     <button class="btn btn-primary">筛选</button><a class="text-link inline" href="{{ '/sales/leads' if current_user.role == 'sales' else '/admin/leads' }}">重置</a>{% if can_batch_assign %}<button class="btn btn-primary" type="button" id="open-batch-assign">分配线索</button>{% endif %}
   </form>
 
@@ -129,6 +136,30 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
+  <div class="lead-pagination" aria-label="线索分页">
+    <span class="pagination-summary">当前第 {{ pagination.page }} 页 / 共 {{ pagination.total_pages }} 页，共 {{ pagination.total_count }} 条线索</span>
+    {% if pagination.total_pages > 1 %}
+    <nav class="pagination-links">
+      {% if pagination.has_previous %}
+      <a class="pagination-button" href="{{ build_pagination_url(1) }}">首页</a>
+      <a class="pagination-button" href="{{ build_pagination_url(pagination.page - 1) }}">上一页</a>
+      {% else %}
+      <span class="pagination-button disabled">首页</span>
+      <span class="pagination-button disabled">上一页</span>
+      {% endif %}
+      {% for page_number in pagination.pages %}
+      <a class="pagination-button {{ 'active' if page_number == pagination.page else '' }}" href="{{ build_pagination_url(page_number) }}">{{ page_number }}</a>
+      {% endfor %}
+      {% if pagination.has_next %}
+      <a class="pagination-button" href="{{ build_pagination_url(pagination.page + 1) }}">下一页</a>
+      <a class="pagination-button" href="{{ build_pagination_url(pagination.total_pages) }}">末页</a>
+      {% else %}
+      <span class="pagination-button disabled">下一页</span>
+      <span class="pagination-button disabled">末页</span>
+      {% endif %}
+    </nav>
+    {% endif %}
   </div>
 </section>
 {% if can_batch_assign %}

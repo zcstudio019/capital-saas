@@ -1,6 +1,7 @@
 import json
 from datetime import date, datetime, time
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -93,8 +94,13 @@ def workbench(
 
 
 @router.get("/sales/leads", response_class=HTMLResponse)
-def sales_leads():
-    return RedirectResponse(url="/admin/leads", status_code=303)
+def sales_leads(
+    request: Request,
+    user: User = Depends(require_roles("admin", "super_admin", "city_manager", "sales_manager", "sales")),
+):
+    query = urlencode(list(request.query_params.multi_items()))
+    target = "/admin/leads" + (f"?{query}" if query else "")
+    return RedirectResponse(url=target, status_code=303)
 
 
 @router.get("/sales/leads/{lead_id}", response_class=HTMLResponse)
