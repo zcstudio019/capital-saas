@@ -49,6 +49,22 @@ button, input, select, textarea { font: inherit; }
 .brand small { padding-left: 15px; border-left: 1px solid rgba(255,255,255,.2); color: #b8c3d1; }
 .nav nav { display: flex; gap: 28px; font-size: 14px; color: #d9e1ea; }
 .nav nav a:hover { color: var(--gold-light); }
+.nav-notification-link { display: inline-flex; align-items: center; gap: 4px; }
+.notification-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: #d64545;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
 .site-footer { padding: 28px 0; background: var(--navy); color: #91a0b2; font-size: 13px; text-align: center; }
 .hero { min-height: 650px; display: flex; align-items: center; position: relative; overflow: hidden; color: #fff; background: radial-gradient(circle at 78% 30%, #1a4a75 0, transparent 34%), linear-gradient(135deg, #061629, #0b294a 70%, #102f50); }
 .hero:before { content:""; position:absolute; inset:0; opacity:.13; background-image: linear-gradient(rgba(255,255,255,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.12) 1px, transparent 1px); background-size: 48px 48px; }

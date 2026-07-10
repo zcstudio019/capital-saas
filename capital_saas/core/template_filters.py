@@ -171,6 +171,7 @@ def install_chinese_filters(templates: Jinja2Templates) -> Jinja2Templates:
 
 def patch_jinja_templates() -> None:
     original_init = Jinja2Templates.__init__
+    original_template_response = Jinja2Templates.TemplateResponse
     if getattr(Jinja2Templates, "_capital_saas_zh_patched", False):
         return
 
@@ -178,5 +179,30 @@ def patch_jinja_templates() -> None:
         original_init(self, *args, **kwargs)
         install_chinese_filters(self)
 
+    def patched_template_response(self, *args, **kwargs):
+        context = kwargs.get("context")
+        request = kwargs.get("request")
+        if context is None and len(args) >= 3 and isinstance(args[2], dict):
+            context = args[2]
+        if request is None and len(args) >= 1 and hasattr(args[0], "state"):
+            request = args[0]
+        if isinstance(context, dict):
+            count = getattr(getattr(request, "state", None), "notification_unread_count", 0) if request else 0
+            if not count and request is not None:
+                try:
+                    user_id = request.session.get("user_id")
+                    if user_id:
+                        from db.database import SessionLocal
+                        from services.notification_service import get_unread_count
+                        with SessionLocal() as db:
+                            count = get_unread_count(db, int(user_id))
+                        request.state.notification_unread_count = count
+                        request.state.unread_notifications = count
+                except Exception:
+                    count = 0
+            context.setdefault("notification_unread_count", count)
+        return original_template_response(self, *args, **kwargs)
+
     Jinja2Templates.__init__ = patched_init
+    Jinja2Templates.TemplateResponse = patched_template_response
     Jinja2Templates._capital_saas_zh_patched = True

@@ -95,6 +95,7 @@ async def runtime_settings_middleware(request: Request, call_next):
     request.state.site_name = settings.app_name
     request.state.company_name = "沪上银"
     request.state.unread_notifications = 0
+    request.state.notification_unread_count = 0
     request.state.force_password_change = False
     try:
         with SessionLocal() as db:
@@ -102,10 +103,12 @@ async def runtime_settings_middleware(request: Request, call_next):
             request.state.company_name = get_setting(db, "company_name", "沪上银")
             user_id=request.session.get("user_id")
             if user_id:
-                from db.models import InternalNotification,User
+                from db.models import User
+                from services.notification_service import get_unread_count
                 active_user=db.get(User,int(user_id));request.state.force_password_change=bool(active_user and active_user.force_password_change)
-                request.state.unread_notifications=db.query(InternalNotification).filter(
-                    InternalNotification.user_id==int(user_id),InternalNotification.status=="unread").count()
+                unread_count=get_unread_count(db,int(user_id))
+                request.state.unread_notifications=unread_count
+                request.state.notification_unread_count=unread_count
     except Exception:
         pass
     response=await call_next(request)

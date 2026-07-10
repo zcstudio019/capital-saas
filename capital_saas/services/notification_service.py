@@ -259,10 +259,14 @@ def mark_all_notifications_read(db: Session, user_id: int) -> int:
     return count
 
 def get_unread_count(db: Session, user_id: int) -> int:
-    return db.query(InternalNotification).filter(
-        InternalNotification.user_id == user_id,
-        InternalNotification.status == "unread",
-    ).count()
+    try:
+        return db.query(InternalNotification).filter(
+            InternalNotification.user_id == user_id,
+            InternalNotification.status == "unread",
+        ).count()
+    except Exception as exc:
+        logger.warning("未读通知数量查询失败 user_id=%s error=%s", user_id, exc)
+        return 0
 
 def get_user_notifications(db: Session, user_id: int, status: str | None = None) -> list[InternalNotification]:
     q = db.query(InternalNotification).filter(InternalNotification.user_id == user_id)
