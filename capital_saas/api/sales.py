@@ -103,6 +103,16 @@ def sales_leads(
     return RedirectResponse(url=target, status_code=303)
 
 
+@router.get("/sales/follow-tasks", response_class=HTMLResponse)
+def sales_follow_tasks(
+    request: Request,
+    user: User = Depends(require_roles("admin", "super_admin", "city_manager", "sales_manager", "sales")),
+):
+    query = urlencode(list(request.query_params.multi_items()))
+    target = "/admin/follow-tasks" + (f"?{query}" if query else "")
+    return RedirectResponse(url=target, status_code=303)
+
+
 @router.get("/sales/leads/{lead_id}", response_class=HTMLResponse)
 def sales_lead_detail(lead_id: int):
     return RedirectResponse(url=f"/admin/leads/{lead_id}", status_code=303)

@@ -648,9 +648,13 @@ def follow_tasks(
     status: str = "",
     priority: str = "",
     lead_grade: str = "",
+    page: int = 1,
+    page_size: int = 10,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*BACKEND_READ_ROLES)),
 ):
+    page = max(page, 1)
+    page_size = page_size if page_size in {10, 20, 50} else 10
     query = db.query(FollowTask).join(Lead)
     scope=get_access_scope(db,user)
     if not scope.can_view_all:
@@ -663,12 +667,44 @@ def follow_tasks(
         query = query.filter(FollowTask.priority == priority)
     if lead_grade:
         query = query.filter(Lead.lead_grade == lead_grade)
+    total_count = query.count()
+    total_pages = max((total_count + page_size - 1) // page_size, 1)
+    page = min(page, total_pages)
+    task_items = query.order_by(FollowTask.due_time.asc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    pagination_params = {"page_size": page_size}
+    for key, value in {"status": status, "priority": priority, "lead_grade": lead_grade}.items():
+        if value:
+            pagination_params[key] = value
+
+    def build_task_pagination_url(target_page: int) -> str:
+        return f"/admin/follow-tasks?{urlencode({**pagination_params, 'page': target_page})}"
+
+    page_start = max(1, page - 2)
+    page_end = min(total_pages, page + 2)
+
+    def lead_detail_url(lead_id: int) -> str:
+        prefix = "/sales/leads" if user.role == "sales" else "/admin/leads"
+        return f"{prefix}/{lead_id}"
+
     return templates.TemplateResponse(
         request=request,
         name="admin_follow_tasks.html",
         context={
-            "tasks": query.order_by(FollowTask.due_time.asc()).all(),
-            "filters": {"status": status, "priority": priority, "lead_grade": lead_grade},
+            "tasks": task_items,
+            "filters": {"status": status, "priority": priority, "lead_grade": lead_grade, "page_size": page_size},
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "pages": list(range(page_start, page_end + 1)),
+                "has_previous": page > 1,
+                "has_next": page < total_pages,
+            },
+            "build_task_pagination_url": build_task_pagination_url,
+            "current_task_url": build_task_pagination_url(page),
+            "lead_detail_url": lead_detail_url,
             "now": datetime.now(),
             "current_user": user,
             "can_edit": user.role in SALES_WRITE_ROLES,

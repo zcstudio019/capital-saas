@@ -1,23 +1,69 @@
 {% extends "base.html" %}
-{% block title %}跟进任务｜沪上银{% endblock %}
+{% block title %}销售跟进任务｜后台管理{% endblock %}
 {% block content %}
 <section class="admin-shell container">
-  <div class="admin-top"><div><div class="eyebrow">跟进任务</div><h1>销售跟进任务</h1></div><div class="admin-links"><a href="/admin">总览</a><a href="/admin/leads">线索</a><a class="active" href="/admin/follow-tasks">任务</a><a href="/admin/reports">报告</a>{% if current_user.role != 'sales' %}<a href="/admin/orders">订单</a>{% endif %}</div></div>
+  <div class="admin-top">
+    <div><div class="eyebrow">跟进任务</div><h1>{{ '我的跟进任务' if current_user.role == 'sales' else '销售跟进任务' }}</h1></div>
+    <div class="admin-links">
+      {% if current_user.role == 'sales' %}
+      <a href="/sales/workbench">销售工作台</a><a href="/sales/leads">我的线索</a><a class="active" href="/sales/follow-tasks">跟进任务</a><a href="/admin/advisor-bookings">顾问预约</a><a href="/admin/reports">报告查看</a>
+      {% else %}
+      <a href="/admin">总览</a><a href="/admin/leads">线索</a><a class="active" href="/admin/follow-tasks">任务</a><a href="/admin/reports">报告</a><a href="/admin/orders">订单</a>
+      {% endif %}
+    </div>
+  </div>
+
   <form class="card filter-bar" method="get">
-    <label>状态<select name="status"><option value="">全部</option>{% for item in ['pending','done','cancelled'] %}<option value="{{ item }}" {{ 'selected' if filters.status == item else '' }}>{{ item|task_status_label }}</option>{% endfor %}</select></label>
-    <label>优先级<select name="priority"><option value="">全部</option>{% for item in ['high','medium','low'] %}<option value="{{ item }}" {{ 'selected' if filters.priority == item else '' }}>{{ item|task_priority_label }}</option>{% endfor %}</select></label>
-    <label>线索等级<select name="lead_grade"><option value="">全部</option>{% for item in ['S','A','B','C','D'] %}<option value="{{ item }}" {{ 'selected' if filters.lead_grade == item else '' }}>{{ item|lead_grade_label }}</option>{% endfor %}</select></label>
-    <button class="btn btn-primary">筛选</button>
+    <label>状态<select name="status"><option value="">全部</option>{% for item in ['pending', 'done', 'cancelled'] %}<option value="{{ item }}" {{ 'selected' if filters.status == item else '' }}>{{ item|task_status_label }}</option>{% endfor %}</select></label>
+    <label>优先级<select name="priority"><option value="">全部</option>{% for item in ['high', 'medium', 'low'] %}<option value="{{ item }}" {{ 'selected' if filters.priority == item else '' }}>{{ item|task_priority_label }}</option>{% endfor %}</select></label>
+    <label>线索等级<select name="lead_grade"><option value="">全部</option>{% for item in ['S', 'A', 'B', 'C', 'D'] %}<option value="{{ item }}" {{ 'selected' if filters.lead_grade == item else '' }}>{{ item|lead_grade_label }}</option>{% endfor %}</select></label>
+    <label>每页数量<select name="page_size">{% for size in [10, 20, 50] %}<option value="{{ size }}" {{ 'selected' if filters.page_size == size else '' }}>每页{{ size }}条</option>{% endfor %}</select></label>
+    <button class="btn btn-primary">筛选</button><a class="text-link inline" href="{{ '/sales/follow-tasks' if current_user.role == 'sales' else '/admin/follow-tasks' }}">重置</a>
   </form>
+
   {% if current_user.role == 'admin' %}<div class="admin-toolbar"><a class="btn" href="/admin/export/follow-tasks.csv">导出任务表格</a></div>{% endif %}
-  <div class="card table-card"><table class="wide-table"><thead><tr><th>编号</th><th>企业</th><th>联系人</th><th>手机号</th><th>等级</th><th>类型</th><th>标题</th><th>优先级</th><th>到期时间</th><th>状态</th><th>操作</th></tr></thead><tbody>
-  {% for task in tasks %}
-  <tr class="{{ 'overdue-row' if task.status == 'pending' and task.due_time < now else '' }}">
-    <td>#{{ task.id }}</td><td><a href="/admin/leads/{{ task.lead_id }}">{{ task.lead.company_name|display_company_name }}</a></td><td>{{ task.lead.contact_name }}</td><td>{{ task.lead.phone }}</td><td>{{ task.lead.lead_grade|lead_grade_label }}</td>
-    <td>{{ task.task_type|task_type_label }}</td><td>{{ task.task_title or (task.task_type|task_type_label) }}</td><td><span class="priority-{{ task.priority }}">{{ task.priority|task_priority_label }}</span></td><td>{{ task.due_time.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ task.status|task_status_label }}</td>
-    <td>{% if task.status == 'pending' and can_edit %}<div class="task-actions"><form method="post" action="/admin/follow-tasks/{{ task.id }}/done"><input type="hidden" name="next_url" value="/admin/follow-tasks"><button>完成</button></form><form method="post" action="/admin/follow-tasks/{{ task.id }}/cancel"><input type="hidden" name="next_url" value="/admin/follow-tasks"><button class="muted-button">取消</button></form></div>{% else %}-{% endif %}</td>
-  </tr>
-  {% else %}<tr><td colspan="11" class="empty">暂无跟进任务</td></tr>{% endfor %}
-  </tbody></table></div>
+
+  <div class="card table-card follow-tasks-table-card">
+    <table class="follow-tasks-table">
+      <colgroup><col class="task-customer-col"><col class="task-grade-col"><col class="task-content-col"><col class="task-priority-col"><col class="task-time-col"><col class="task-action-col"></colgroup>
+      <thead><tr><th>客户信息</th><th>线索等级</th><th>任务内容</th><th>优先级</th><th>时间状态</th><th class="task-action-cell">操作</th></tr></thead>
+      <tbody>
+      {% for task in tasks %}
+      {% set is_overdue = task.status == 'pending' and task.due_time < now %}
+      <tr class="{{ 'overdue-row' if is_overdue else '' }}" data-task-id="{{ task.id }}">
+        <td data-label="客户信息" class="task-customer-cell"><strong>{{ task.lead.company_name|display_company_name }}</strong><span>{{ task.lead.contact_name }} · {{ task.lead.phone }}</span></td>
+        <td data-label="线索等级" class="task-grade-cell"><span class="badge grade-{{ task.lead.lead_grade|lower }}">{{ task.lead.lead_grade|lead_grade_label }}</span></td>
+        <td data-label="任务内容" class="task-content-cell"><span>{{ task.task_type|task_type_label }}</span><strong>{{ task.task_title or (task.task_type|task_type_label) }}</strong><small>{{ task.task_content or '暂无补充说明' }}</small></td>
+        <td data-label="优先级" class="task-priority-cell"><span class="priority-{{ task.priority }}">{{ task.priority|task_priority_label }}</span></td>
+        <td data-label="时间状态" class="task-time-cell"><strong>{{ task.due_time.strftime('%Y-%m-%d %H:%M') }}</strong><span>{{ task.status|task_status_label }}</span>{% if is_overdue %}<small class="task-overdue">已逾期</small>{% endif %}</td>
+        <td data-label="操作" class="task-action-cell">
+          <div class="follow-task-actions">
+            <a class="btn-mini" href="{{ lead_detail_url(task.lead_id) }}">查看客户</a>
+            {% if task.status == 'pending' and can_edit %}
+            <form method="post" action="/admin/follow-tasks/{{ task.id }}/done"><input type="hidden" name="next_url" value="{{ current_task_url }}"><button class="btn-mini" type="submit">完成</button></form>
+            <form method="post" action="/admin/follow-tasks/{{ task.id }}/cancel"><input type="hidden" name="next_url" value="{{ current_task_url }}"><button class="btn-mini muted-button" type="submit">取消</button></form>
+            {% elif task.status == 'done' %}<span class="task-terminal-state done">已完成</span>
+            {% elif task.status == 'cancelled' %}<span class="task-terminal-state cancelled">已取消</span>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">暂无跟进任务</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="task-pagination" aria-label="跟进任务分页">
+    <span class="pagination-summary">当前第 {{ pagination.page }} 页 / 共 {{ pagination.total_pages }} 页，共 {{ pagination.total_count }} 条任务</span>
+    {% if pagination.total_pages > 1 %}
+    <nav class="pagination-links">
+      {% if pagination.has_previous %}<a class="pagination-button" href="{{ build_task_pagination_url(1) }}">首页</a><a class="pagination-button" href="{{ build_task_pagination_url(pagination.page - 1) }}">上一页</a>{% else %}<span class="pagination-button disabled">首页</span><span class="pagination-button disabled">上一页</span>{% endif %}
+      {% for page_number in pagination.pages %}<a class="pagination-button {{ 'active' if page_number == pagination.page else '' }}" href="{{ build_task_pagination_url(page_number) }}">{{ page_number }}</a>{% endfor %}
+      {% if pagination.has_next %}<a class="pagination-button" href="{{ build_task_pagination_url(pagination.page + 1) }}">下一页</a><a class="pagination-button" href="{{ build_task_pagination_url(pagination.total_pages) }}">末页</a>{% else %}<span class="pagination-button disabled">下一页</span><span class="pagination-button disabled">末页</span>{% endif %}
+    </nav>
+    {% endif %}
+  </div>
 </section>
 {% endblock %}
