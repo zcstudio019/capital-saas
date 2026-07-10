@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top">
+    <h1>通知详情</h1>
+    <div class="admin-links">
+      <a class="btn" href="/admin/notifications">返回我的通知</a>
+      {% if current_user.role in ['admin', 'super_admin'] %}
+      <a class="btn" href="/admin/notifications?view=all">全部通知</a>
+      {% endif %}
+    </div>
+  </div>
+  <section class="card detail-card">
+    <h2>{{ item.title }}</h2>
+    <p>{{ item.content }}</p>
+    <div class="info-grid">
+      <div><span>类型</span><strong>{{ item.notification_type|internal_notification_type_label }}</strong></div>
+      <div><span>状态</span><strong>{{ item.status|notification_status_label }}</strong></div>
+      <div><span>接收人</span><strong>{{ owner|user_display_name if owner else '未知账号' }}</strong></div>
+      <div><span>时间</span><strong>{{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</strong></div>
+    </div>
+    {% if item.action_url %}
+    <div class="inline-actions">
+      <a class="btn btn-primary" href="{{ item.action_url }}">打开相关页面</a>
+    </div>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}

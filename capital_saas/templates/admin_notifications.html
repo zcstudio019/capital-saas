@@ -2,11 +2,14 @@
 {% block content %}
 <section class="admin-shell container">
   <div class="admin-top">
-    <h1>我的通知</h1>
+    <h1>{{ '全部通知' if view == 'all' else '我的通知' }}</h1>
     <div class="admin-links">
-      <a class="btn {{ 'btn-primary' if status == 'unread' else '' }}" href="/admin/notifications?status=unread">未读通知</a>
-      <a class="btn {{ 'btn-primary' if not status else '' }}" href="/admin/notifications">全部通知</a>
-      <a class="btn {{ 'btn-primary' if status == 'read' else '' }}" href="/admin/notifications?status=read">已读通知</a>
+      <a class="btn {{ 'btn-primary' if view == 'mine' and status == 'unread' else '' }}" href="/admin/notifications?status=unread">我的未读</a>
+      <a class="btn {{ 'btn-primary' if view == 'mine' and not status else '' }}" href="/admin/notifications">我的全部</a>
+      <a class="btn {{ 'btn-primary' if view == 'mine' and status == 'read' else '' }}" href="/admin/notifications?status=read">已读通知</a>
+      {% if can_view_all_notifications %}
+      <a class="btn {{ 'btn-primary' if view == 'all' else '' }}" href="/admin/notifications?view=all">全部通知</a>
+      {% endif %}
       <a class="btn" href="/admin/my-notification-preferences">通知偏好</a>
       <form method="post" action="/admin/notifications/read-all">
         <button class="btn">全部已读</button>
@@ -15,6 +18,7 @@
   </div>
   <section class="card">
     {% for n in items %}
+    {% set owner = notification_users.get(n.user_id) %}
     <div class="client-row">
       <div>
         <b>{{ n.title }}</b>
@@ -23,11 +27,16 @@
           {{ n.notification_type|internal_notification_type_label }}
           ｜ {{ n.status|notification_status_label }}
           ｜ {{ n.created_at.strftime('%Y-%m-%d %H:%M') }}
+          {% if view == 'all' %} ｜ 接收人：{{ owner|user_display_name if owner else '未知账号' }}{% endif %}
         </small>
       </div>
       <div class="inline-actions">
+        {% if view == 'all' and n.user_id != current_user.id %}
+        <a class="btn btn-primary" href="/admin/notifications/{{ n.id }}">查看</a>
+        {% else %}
         <a class="btn btn-primary" href="/admin/notifications/{{ n.id }}/open">查看</a>
-        {% if n.status == 'unread' %}
+        {% endif %}
+        {% if n.status == 'unread' and n.user_id == current_user.id %}
         <form method="post" action="/admin/notifications/{{ n.id }}/read">
           <button class="btn">标记已读</button>
         </form>

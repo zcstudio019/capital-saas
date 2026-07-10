@@ -11,6 +11,7 @@ from core.access_scope import get_access_scope
 from db.database import get_db
 from db.models import (
     CustomerAccount,
+    InternalNotification,
     Lead,
     NotificationJob,
     NotificationLog,
@@ -62,6 +63,15 @@ def _validate(title: str, content: str) -> None:
         raise HTTPException(400, str(exc)) from exc
 
 
+def _notification_or_403(db: Session, notification_id: int, user: User) -> InternalNotification:
+    item = db.get(InternalNotification, notification_id)
+    if not item:
+        raise HTTPException(404, "通知不存在")
+    if item.user_id == user.id or user.role in {"admin", "super_admin"}:
+        return item
+    raise HTTPException(403, "无权查看该通知")
+
+
 def _jobs_for_user(db: Session, user: User):
     scope = get_access_scope(db, user)
     query = db.query(NotificationJob)
@@ -95,17 +105,38 @@ def internal_notifications(
     request: Request,
     unread: int = 0,
     status: str = "",
+    view: str = "mine",
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*READ)),
 ):
     selected_status = "unread" if unread else status
     if selected_status not in {"", "unread", "read", "archived"}:
         selected_status = ""
-    items = get_user_notifications(db, user.id, selected_status or None)
+    can_view_all = user.role in {"admin", "super_admin"}
+    selected_view = "all" if view == "all" and can_view_all else "mine"
+    if selected_view == "all":
+        query = db.query(InternalNotification)
+        if selected_status:
+            query = query.filter(InternalNotification.status == selected_status)
+        items = query.order_by(InternalNotification.created_at.desc()).all()
+    else:
+        items = get_user_notifications(db, user.id, selected_status or None)
+    user_ids = {item.user_id for item in items}
+    notification_users = {
+        item.id: item for item in db.query(User).filter(User.id.in_(user_ids or {-1})).all()
+    }
     return templates.TemplateResponse(
         request=request,
         name="admin_notifications.html",
-        context={"items": items, "unread": unread, "status": selected_status, "current_user": user},
+        context={
+            "items": items,
+            "unread": unread,
+            "status": selected_status,
+            "view": selected_view,
+            "can_view_all_notifications": can_view_all,
+            "notification_users": notification_users,
+            "current_user": user,
+        },
     )
 
 
@@ -115,10 +146,28 @@ def open_notification(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*READ)),
 ):
-    item = mark_notification_read(db, notification_id, user.id, commit=True)
-    if not item:
-        raise HTTPException(403, "无权查看该通知")
-    return RedirectResponse(item.action_url or "/admin/notifications", 303)
+    item = _notification_or_403(db, notification_id, user)
+    if item.user_id == user.id:
+        mark_notification_read(db, notification_id, user.id, commit=True)
+    if item.action_url:
+        return RedirectResponse(item.action_url, 303)
+    return RedirectResponse(f"/admin/notifications/{item.id}", 303)
+
+
+@router.get("/admin/notifications/{notification_id}", response_class=HTMLResponse)
+def notification_detail(
+    request: Request,
+    notification_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*READ)),
+):
+    item = _notification_or_403(db, notification_id, user)
+    owner = db.get(User, item.user_id)
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_notification_detail.html",
+        context={"item": item, "owner": owner, "current_user": user},
+    )
 
 
 @router.post("/admin/notifications/{notification_id}/read")
@@ -127,9 +176,9 @@ def read_notification(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*READ)),
 ):
-    item = mark_notification_read(db, notification_id, user.id, commit=True)
-    if not item:
-        raise HTTPException(403, "无权查看该通知")
+    item = _notification_or_403(db, notification_id, user)
+    if item.user_id == user.id:
+        mark_notification_read(db, notification_id, user.id, commit=True)
     return RedirectResponse("/admin/notifications", 303)
 
 
@@ -263,7 +312,13 @@ def job_list(
         context={
             "items": query.order_by(NotificationJob.created_at.desc()).all(),
             "current_user": user,
-            "filters": {"status": status, "channel": channel, "template_key": template_key, "date_from": date_from, "date_to": date_to},
+            "filters": {
+                "status": status,
+                "channel": channel,
+                "template_key": template_key,
+                "date_from": date_from,
+                "date_to": date_to,
+            },
             "templates_list": db.query(NotificationTemplate).all(),
             "can_edit": user.role in {"admin", "super_admin"},
         },

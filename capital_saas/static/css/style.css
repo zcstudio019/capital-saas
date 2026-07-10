@@ -57,13 +57,14 @@ button, input, select, textarea { font: inherit; }
   min-width: 18px;
   height: 18px;
   padding: 0 6px;
-  margin-left: 4px;
+  margin-left: 5px;
   border-radius: 999px;
-  background: #d64545;
+  background: #e53935;
   color: #fff;
   font-size: 12px;
   font-weight: 700;
   line-height: 1;
+  vertical-align: middle;
 }
 .site-footer { padding: 28px 0; background: var(--navy); color: #91a0b2; font-size: 13px; text-align: center; }
 .hero { min-height: 650px; display: flex; align-items: center; position: relative; overflow: hidden; color: #fff; background: radial-gradient(circle at 78% 30%, #1a4a75 0, transparent 34%), linear-gradient(135deg, #061629, #0b294a 70%, #102f50); }
