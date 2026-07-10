@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}销售线索{% endblock %}
+{% block title %}销售线索｜后台管理{% endblock %}
 {% block content %}
 <section class="admin-shell container">
   <div class="admin-top">
@@ -25,13 +25,13 @@
     </div>
   </div>
 
-  {% set can_batch_assign = current_user.role in ['admin','super_admin','sales_manager'] %}
+  {% set can_batch_assign = current_user.role in ['admin', 'super_admin', 'sales_manager'] %}
   <form class="card filter-bar" method="get">
     <label>线索等级
-      <select name="lead_grade"><option value="">全部</option>{% for grade in ['S','A','B','C','D'] %}<option value="{{ grade }}" {{ 'selected' if filters.lead_grade == grade else '' }}>{{ grade|lead_grade_label }}</option>{% endfor %}</select>
+      <select name="lead_grade"><option value="">全部</option>{% for grade in ['S', 'A', 'B', 'C', 'D'] %}<option value="{{ grade }}" {{ 'selected' if filters.lead_grade == grade else '' }}>{{ grade|lead_grade_label }}</option>{% endfor %}</select>
     </label>
     <label>跟进状态
-      <select name="follow_status"><option value="">全部</option>{% for status in ['待联系','已联系','跟进中','已付款','暂缓','无效'] %}<option value="{{ status }}" {{ 'selected' if filters.follow_status == status else '' }}>{{ status }}</option>{% endfor %}</select>
+      <select name="follow_status"><option value="">全部</option>{% for status in ['待联系', '已联系', '跟进中', '已付款', '暂缓', '无效'] %}<option value="{{ status }}" {{ 'selected' if filters.follow_status == status else '' }}>{{ status }}</option>{% endfor %}</select>
     </label>
     <label>推荐产品
       <select name="recommended_product"><option value="">全部</option>{% for code, label in product_labels.items() %}<option value="{{ code }}" {{ 'selected' if filters.recommended_product == code else '' }}>{{ label }}</option>{% endfor %}</select>
@@ -43,121 +43,85 @@
     <label>负责销售
       <select name="sales_user_id">
         <option value="0">全部</option>
-        {% for sales in sales_users %}
-        <option value="{{ sales.id }}" {{ 'selected' if filters.sales_user_id == sales.id }}>{{ sales|user_display_name }}</option>
-        {% endfor %}
+        {% for sales in sales_users %}<option value="{{ sales.id }}" {{ 'selected' if filters.sales_user_id == sales.id else '' }}>{{ sales|user_display_name }}</option>{% endfor %}
       </select>
     </label>
     {% endif %}
     <label>每页数量
-      <select name="page_size">
-        {% for size in [10, 20, 50] %}
-        <option value="{{ size }}" {{ 'selected' if filters.page_size == size else '' }}>每页{{ size }}条</option>
-        {% endfor %}
-      </select>
+      <select name="page_size">{% for size in [10, 20, 50] %}<option value="{{ size }}" {{ 'selected' if filters.page_size == size else '' }}>每页{{ size }}条</option>{% endfor %}</select>
     </label>
-    <button class="btn btn-primary">筛选</button><a class="text-link inline" href="{{ '/sales/leads' if current_user.role == 'sales' else '/admin/leads' }}">重置</a>{% if can_batch_assign %}<button class="btn btn-primary" type="button" id="open-batch-assign">分配线索</button>{% endif %}
+    <button class="btn btn-primary">筛选</button>
+    <a class="text-link inline" href="{{ '/sales/leads' if current_user.role == 'sales' else '/admin/leads' }}">重置</a>
+    {% if can_batch_assign %}<button class="btn btn-primary" type="button" id="open-batch-assign">分配线索</button>{% endif %}
   </form>
 
   {% if request.query_params.get('assign_success') %}
   <div class="alert success">已成功分配 {{ request.query_params.get('assign_success') }} 条线索给销售：{{ request.query_params.get('sales_name') }}</div>
   {% endif %}
 
-  {% if current_user.role == 'admin' %}<div class="admin-toolbar"><a class="btn" href="/admin/export/leads.csv">导出线索CSV</a></div>{% endif %}
+  {% if current_user.role == 'admin' %}<div class="admin-toolbar"><a class="btn" href="/admin/export/leads.csv">导出线索 CSV</a></div>{% endif %}
 
   {% if can_batch_assign %}
   <form id="batch-assign-form" method="post" action="/admin/leads/batch-assign-sales">
     <dialog class="batch-assign-dialog" id="batch-assign-dialog">
       <div class="task-section-head"><h2>分配线索给销售</h2><button class="text-link" type="button" id="close-batch-assign">取消</button></div>
       <p>已选择线索数量：<strong id="selected-lead-count">0</strong></p>
-      <label>销售账号下拉框
-        <select name="sales_user_id" required>
-          {% for sales in sales_users %}
-          <option value="{{ sales.id }}">{{ sales|user_display_name }}</option>
-          {% endfor %}
-        </select>
+      <label>销售账号
+        <select name="sales_user_id" required>{% for sales in sales_users %}<option value="{{ sales.id }}">{{ sales|user_display_name }}</option>{% endfor %}</select>
       </label>
-      <div class="inline-add-form">
-        <button class="btn btn-primary" type="submit">确认分配</button>
-        <button class="btn" type="button" id="cancel-batch-assign">取消</button>
-      </div>
+      <div class="inline-add-form"><button class="btn btn-primary" type="submit">确认分配</button><button class="btn" type="button" id="cancel-batch-assign">取消</button></div>
     </dialog>
   </form>
   {% endif %}
 
-  <div class="card table-card">
-    <table class="wide-table">
+  <div class="card table-card leads-table-card">
+    <table class="leads-table {{ 'has-selection' if can_batch_assign else '' }}">
+      <colgroup>
+        {% if can_batch_assign %}<col class="lead-selection-col">{% endif %}
+        <col class="lead-customer-col"><col class="lead-score-col"><col class="lead-sales-col"><col class="lead-product-col"><col class="lead-status-col"><col class="lead-next-action-col"><col class="lead-action-col">
+      </colgroup>
       <thead>
         <tr>
-          {% if can_batch_assign %}<th><input type="checkbox" id="select-all-leads" aria-label="全选线索"></th>{% endif %}
-          <th>ID</th>
-          <th>企业</th>
-          <th>联系人</th>
-          <th>渠道</th>
-          <th>企业评分</th>
-          <th>线索等级</th>
-          <th>负责销售</th>
-          <th>推荐产品</th>
-          <th>跟进状态</th>
-          <th>下一步动作</th>
-          <th>操作</th>
+          {% if can_batch_assign %}<th class="selection-cell"><input type="checkbox" id="select-all-leads" aria-label="全选线索"></th>{% endif %}
+          <th>客户信息</th><th>评分等级</th><th>负责销售</th><th>推荐产品</th><th>跟进状态</th><th>下一步动作</th><th class="action-cell">操作</th>
         </tr>
       </thead>
       <tbody>
         {% for x in leads %}
         <tr data-company-name="{{ x.company_name }}">
-          {% if can_batch_assign %}<td><input type="checkbox" class="lead-select" name="lead_ids" value="{{ x.id }}" form="batch-assign-form" aria-label="选择线索 #{{ x.id }}"></td>{% endif %}
-          <td>#{{ x.id }}</td>
-          <td>{{ x.company_name|display_company_name }}<br><small>{{ x.city or '-' }}</small></td>
-          <td>{{ x.contact_name }}<br><small>{{ contacts[x.id].phone }} · {{ contacts[x.id].wechat or '-' }}</small></td>
-          <td>{{ (x.source_channel or 'direct')|source_channel_label }}<br><small>{{ x.utm_campaign or x.source_campaign }}</small></td>
-          <td>{{ x.assessment.score }} / {{ x.assessment.grade }}</td>
-          <td><span class="badge grade-{{ x.lead_grade|lower }}">{{ x.lead_grade|lead_grade_label }}</span></td>
-          <td>{% if x.assigned_sales_user %}{{ x.assigned_sales_user|user_display_name }}{% elif x.assigned_sales %}{{ x.assigned_sales }}{% else %}未分配{% endif %}</td>
-          <td>{{ x.recommended_product|product_label }}</td>
-          <td>{{ x.follow_status|zh }}</td>
-          <td><strong>{{ next_actions[x.id].next_action }}</strong><br><small>{{ next_actions[x.id].reason }}</small></td>
-          <td>
-            <a href="{{ '/sales/leads/' ~ x.id if current_user.role == 'sales' else '/admin/leads/' ~ x.id }}">详情/跟进</a>
-            {% if current_user.role in ['admin','super_admin','sales_manager'] %}
-            <form class="inline-add-form" method="post" action="/admin/leads/{{ x.id }}/assign-sales">
-              <select name="sales_user_id" required>
-                {% for sales in sales_users %}
-                <option value="{{ sales.id }}" {{ 'selected' if x.assigned_sales_id == sales.id else '' }}>{{ sales|user_display_name }}</option>
-                {% endfor %}
-              </select>
-              <button>分配</button>
-            </form>
-            {% endif %}
+          {% if can_batch_assign %}<td class="selection-cell" data-label="选择"><input type="checkbox" class="lead-select" name="lead_ids" value="{{ x.id }}" form="batch-assign-form" aria-label="选择线索 #{{ x.id }}"></td>{% endif %}
+          <td data-label="客户信息" class="customer-cell"><strong>{{ x.company_name|display_company_name }}</strong><small>{{ x.city or '-' }}</small><span>{{ x.contact_name }} · {{ contacts[x.id].phone }}</span><small>微信：{{ contacts[x.id].wechat or '-' }}</small></td>
+          <td data-label="评分等级" class="score-cell"><strong>{{ x.assessment.score }} 分</strong><span>企业评级：{{ x.assessment.grade }}级</span><span class="badge grade-{{ x.lead_grade|lower }}">线索：{{ x.lead_grade|lead_grade_label }}</span></td>
+          <td data-label="负责销售" class="sales-cell">{% if x.assigned_sales_user %}{{ x.assigned_sales_user|user_display_name }}{% elif x.assigned_sales %}{{ x.assigned_sales }}{% else %}未分配{% endif %}</td>
+          <td data-label="推荐产品" class="product-cell"><strong>{{ x.recommended_product|product_label }}</strong>{% if purchased_products[x.id] %}<small>已购买：{{ purchased_products[x.id]|join('、') }}</small>{% else %}<small>暂未购买</small>{% endif %}</td>
+          <td data-label="跟进状态" class="status-cell"><strong>{{ x.follow_status|zh }}</strong><small>最近跟进：{{ recent_follow_times[x.id].strftime('%Y-%m-%d %H:%M') if recent_follow_times[x.id] else '暂无跟进记录' }}</small></td>
+          <td data-label="下一步动作" class="next-action-cell"><strong>{{ next_actions[x.id].next_action }}</strong><small>{{ next_actions[x.id].reason }}</small></td>
+          <td data-label="操作" class="action-cell">
+            <div class="lead-action-group">
+              <a class="btn-mini" href="{{ '/sales/leads/' ~ x.id if current_user.role == 'sales' else '/admin/leads/' ~ x.id }}">详情/跟进</a>
+              {% if current_user.role in ['admin', 'super_admin', 'sales_manager'] %}
+              <form class="lead-assign-form" method="post" action="/admin/leads/{{ x.id }}/assign-sales">
+                <select class="lead-sales-select" name="sales_user_id" required>{% for sales in sales_users %}<option value="{{ sales.id }}" {{ 'selected' if x.assigned_sales_id == sales.id else '' }}>{{ sales|user_display_name }}</option>{% endfor %}</select>
+                <button class="btn-mini">分配</button>
+              </form>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="{{ 12 if can_batch_assign else 11 }}" class="empty">暂无符合条件的线索</td></tr>
+        <tr><td colspan="{{ 8 if can_batch_assign else 7 }}" class="empty">暂无符合条件的线索</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+
   <div class="lead-pagination" aria-label="线索分页">
     <span class="pagination-summary">当前第 {{ pagination.page }} 页 / 共 {{ pagination.total_pages }} 页，共 {{ pagination.total_count }} 条线索</span>
     {% if pagination.total_pages > 1 %}
     <nav class="pagination-links">
-      {% if pagination.has_previous %}
-      <a class="pagination-button" href="{{ build_pagination_url(1) }}">首页</a>
-      <a class="pagination-button" href="{{ build_pagination_url(pagination.page - 1) }}">上一页</a>
-      {% else %}
-      <span class="pagination-button disabled">首页</span>
-      <span class="pagination-button disabled">上一页</span>
-      {% endif %}
-      {% for page_number in pagination.pages %}
-      <a class="pagination-button {{ 'active' if page_number == pagination.page else '' }}" href="{{ build_pagination_url(page_number) }}">{{ page_number }}</a>
-      {% endfor %}
-      {% if pagination.has_next %}
-      <a class="pagination-button" href="{{ build_pagination_url(pagination.page + 1) }}">下一页</a>
-      <a class="pagination-button" href="{{ build_pagination_url(pagination.total_pages) }}">末页</a>
-      {% else %}
-      <span class="pagination-button disabled">下一页</span>
-      <span class="pagination-button disabled">末页</span>
-      {% endif %}
+      {% if pagination.has_previous %}<a class="pagination-button" href="{{ build_pagination_url(1) }}">首页</a><a class="pagination-button" href="{{ build_pagination_url(pagination.page - 1) }}">上一页</a>{% else %}<span class="pagination-button disabled">首页</span><span class="pagination-button disabled">上一页</span>{% endif %}
+      {% for page_number in pagination.pages %}<a class="pagination-button {{ 'active' if page_number == pagination.page else '' }}" href="{{ build_pagination_url(page_number) }}">{{ page_number }}</a>{% endfor %}
+      {% if pagination.has_next %}<a class="pagination-button" href="{{ build_pagination_url(pagination.page + 1) }}">下一页</a><a class="pagination-button" href="{{ build_pagination_url(pagination.total_pages) }}">末页</a>{% else %}<span class="pagination-button disabled">下一页</span><span class="pagination-button disabled">末页</span>{% endif %}
     </nav>
     {% endif %}
   </div>
@@ -171,9 +135,7 @@
     const dialog = document.getElementById("batch-assign-dialog");
     const closeButtons = [document.getElementById("close-batch-assign"), document.getElementById("cancel-batch-assign")];
     const countNode = document.getElementById("selected-lead-count");
-    function selectedCount() {
-      return checkboxes.filter((item) => item.checked).length;
-    }
+    function selectedCount() { return checkboxes.filter((item) => item.checked).length; }
     function updateCount() {
       const count = selectedCount();
       countNode.textContent = String(count);
@@ -192,21 +154,12 @@
     if (openButton) {
       openButton.addEventListener("click", () => {
         updateCount();
-        if (!selectedCount()) {
-          alert("请先选择要分配的线索。");
-          return;
-        }
-        if (dialog.showModal) {
-          dialog.showModal();
-        } else {
-          dialog.setAttribute("open", "open");
-        }
+        if (!selectedCount()) { alert("请先选择要分配的线索。"); return; }
+        if (dialog.showModal) { dialog.showModal(); } else { dialog.setAttribute("open", "open"); }
       });
     }
     closeButtons.forEach((button) => {
-      if (button) {
-        button.addEventListener("click", () => dialog.close ? dialog.close() : dialog.removeAttribute("open"));
-      }
+      if (button) { button.addEventListener("click", () => dialog.close ? dialog.close() : dialog.removeAttribute("open")); }
     });
     updateCount();
   })();

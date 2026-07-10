@@ -137,6 +137,11 @@ def run():
             assert "当前第 1 页 / 共 3 页，共 26 条线索" in page_one.text
             assert "pagination-other-26" in page_one.text
             assert "pagination-sales-16" not in page_one.text
+            assert 'class="leads-table has-selection"' in page_one.text
+            assert "wide-table" not in page_one.text
+            assert "lead-assign-form" in page_one.text
+            for column_name in ["客户信息", "评分等级", "负责销售", "推荐产品", "跟进状态", "下一步动作", "操作"]:
+                assert column_name in page_one.text
 
             filtered_page = client.get(
                 f"/admin/leads?source_channel={TEST_SOURCE}&sales_user_id={sales_id}&page_size=10&page=2"
@@ -182,6 +187,7 @@ def run():
             assert "当前第 2 页 / 共 3 页，共 23 条线索" in sales_page.text
             assert "pagination-sales-13" in sales_page.text
             assert "pagination-other-26" not in sales_page.text
+            assert "lead-assign-form" not in sales_page.text
         finally:
             if seed_data:
                 _cleanup(seed_data)

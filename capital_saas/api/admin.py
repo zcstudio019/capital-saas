@@ -300,6 +300,28 @@ def leads(
         "has_previous": page > 1,
         "has_next": page < total_pages,
     }
+    lead_by_assessment_id = {lead.assessment_id: lead for lead in lead_items}
+    orders_by_assessment_id = {assessment_id: [] for assessment_id in lead_by_assessment_id}
+    if lead_by_assessment_id:
+        for order in db.query(Order).filter(Order.assessment_id.in_(lead_by_assessment_id)).all():
+            orders_by_assessment_id.setdefault(order.assessment_id, []).append(order)
+
+    purchased_products = {lead.id: [] for lead in lead_items}
+    for assessment_id, orders in orders_by_assessment_id.items():
+        lead = lead_by_assessment_id[assessment_id]
+        for order in orders:
+            if order.status != "paid":
+                continue
+            product_name = order.product_name or recommended_product_labels.get(order.product_code, order.product_code)
+            if product_name not in purchased_products[lead.id]:
+                purchased_products[lead.id].append(product_name)
+
+    recent_follow_times = dict(
+        db.query(LeadFollowLog.lead_id, func.max(LeadFollowLog.created_at))
+        .filter(LeadFollowLog.lead_id.in_([lead.id for lead in lead_items] or [-1]))
+        .group_by(LeadFollowLog.lead_id)
+        .all()
+    )
     contacts={}
     for item in lead_items:
         full=role=="super_admin" or (role=="sales" and _sales_owns_lead(user,item))
@@ -310,6 +332,8 @@ def leads(
         context={
             "leads": lead_items,
             "contacts": contacts,
+            "purchased_products": purchased_products,
+            "recent_follow_times": recent_follow_times,
             "filters": {
                 "lead_grade": lead_grade,
                 "follow_status": follow_status,
@@ -332,7 +356,7 @@ def leads(
             "next_actions": {
                 lead.id: calculate_next_best_action(
                     lead,
-                    db.query(Order).filter(Order.assessment_id == lead.assessment_id).all(),
+                    orders_by_assessment_id.get(lead.assessment_id, []),
                     db.query(FollowTask).filter(FollowTask.lead_id == lead.id).all(),
                 )
                 for lead in lead_items

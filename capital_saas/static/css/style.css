@@ -276,6 +276,34 @@ td a { color: #1b5f93; font-weight: 700; }
 .pagination-button:hover { border-color: var(--gold); color: #7a4f00; background: #fffaf0; }
 .pagination-button.active { color: #fff; border-color: var(--navy-2); background: var(--navy-2); }
 .pagination-button.disabled { color: #9ca8b5; border-color: #e5e9ee; background: #f5f7f9; cursor: not-allowed; }
+.leads-table-card { overflow: visible; }
+.leads-table { width: 100%; min-width: 0; table-layout: fixed; }
+.leads-table th, .leads-table td { white-space: normal; overflow-wrap: anywhere; word-break: break-word; vertical-align: top; }
+.leads-table th { padding: 13px 10px; }
+.leads-table td { padding: 14px 10px; }
+.leads-table .lead-customer-col { width: 22%; }
+.leads-table .lead-score-col { width: 10%; }
+.leads-table .lead-sales-col { width: 12%; }
+.leads-table .lead-product-col { width: 16%; }
+.leads-table .lead-status-col { width: 12%; }
+.leads-table .lead-next-action-col { width: 18%; }
+.leads-table .lead-action-col { width: 10%; }
+.leads-table.has-selection .lead-selection-col { width: 4%; }
+.leads-table.has-selection .lead-customer-col { width: 21%; }
+.leads-table.has-selection .lead-score-col { width: 9%; }
+.leads-table.has-selection .lead-sales-col { width: 11%; }
+.leads-table.has-selection .lead-product-col { width: 15%; }
+.leads-table.has-selection .lead-status-col { width: 11%; }
+.leads-table.has-selection .lead-next-action-col { width: 16%; }
+.leads-table.has-selection .lead-action-col { width: 13%; }
+.leads-table .customer-cell strong, .leads-table .customer-cell span, .leads-table .customer-cell small, .leads-table .score-cell strong, .leads-table .score-cell span, .leads-table .product-cell strong, .leads-table .product-cell small, .leads-table .status-cell strong, .leads-table .status-cell small, .leads-table .next-action-cell strong, .leads-table .next-action-cell small { display: block; }
+.leads-table small { margin-top: 3px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.leads-table .badge { width: fit-content; margin-top: 6px; }
+.leads-table .selection-cell { padding-right: 4px; padding-left: 8px; text-align: center; }
+.leads-table .action-cell { min-width: 140px; padding: 12px 8px; }
+.lead-action-group, .lead-assign-form { display: grid; gap: 7px; }
+.lead-action-group .btn-mini { width: 100%; text-align: center; }
+.lead-sales-select { width: 100%; max-width: 130px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); background: #fff; font-size: 12px; }
 .wide-table { min-width: 1650px; }
 .alert { margin: 0 0 18px; padding: 13px 16px; border-radius: 8px; background: #eef3f8; color: #435266; }
 .alert.success { color: #17654d; background: #e6f5ef; }
@@ -520,6 +548,19 @@ details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold)
   .lead-quick-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lead-detail-sidebar, .lead-side-stack { position: static; }
   .pilot-batch-form { grid-template-columns: 1fr; }
+  .leads-table-card { overflow: visible; border: 0; background: transparent; box-shadow: none; }
+  .leads-table, .leads-table tbody, .leads-table tr, .leads-table td { display: block; width: 100%; min-width: 0; }
+  .leads-table colgroup, .leads-table thead { display: none; }
+  .leads-table tr { margin-bottom: 14px; padding: 8px 14px; overflow: hidden; border: 1px solid rgba(20, 52, 84, .11); border-radius: 12px; background: #fff; box-shadow: 0 5px 16px rgba(7, 24, 45, .05); }
+  .leads-table td { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 8px; padding: 11px 0; border-bottom: 1px solid var(--line); text-align: left; }
+  .leads-table td::before { grid-column: 1; grid-row: 1 / span 8; content: attr(data-label); color: #607084; font-size: 12px; font-weight: 800; }
+  .leads-table td > * { grid-column: 2; min-width: 0; }
+  .leads-table .selection-cell { display: flex; justify-content: flex-end; padding: 4px 0 8px; }
+  .leads-table .selection-cell::before, .leads-table td.empty::before { display: none; }
+  .leads-table .selection-cell input { margin: 0; }
+  .leads-table .action-cell { min-width: 0; border-bottom: 0; }
+  .leads-table .lead-action-group { width: min(100%, 240px); }
+  .leads-table td.empty { display: block; padding: 36px 14px; border: 0; }
 }
 
 @media (max-width: 640px) {
