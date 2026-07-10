@@ -1,10 +1,22 @@
 {% extends "base.html" %}
-{% block title %}订单管理｜沪上银{% endblock %}
+{% block title %}订单管理｜后台管理{% endblock %}
 {% block content %}
 <section class="admin-shell container">
   <div class="admin-top"><div><div class="eyebrow">订单管理</div><h1>订单管理</h1></div><div class="admin-links"><a href="/admin">总览</a><a href="/admin/leads">线索</a><a href="/admin/follow-tasks">任务</a><a href="/admin/reports">报告</a><a class="active" href="/admin/orders">订单</a></div></div>
-  {% if current_user.role == 'admin' %}<div class="admin-toolbar"><a class="btn" href="/admin/export/orders.csv">导出订单CSV</a></div>{% endif %}
-  <form class="card filter-bar" method="get"><label>渠道<select name="source_channel"><option value="">全部</option>{% for channel in channels %}<option value="{{ channel }}" {{ 'selected' if source_channel == channel else '' }}>{{ channel|source_channel_label }}</option>{% endfor %}</select></label><button class="btn btn-primary">筛选</button></form>
-  <div class="card table-card"><table><thead><tr><th>ID</th><th>企业</th><th>来源</th><th>产品</th><th>金额</th><th>支付渠道</th><th>状态</th><th>支付时间</th><th>操作</th></tr></thead><tbody>{% for x in orders %}<tr><td>#{{ x.id }}</td><td>{{ x.assessment.company_name }}</td><td>{{ (x.source_channel or 'direct')|source_channel_label }}</td><td>{{ x.product_name }}</td><td>¥{{ "%.2f"|format(x.amount) }}</td><td>{{ x.pay_channel|payment_channel_label }}</td><td><span class="badge {{ 'paid' if x.status == 'paid' else '' }}">{{ x.status|order_status_label }}</span></td><td>{{ x.paid_at.strftime('%Y-%m-%d %H:%M') if x.paid_at else '-' }}</td><td><a href="/admin/orders/{{ x.id }}">详情</a></td></tr>{% else %}<tr><td colspan="9" class="empty">暂无订单</td></tr>{% endfor %}</tbody></table></div>
+  {% if current_user.role == 'admin' %}<div class="admin-toolbar"><a class="btn" href="/admin/export/orders.csv">导出订单 CSV</a></div>{% endif %}
+  <form class="card filter-bar" method="get">
+    <label>企业/联系人<input name="company_keyword" value="{{ filters.company_keyword }}" placeholder="搜索企业或联系人"></label>
+    <label>订单状态<select name="status"><option value="">全部</option>{% for item in ['pending', 'paid', 'refunded', 'cancelled', 'failed', 'closed'] %}<option value="{{ item }}" {{ 'selected' if filters.status == item else '' }}>{{ item|order_status_label }}</option>{% endfor %}</select></label>
+    <label>产品类型<select name="product_code"><option value="">全部</option>{% for item in ['299_report', '699_bank_match', '1999_structure_plan', 'high_ticket_consulting'] %}<option value="{{ item }}" {{ 'selected' if filters.product_code == item else '' }}>{{ item|product_label }}</option>{% endfor %}</select></label>
+    <label>支付渠道<select name="pay_channel"><option value="">全部</option>{% for item in ['mock', 'manual_transfer', 'wechat', 'alipay', 'bank_transfer', 'local'] %}<option value="{{ item }}" {{ 'selected' if filters.pay_channel == item else '' }}>{{ item|payment_channel_label }}</option>{% endfor %}</select></label>
+    <label>来源渠道<select name="source_channel"><option value="">全部</option>{% for channel in channels %}<option value="{{ channel }}" {{ 'selected' if filters.source_channel == channel else '' }}>{{ channel|source_channel_label }}</option>{% endfor %}</select></label>
+    <label>每页数量<select name="page_size">{% for size in [10, 20, 50] %}<option value="{{ size }}" {{ 'selected' if filters.page_size == size else '' }}>每页{{ size }}条</option>{% endfor %}</select></label>
+    <button class="btn btn-primary">筛选</button><a class="text-link inline" href="/admin/orders">重置</a>
+  </form>
+  <div class="card table-card"><table><thead><tr><th>订单编号</th><th>企业名称</th><th>联系人</th><th>产品</th><th>金额</th><th>订单状态</th><th>支付渠道</th><th>支付时间</th><th>创建时间</th><th>操作</th></tr></thead><tbody>
+    {% for x in orders %}<tr data-order-id="{{ x.id }}"><td>#{{ x.id }}</td><td>{{ x.assessment.company_name|display_company_name }}</td><td>{{ x.assessment.contact_name or '-' }}</td><td>{{ x.product_code|product_label }}</td><td>¥{{ "%.2f"|format(x.amount) }}</td><td><span class="badge {{ 'paid' if x.status == 'paid' else '' }}">{{ x.status|order_status_label }}</span></td><td>{{ x.pay_channel|payment_channel_label }}</td><td>{{ x.paid_at.strftime('%Y-%m-%d %H:%M') if x.paid_at else '-' }}</td><td>{{ x.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><a href="/admin/orders/{{ x.id }}">详情</a></td></tr>
+    {% else %}<tr><td colspan="10" class="empty">暂无符合条件的订单</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% include "components/pagination.html" %}
 </section>
 {% endblock %}

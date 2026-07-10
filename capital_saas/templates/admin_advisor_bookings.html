@@ -2,93 +2,22 @@
 {% block title %}顾问预约管理{% endblock %}
 {% block content %}
 <section class="admin-shell container">
-  <div class="admin-top">
-    <div>
-      <div class="eyebrow">顾问预约</div>
-      <h1>顾问预约</h1>
-    </div>
-    <div class="admin-links">
-      <a href="/admin">总览</a>
-      <a href="/admin/leads">线索</a>
-      <a href="/admin/follow-tasks">任务</a>
-      <a href="/admin/consulting-cases">顾问案件</a>
-      <a class="active" href="/admin/advisor-bookings">顾问预约</a>
-      {% if current_user.role != 'sales' %}<a href="/admin/orders">订单管理</a>{% endif %}
-    </div>
-  </div>
-
+  <div class="admin-top"><div><div class="eyebrow">顾问预约</div><h1>顾问预约</h1></div><div class="admin-links"><a href="/admin">总览</a><a href="/admin/leads">线索</a><a href="/admin/follow-tasks">任务</a><a href="/admin/consulting-cases">顾问案件</a><a class="active" href="/admin/advisor-bookings">顾问预约</a>{% if current_user.role != 'sales' %}<a href="/admin/orders">订单管理</a>{% endif %}</div></div>
   <form class="card filter-bar" method="get">
-    <label>预约状态
-      <select name="status">
-        <option value="">全部</option>
-        {% for item in ['submitted','contacted','scheduled','completed','cancelled'] %}
-        <option value="{{ item }}" {{ 'selected' if filters.status == item else '' }}>{{ item|booking_status_label }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <button class="btn btn-primary">筛选</button>
+    <label>预约状态<select name="status"><option value="">全部</option>{% for item in ['submitted', 'assigned', 'contacted', 'scheduled', 'completed', 'cancelled', 'invalid'] %}<option value="{{ item }}" {{ 'selected' if filters.status == item else '' }}>{{ item|booking_status_label }}</option>{% endfor %}</select></label>
+    <label>紧急程度<select name="urgency"><option value="">全部</option>{% for item in ['normal', 'urgent', 'very_urgent'] %}<option value="{{ item }}" {{ 'selected' if filters.urgency == item else '' }}>{{ item|urgency_level_label }}</option>{% endfor %}</select></label>
+    <label>服务类型<select name="service_type"><option value="">全部</option>{% for item in ['financing_structure_consulting', 'bank_product_matching', 'document_review', 'project_delivery', 'high_ticket_consulting'] %}<option value="{{ item }}" {{ 'selected' if filters.service_type == item else '' }}>{{ item|service_type_label }}</option>{% endfor %}</select></label>
+    <label>负责销售<select name="owner_user_id"><option value="0">全部</option>{% for sales in sales_users %}<option value="{{ sales.id }}" {{ 'selected' if filters.owner_user_id == sales.id else '' }}>{{ sales|user_display_name }}</option>{% endfor %}</select></label>
+    <label>负责顾问<select name="consultant_user_id"><option value="0">全部</option>{% for consultant in consultant_users %}<option value="{{ consultant.id }}" {{ 'selected' if filters.consultant_user_id == consultant.id else '' }}>{{ consultant|user_display_name }}</option>{% endfor %}</select></label>
+    <label>城市<select name="city"><option value="">全部</option>{% for item in cities %}<option value="{{ item }}" {{ 'selected' if filters.city == item else '' }}>{{ item }}</option>{% endfor %}</select></label>
+    <label>每页数量<select name="page_size">{% for size in [10, 20, 50] %}<option value="{{ size }}" {{ 'selected' if filters.page_size == size else '' }}>每页{{ size }}条</option>{% endfor %}</select></label>
+    <button class="btn btn-primary">筛选</button><a class="text-link inline" href="/admin/advisor-bookings">重置</a>
   </form>
-
-  <div class="card table-card advisor-booking-table">
-    <table>
-      <thead>
-        <tr>
-          <th>企业名称</th>
-          <th>联系人</th>
-          <th>手机号</th>
-          <th>微信号</th>
-          <th>城市</th>
-          <th>服务类型</th>
-          <th>咨询重点</th>
-          <th>紧急程度</th>
-          <th>预约状态</th>
-          <th>负责销售</th>
-          <th>负责顾问</th>
-          <th>提交时间</th>
-          <th class="sticky-action">操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in bookings %}
-        {% set owner = users.get(item.owner_user_id) if item.owner_user_id else None %}
-        {% set consultant = users.get(item.consultant_user_id) if item.consultant_user_id else None %}
-        <tr>
-          <td>{{ item.company_name or '-' }}</td>
-          <td>{{ item.contact_name or '-' }}</td>
-          <td>{{ item.phone or '-' }}</td>
-          <td>{{ item.wechat_id or '-' }}</td>
-          <td>{{ item.city or '-' }}</td>
-          <td>{{ item.service_type|service_type_label }}</td>
-          <td class="text-compact">{{ item.consultation_focus or '-' }}</td>
-          <td>{{ item.urgency|urgency_level_label }}</td>
-          <td>{{ item.booking_status|booking_status_label }}</td>
-          <td>{{ owner|user_display_name if owner else '-' }}</td>
-          <td>{{ consultant|user_display_name if consultant else '-' }}</td>
-          <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else '-' }}</td>
-          <td class="sticky-action table-action advisor-actions">
-            <a class="btn-mini" href="/admin/advisor-bookings/{{ item.id }}">查看详情</a>
-            <a class="btn-mini" href="/admin/advisor-bookings/{{ item.id }}#follow-form">跟进</a>
-            {% if current_user.role != 'viewer' %}
-            <form method="post" action="/admin/advisor-bookings/{{ item.id }}/quick-status">
-              <input type="hidden" name="status" value="contacted">
-              <button type="submit">标记已联系</button>
-            </form>
-            <form method="post" action="/admin/advisor-bookings/{{ item.id }}/quick-status">
-              <input type="hidden" name="status" value="scheduled">
-              <button type="submit">标记已安排</button>
-            </form>
-            <form method="post" action="/admin/advisor-bookings/{{ item.id }}/quick-status">
-              <input type="hidden" name="status" value="completed">
-              <button type="submit">标记已完成</button>
-            </form>
-            {% endif %}
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="13" class="empty">暂无顾问预约记录</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  <div class="card table-card advisor-booking-table"><table><thead><tr><th>企业名称</th><th>联系人</th><th>手机号</th><th>微信号</th><th>城市</th><th>服务类型</th><th>咨询重点</th><th>紧急程度</th><th>预约状态</th><th>负责销售</th><th>负责顾问</th><th>提交时间</th><th class="sticky-action">操作</th></tr></thead><tbody>
+    {% for item in bookings %}{% set owner = users.get(item.owner_user_id) if item.owner_user_id else None %}{% set consultant = users.get(item.consultant_user_id) if item.consultant_user_id else None %}
+    <tr data-booking-id="{{ item.id }}"><td>{{ item.company_name or '-' }}</td><td>{{ item.contact_name or '-' }}</td><td>{{ item.phone or '-' }}</td><td>{{ item.wechat_id or '-' }}</td><td>{{ item.city or '-' }}</td><td>{{ item.service_type|service_type_label }}</td><td class="text-compact">{{ item.consultation_focus or '-' }}</td><td>{{ item.urgency|urgency_level_label }}</td><td>{{ item.booking_status|booking_status_label }}</td><td>{{ owner|user_display_name if owner else '-' }}</td><td>{{ consultant|user_display_name if consultant else '-' }}</td><td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else '-' }}</td><td class="sticky-action table-action advisor-actions"><a class="btn-mini" href="/admin/advisor-bookings/{{ item.id }}">查看详情</a><a class="btn-mini" href="/admin/advisor-bookings/{{ item.id }}#follow-form">跟进</a>{% if current_user.role != 'viewer' %}{% for next_status, action_label in [('contacted', '标记已联系'), ('scheduled', '标记已安排'), ('completed', '标记已完成')] %}<form method="post" action="/admin/advisor-bookings/{{ item.id }}/quick-status"><input type="hidden" name="status" value="{{ next_status }}"><input type="hidden" name="next_url" value="{{ current_booking_url }}"><button type="submit">{{ action_label }}</button></form>{% endfor %}{% endif %}</td></tr>
+    {% else %}<tr><td colspan="13" class="empty">暂无符合条件的顾问预约<span class="sr-only">暂无顾问预约记录</span></td></tr>{% endfor %}
+  </tbody></table></div>
+  {% include "components/pagination.html" %}
 </section>
 {% endblock %}

@@ -3,6 +3,7 @@ import hashlib
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -17,7 +18,7 @@ from core.document_completeness_engine import check_document_completeness
 from core.document_request_script_engine import generate_document_request_script
 from db.database import get_db
 from db.models import (
-    AdvisorBooking, AIGenerationLog, BankProduct, ConsultingCase, CustomerTask,
+    AdvisorBooking, AIGenerationLog, Assessment, BankProduct, ConsultingCase, CustomerTask,
     DocumentParseTask, FollowTask, Lead, LeadFollowLog, Report, ReportVersion, UploadedDocument, User,
 )
 from services.auth_service import require_roles
@@ -34,6 +35,7 @@ from services.report_service import generate_full_report
 from services.settings_service import get_setting
 from services.document_parse_service import run_parse_task
 from utils.logger import logger
+from utils.pagination import paginate_query
 
 
 router = APIRouter()
@@ -348,6 +350,13 @@ def submit_advisor_booking(
 def admin_advisor_bookings(
     request: Request,
     status: str = "",
+    urgency: str = "",
+    service_type: str = "",
+    owner_user_id: int = 0,
+    consultant_user_id: int = 0,
+    city: str = "",
+    page: int = 1,
+    page_size: int = 10,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("admin", "super_admin", "city_manager", "sales_manager", "sales", "consultant_manager", "consultant", "viewer")),
 ):
@@ -355,6 +364,16 @@ def admin_advisor_bookings(
     query = db.query(AdvisorBooking)
     if status:
         query = query.filter(AdvisorBooking.booking_status == status)
+    if urgency:
+        query = query.filter(AdvisorBooking.urgency == urgency)
+    if service_type:
+        query = query.filter(AdvisorBooking.service_type == service_type)
+    if owner_user_id:
+        query = query.filter(AdvisorBooking.owner_user_id == owner_user_id)
+    if consultant_user_id:
+        query = query.filter(AdvisorBooking.consultant_user_id == consultant_user_id)
+    if city:
+        query = query.filter(AdvisorBooking.city == city)
     if scope.role == "sales":
         lead_ids = [
             lead.id for lead in db.query(Lead)
@@ -364,10 +383,18 @@ def admin_advisor_bookings(
         query = query.filter((AdvisorBooking.owner_user_id == user.id) | (AdvisorBooking.lead_id.in_(lead_ids or [-1])))
     elif scope.role == "consultant":
         query = query.filter(AdvisorBooking.consultant_user_id == user.id)
+    elif scope.role == "sales_manager":
+        lead_ids = [lead.id for lead in db.query(Lead).filter(Lead.owner_org_id.in_(scope.allowed_org_ids or [-1])).all()]
+        query = query.filter(
+            (AdvisorBooking.owner_user_id.in_(scope.allowed_user_ids or [-1]))
+            | (AdvisorBooking.owner_user_id.is_(None))
+            | (AdvisorBooking.lead_id.in_(lead_ids or [-1]))
+        )
     elif not scope.can_view_all:
         lead_ids = [lead.id for lead in db.query(Lead).filter(Lead.owner_org_id.in_(scope.allowed_org_ids or [-1])).all()]
         query = query.filter(AdvisorBooking.lead_id.in_(lead_ids or [-1]))
-    bookings = query.order_by(AdvisorBooking.created_at.desc()).all()
+    pagination = paginate_query(query.order_by(AdvisorBooking.created_at.desc()), page, page_size)
+    bookings = pagination["items"]
     leads = {item.lead_id: db.get(Lead, item.lead_id) for item in bookings if item.lead_id}
     tasks = {item.follow_task_id: db.get(FollowTask, item.follow_task_id) for item in bookings if item.follow_task_id}
     user_ids = {
@@ -376,6 +403,22 @@ def admin_advisor_bookings(
         if user_id
     }
     users = {user_id: db.get(User, user_id) for user_id in user_ids}
+
+    pagination_params = {"page_size": pagination["page_size"]}
+    for key, value in {
+        "status": status,
+        "urgency": urgency,
+        "service_type": service_type,
+        "owner_user_id": owner_user_id or "",
+        "consultant_user_id": consultant_user_id or "",
+        "city": city,
+    }.items():
+        if value not in {"", 0, None}:
+            pagination_params[key] = value
+
+    def build_booking_pagination_url(target_page: int) -> str:
+        return f"/admin/advisor-bookings?{urlencode({**pagination_params, 'page': target_page})}"
+
     return templates.TemplateResponse(
         request=request,
         name="admin_advisor_bookings.html",
@@ -384,7 +427,19 @@ def admin_advisor_bookings(
             "leads": leads,
             "tasks": tasks,
             "users": users,
-            "filters": {"status": status},
+            "filters": {
+                "status": status, "urgency": urgency, "service_type": service_type,
+                "owner_user_id": owner_user_id, "consultant_user_id": consultant_user_id,
+                "city": city, "page_size": pagination["page_size"],
+            },
+            "pagination": pagination,
+            "build_pagination_url": build_booking_pagination_url,
+            "current_booking_url": build_booking_pagination_url(pagination["page"]),
+            "sales_users": db.query(User).filter(User.role.in_(["admin", "super_admin", "sales_manager", "sales"]), User.is_active.is_(True)).order_by(User.id).all(),
+            "consultant_users": db.query(User).filter(User.role.in_(["consultant_manager", "consultant"]), User.is_active.is_(True)).order_by(User.id).all(),
+            "cities": [row[0] for row in db.query(AdvisorBooking.city).distinct().all() if row[0]],
+            "pagination_label": "顾问预约",
+            "pagination_unit": "条预约",
             "current_user": user,
         },
     )
@@ -433,6 +488,7 @@ def admin_advisor_booking_follow_detail(
 def admin_advisor_booking_quick_status(
     booking_id: int,
     status: str = Form(...),
+    next_url: str = Form("/admin/advisor-bookings"),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("admin", "super_admin", "city_manager", "sales_manager", "sales", "consultant_manager", "consultant")),
 ):
@@ -440,7 +496,7 @@ def admin_advisor_booking_quick_status(
     lead = _assert_booking_access(db, booking, user, write=True)
     _apply_booking_status(db, booking, lead, user, status)
     db.commit()
-    return RedirectResponse(url="/admin/advisor-bookings", status_code=303)
+    return RedirectResponse(url=next_url, status_code=303)
 
 
 @router.post("/admin/advisor-bookings/{booking_id}/follow-up")
@@ -806,19 +862,65 @@ def disable_mock_bank_products(
 @router.get("/admin/consulting-cases", response_class=HTMLResponse)
 def consulting_cases(
     request: Request,
+    case_status: str = "",
+    consultant_user_id: int = 0,
+    company_keyword: str = "",
+    product_code: str = "",
+    page: int = 1,
+    page_size: int = 10,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("admin", "super_admin", "city_manager", "consultant_manager", "consultant", "sales_manager", "sales", "viewer")),
 ):
     scope = get_access_scope(db, user)
-    query = db.query(ConsultingCase)
+    query = db.query(ConsultingCase).join(Assessment)
     if not scope.can_view_all:
         query = query.filter(ConsultingCase.owner_org_id.in_(scope.allowed_org_ids or [-1]))
         if scope.role == "consultant":
             query = query.filter(ConsultingCase.consultant_user_id == user.id)
-    cases = query.order_by(ConsultingCase.updated_at.desc()).all()
+    if case_status:
+        query = query.filter(ConsultingCase.case_status == case_status)
+    if consultant_user_id:
+        query = query.filter(ConsultingCase.consultant_user_id == consultant_user_id)
+    if product_code:
+        query = query.filter(ConsultingCase.product_code == product_code)
+    if company_keyword:
+        query = query.filter(Assessment.company_name.ilike(f"%{company_keyword.strip()}%"))
+    pagination = paginate_query(query.order_by(ConsultingCase.created_at.desc()), page, page_size)
+    cases = pagination["items"]
+
+    pagination_params = {"page_size": pagination["page_size"]}
+    for key, value in {
+        "case_status": case_status,
+        "consultant_user_id": consultant_user_id or "",
+        "company_keyword": company_keyword,
+        "product_code": product_code,
+    }.items():
+        if value not in {"", 0, None}:
+            pagination_params[key] = value
+
+    def build_case_pagination_url(target_page: int) -> str:
+        return f"/admin/consulting-cases?{urlencode({**pagination_params, 'page': target_page})}"
+
+    assessment_items = {case.assessment_id: db.get(Assessment, case.assessment_id) for case in cases}
+    consultant_ids = {case.consultant_user_id for case in cases if case.consultant_user_id}
     return templates.TemplateResponse(
         request=request, name="admin_consulting_cases.html",
-        context={"cases": cases, "current_user": user},
+        context={
+            "cases": cases,
+            "assessments": assessment_items,
+            "consultants": {item.id: item for item in db.query(User).filter(User.id.in_(consultant_ids or {-1})).all()},
+            "consultant_users": db.query(User).filter(User.role.in_(["consultant_manager", "consultant"]), User.is_active.is_(True)).order_by(User.id).all(),
+            "filters": {
+                "case_status": case_status, "consultant_user_id": consultant_user_id,
+                "company_keyword": company_keyword, "product_code": product_code,
+                "page_size": pagination["page_size"],
+            },
+            "pagination": pagination,
+            "build_pagination_url": build_case_pagination_url,
+            "pagination_label": "顾问案件",
+            "pagination_unit": "个案件",
+            "current_user": user,
+        },
     )
 
 

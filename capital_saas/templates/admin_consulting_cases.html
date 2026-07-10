@@ -1,3 +1,21 @@
 {% extends "base.html" %}
-{% block title %}顾问交付案件{% endblock %}
-{% block content %}<section class="admin-shell container"><div class="admin-top"><div><div class="eyebrow">顾问交付</div><h1>顾问交付案件</h1></div><a class="btn" href="/admin">返回后台</a></div><div class="card table-card"><table><thead><tr><th>ID</th><th>企业</th><th>产品</th><th>状态</th><th>服务目标</th><th>下次会议</th><th>操作</th></tr></thead><tbody>{% for case in cases %}<tr><td>#{{ case.id }}</td><td>{{ case.case_summary.split('已购买')[0] }}</td><td>{{ case.product_code|product_label }}</td><td>{{ case.case_status|zh }}</td><td>{{ case.service_goal }}</td><td>{{ case.next_meeting_time.strftime('%Y-%m-%d %H:%M') if case.next_meeting_time else '-' }}</td><td><a href="/admin/consulting-cases/{{ case.id }}">详情</a></td></tr>{% else %}<tr><td colspan="7" class="empty">暂无顾问案件</td></tr>{% endfor %}</tbody></table></div></section>{% endblock %}
+{% block title %}顾问案件｜后台管理{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top"><div><div class="eyebrow">顾问交付</div><h1>顾问案件</h1></div><div class="admin-links"><a href="/admin">总览</a><a class="active" href="/admin/consulting-cases">顾问案件</a><a href="/admin/advisor-bookings">顾问预约</a></div></div>
+  <form class="card filter-bar" method="get">
+    <label>企业名称<input name="company_keyword" value="{{ filters.company_keyword }}" placeholder="搜索企业名称"></label>
+    <label>案件状态<select name="case_status"><option value="">全部</option>{% for item in ['pending', 'active', 'completed', 'cancelled', 'closed'] %}<option value="{{ item }}" {{ 'selected' if filters.case_status == item else '' }}>{{ item|consulting_case_status_label }}</option>{% endfor %}</select></label>
+    <label>负责顾问<select name="consultant_user_id"><option value="0">全部</option>{% for consultant in consultant_users %}<option value="{{ consultant.id }}" {{ 'selected' if filters.consultant_user_id == consultant.id else '' }}>{{ consultant|user_display_name }}</option>{% endfor %}</select></label>
+    <label>服务产品<select name="product_code"><option value="">全部</option>{% for item in ['1999_structure_plan', 'high_ticket_consulting', 'manual_consulting'] %}<option value="{{ item }}" {{ 'selected' if filters.product_code == item else '' }}>{{ item|product_label }}</option>{% endfor %}</select></label>
+    <label>每页数量<select name="page_size">{% for size in [10, 20, 50] %}<option value="{{ size }}" {{ 'selected' if filters.page_size == size else '' }}>每页{{ size }}条</option>{% endfor %}</select></label>
+    <button class="btn btn-primary">筛选</button><a class="text-link inline" href="/admin/consulting-cases">重置</a>
+  </form>
+  <div class="card table-card"><table><thead><tr><th>企业名称</th><th>联系人</th><th>服务类型</th><th>案件状态</th><th>负责顾问</th><th>创建时间</th><th>操作</th></tr></thead><tbody>
+    {% for case in cases %}{% set assessment = assessments.get(case.assessment_id) %}{% set consultant = consultants.get(case.consultant_user_id) %}
+    <tr data-case-id="{{ case.id }}"><td>{{ assessment.company_name|display_company_name if assessment else '-' }}</td><td>{{ assessment.contact_name if assessment else '-' }}</td><td>{{ case.product_code|product_label }}</td><td>{{ case.case_status|consulting_case_status_label }}</td><td>{{ consultant|user_display_name if consultant else '未分配' }}</td><td>{{ case.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><a href="/admin/consulting-cases/{{ case.id }}">详情</a></td></tr>
+    {% else %}<tr><td colspan="7" class="empty">暂无符合条件的顾问案件</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% include "components/pagination.html" %}
+</section>
+{% endblock %}

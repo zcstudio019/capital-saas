@@ -1,7 +1,7 @@
 from fastapi.templating import Jinja2Templates
 from utils.display_labels import (
     get_ab_variant_label, get_boolean_label, get_booking_status_label, get_channel_label,
-    get_commission_trigger_label, get_commission_type_label, get_commission_value_label,
+    get_commission_trigger_label, get_commission_type_label, get_commission_value_label, get_consulting_case_status_label,
     get_data_source_label, get_display_company_name, get_document_category_label,
     get_document_parse_status_label, get_document_verify_status_label, get_event_label,
     get_event_target_label, get_follow_status_label, get_funding_application_status_label,
@@ -89,6 +89,7 @@ def install_chinese_filters(templates: Jinja2Templates) -> Jinja2Templates:
     templates.env.filters["zh"] = zh_label
     templates.env.filters["product_label"] = get_product_label
     templates.env.filters["order_status_label"] = get_order_status_label
+    templates.env.filters["consulting_case_status_label"] = get_consulting_case_status_label
     templates.env.filters["report_generation_status_label"] = get_report_generation_status_label
     templates.env.filters["report_review_status_label"] = get_report_review_status_label
     templates.env.filters["payment_channel_label"] = get_payment_channel_label
@@ -134,6 +135,7 @@ def install_chinese_filters(templates: Jinja2Templates) -> Jinja2Templates:
     for name, func in {
         "get_product_label": get_product_label,
         "get_order_status_label": get_order_status_label,
+        "get_consulting_case_status_label": get_consulting_case_status_label,
         "get_report_generation_status_label": get_report_generation_status_label,
         "get_report_review_status_label": get_report_review_status_label,
         "get_payment_channel_label": get_payment_channel_label,

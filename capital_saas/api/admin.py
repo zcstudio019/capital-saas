@@ -39,6 +39,7 @@ from services.settings_service import SETTING_DEFINITIONS, save_settings, settin
 from services.consulting_service import ensure_consulting_case
 from utils.logger import logger
 from utils.display_labels import is_demo_or_test_record
+from utils.pagination import paginate_query
 
 
 router = APIRouter()
@@ -906,24 +907,63 @@ def generate_report_token(
 def orders(
     request: Request,
     source_channel: str = "",
+    status: str = "",
+    product_code: str = "",
+    pay_channel: str = "",
+    company_keyword: str = "",
+    page: int = 1,
+    page_size: int = 10,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*ORDER_LIST_ROLES)),
 ):
-    query = db.query(Order)
+    query = db.query(Order).join(Assessment)
     scope=get_access_scope(db,user)
-    if not scope.can_view_all:
+    if user.role not in {"admin", "super_admin", "finance"} and not scope.can_view_all:
         if scope.role=="partner":query=query.filter(Order.source_partner_id.in_(scope.allowed_partner_ids or [-1]))
         elif scope.role=="sales":query=query.filter(Order.owner_user_id==user.id)
         else:query=query.filter(or_(Order.owner_org_id.in_(scope.allowed_org_ids or [-1]),Order.org_id.in_(scope.allowed_org_ids or [-1])))
     if source_channel:
         query = query.filter(Order.source_channel == source_channel)
+    if status:
+        query = query.filter(Order.status == status)
+    if product_code:
+        query = query.filter(Order.product_code == product_code)
+    if pay_channel:
+        query = query.filter(Order.pay_channel == pay_channel)
+    if company_keyword:
+        keyword = f"%{company_keyword.strip()}%"
+        query = query.filter(or_(Assessment.company_name.ilike(keyword), Assessment.contact_name.ilike(keyword)))
+    pagination = paginate_query(query.order_by(Order.created_at.desc()), page, page_size)
+
+    pagination_params = {"page_size": pagination["page_size"]}
+    for key, value in {
+        "source_channel": source_channel,
+        "status": status,
+        "product_code": product_code,
+        "pay_channel": pay_channel,
+        "company_keyword": company_keyword,
+    }.items():
+        if value:
+            pagination_params[key] = value
+
+    def build_order_pagination_url(target_page: int) -> str:
+        return f"/admin/orders?{urlencode({**pagination_params, 'page': target_page})}"
+
     return templates.TemplateResponse(
         request=request,
         name="admin_orders.html",
         context={
-            "orders": query.order_by(Order.created_at.desc()).all(),
+            "orders": pagination["items"],
             "current_user": user,
-            "source_channel": source_channel,
+            "filters": {
+                "source_channel": source_channel, "status": status, "product_code": product_code,
+                "pay_channel": pay_channel, "company_keyword": company_keyword,
+                "page_size": pagination["page_size"],
+            },
+            "pagination": pagination,
+            "build_pagination_url": build_order_pagination_url,
+            "pagination_label": "订单管理",
+            "pagination_unit": "笔订单",
             "channels": [row[0] for row in db.query(Order.source_channel).distinct().all() if row[0]],
         },
     )

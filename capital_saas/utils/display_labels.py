@@ -143,6 +143,7 @@ SERVICE_TYPE_LABELS = {
     "high_ticket_consulting": "高客单顾问服务",
 }
 URGENCY_LEVEL_LABELS = {"normal": "普通", "urgent": "比较急", "very_urgent": "非常急"}
+CONSULTING_CASE_STATUS_LABELS = {"pending": "待处理", "active": "进行中", "completed": "已完成", "cancelled": "已取消", "closed": "已关闭"}
 AB_VARIANT_LABELS = {
     "variant_a": "风险提示版", "variant_b": "机会收益版",
     "free_result_conversion": "免费结果页转化实验", "ab_assigned": "A/B测试已分组",
@@ -244,6 +245,7 @@ def get_follow_status_label(code):
 def get_booking_status_label(code): return BOOKING_STATUS_LABELS.get(str(code or "").strip().lower(), "未知预约状态")
 def get_service_type_label(code): return SERVICE_TYPE_LABELS.get(str(code or "").strip().lower(), "其他顾问服务")
 def get_urgency_level_label(code): return URGENCY_LEVEL_LABELS.get(str(code or "").strip().lower(), "普通")
+def get_consulting_case_status_label(code): return CONSULTING_CASE_STATUS_LABELS.get(str(code or "").strip().lower(), "待处理")
 def get_ab_variant_label(code): return AB_VARIANT_LABELS.get(str(code or "").strip().lower(), "实验版本")
 def get_data_source_label(code): return DATA_SOURCE_LABELS.get(str(code or "").strip().lower(), "其他来源")
 def get_document_category_label(code):
