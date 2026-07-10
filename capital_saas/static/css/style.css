@@ -269,7 +269,7 @@ td a { color: #1b5f93; font-weight: 700; }
 .filter-bar label { min-width: 170px; display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
 .filter-bar select { padding: 9px 12px; }
 .text-link.inline { display: inline-flex; min-height: 44px; margin: 0; align-items: center; }
-.lead-pagination, .task-pagination { display: flex; padding: 16px 4px 0; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.lead-pagination, .task-pagination, .report-pagination { display: flex; padding: 16px 4px 0; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .pagination-summary { color: var(--muted); font-size: 13px; }
 .pagination-links { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .pagination-button { min-width: 36px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 7px; color: var(--navy-2); background: #fff; font-size: 13px; font-weight: 700; text-align: center; }

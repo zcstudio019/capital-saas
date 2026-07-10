@@ -27,7 +27,7 @@ from core.pilot_sop_engine import pilot_sop_recommendation
 from core.data_masking import mask_phone,mask_wechat
 from services.auth_service import require_roles, update_password, verify_password
 from services.audit_service import write_audit_log
-from services.crm_service import build_lead_query, list_leads, list_orders, list_reports
+from services.crm_service import build_lead_query, list_leads, list_orders
 from services.event_service import track_event
 from services.follow_task_service import create_manual_task
 from services.follow_log_service import add_follow_log
@@ -759,17 +759,83 @@ def cancel_task(
 @router.get("/admin/reports", response_class=HTMLResponse)
 def reports(
     request: Request,
+    company_keyword: str = "",
+    generation_status: str = "",
+    review_status: str = "",
+    grade: str = "",
+    page: int = 1,
+    page_size: int = 10,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*BACKEND_READ_ROLES)),
 ):
-    reports = list_reports(db)
-    if effective_role(user) == "sales":
-        allowed_assessment_ids = [lead.assessment_id for lead in db.query(Lead).filter(or_(Lead.assigned_sales_id == user.id, Lead.owner_user_id == user.id)).all()]
-        reports = [report for report in reports if report.assessment_id in allowed_assessment_ids]
+    page = max(page, 1)
+    page_size = page_size if page_size in {10, 20, 50} else 10
+    query = db.query(Report).join(Assessment).join(Lead)
+    scope = get_access_scope(db, user)
+    if not scope.can_view_all:
+        if scope.role == "partner":
+            query = query.filter(Lead.source_partner_id.in_(scope.allowed_partner_ids or [-1]))
+        elif scope.role == "sales":
+            query = query.filter(Lead.assigned_sales_id == user.id)
+        else:
+            query = query.filter(
+                or_(Lead.owner_org_id.in_(scope.allowed_org_ids or [-1]), Lead.org_id.in_(scope.allowed_org_ids or [-1]))
+            )
+    if company_keyword:
+        query = query.filter(Assessment.company_name.ilike(f"%{company_keyword.strip()}%"))
+    if generation_status == "generated":
+        query = query.filter(Report.full_report_json.isnot(None))
+    elif generation_status == "pending":
+        query = query.filter(Report.full_report_json.is_(None))
+    if review_status:
+        query = query.filter(Report.review_status == review_status)
+    if grade:
+        query = query.filter(Assessment.grade == grade)
+
+    total_count = query.count()
+    total_pages = max((total_count + page_size - 1) // page_size, 1)
+    page = min(page, total_pages)
+    report_items = query.order_by(Report.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    pagination_params = {"page_size": page_size}
+    for key, value in {
+        "company_keyword": company_keyword,
+        "generation_status": generation_status,
+        "review_status": review_status,
+        "grade": grade,
+    }.items():
+        if value:
+            pagination_params[key] = value
+
+    def build_report_pagination_url(target_page: int) -> str:
+        return f"/admin/reports?{urlencode({**pagination_params, 'page': target_page})}"
+
+    page_start = max(1, page - 2)
+    page_end = min(total_pages, page + 2)
     return templates.TemplateResponse(
         request=request,
         name="admin_reports.html",
-        context={"reports": reports, "current_user": user},
+        context={
+            "reports": report_items,
+            "filters": {
+                "company_keyword": company_keyword,
+                "generation_status": generation_status,
+                "review_status": review_status,
+                "grade": grade,
+                "page_size": page_size,
+            },
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "pages": list(range(page_start, page_end + 1)),
+                "has_previous": page > 1,
+                "has_next": page < total_pages,
+            },
+            "build_report_pagination_url": build_report_pagination_url,
+            "current_user": user,
+        },
     )
 
 

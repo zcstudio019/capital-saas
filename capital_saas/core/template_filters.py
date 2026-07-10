@@ -8,7 +8,7 @@ from utils.display_labels import (
     get_institution_type_label, get_internal_notification_type_label, get_landing_page_label, get_lead_grade_label, get_nav_label, get_notification_channel_label,
     get_notification_status_label, get_order_status_label, get_payment_channel_label,
     get_notification_template_label, get_payment_status_label, get_product_label, get_project_status_label, get_role_label,
-    get_role_type_label, get_script_scenario_label, get_service_type_label,
+    get_role_type_label, get_report_generation_status_label, get_report_review_status_label, get_script_scenario_label, get_service_type_label,
     get_settlement_status_label, get_source_channel_label, get_status_label,
     get_task_priority_label, get_task_status_label, get_task_type_label,
     get_urgency_level_label, get_user_display_name, safe_display_label,
@@ -89,6 +89,8 @@ def install_chinese_filters(templates: Jinja2Templates) -> Jinja2Templates:
     templates.env.filters["zh"] = zh_label
     templates.env.filters["product_label"] = get_product_label
     templates.env.filters["order_status_label"] = get_order_status_label
+    templates.env.filters["report_generation_status_label"] = get_report_generation_status_label
+    templates.env.filters["report_review_status_label"] = get_report_review_status_label
     templates.env.filters["payment_channel_label"] = get_payment_channel_label
     templates.env.filters["payment_status_label"] = get_payment_status_label
     templates.env.filters["landing_page_label"] = get_landing_page_label
@@ -132,6 +134,8 @@ def install_chinese_filters(templates: Jinja2Templates) -> Jinja2Templates:
     for name, func in {
         "get_product_label": get_product_label,
         "get_order_status_label": get_order_status_label,
+        "get_report_generation_status_label": get_report_generation_status_label,
+        "get_report_review_status_label": get_report_review_status_label,
         "get_payment_channel_label": get_payment_channel_label,
         "get_payment_status_label": get_payment_status_label,
         "get_event_label": get_event_label,

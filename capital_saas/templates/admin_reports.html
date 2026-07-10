@@ -1,6 +1,48 @@
 {% extends "base.html" %}
-{% block title %}报告管理｜沪上银{% endblock %}
+{% block title %}报告管理｜后台管理{% endblock %}
 {% block content %}
-<section class="admin-shell container"><div class="admin-top"><div><div class="eyebrow">报告管理</div><h1>报告管理</h1></div><div class="admin-links"><a href="/admin">总览</a><a href="/admin/leads">线索</a><a href="/admin/follow-tasks">任务</a><a class="active" href="/admin/reports">报告</a>{% if current_user.role != 'sales' %}<a href="/admin/orders">订单</a>{% endif %}</div></div>
-<div class="card table-card"><table><thead><tr><th>ID</th><th>企业</th><th>评分</th><th>生成状态</th><th>审核状态</th><th>公开链接</th><th>创建时间</th><th>操作</th></tr></thead><tbody>{% for x in reports %}<tr><td>#{{ x.id }}</td><td>{{ x.assessment.company_name }}</td><td>{{ x.assessment.score }} / {{ x.assessment.grade }}级</td><td><span class="badge {{ 'paid' if x.full_report_json else '' }}">{{ '已生成' if x.full_report_json else '免费版' }}</span></td><td>{{ x.review_status }}</td><td>{{ '有效' if x.public_token and x.token_expired_at else '-' }}</td><td>{{ x.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><a href="/admin/reports/{{ x.id }}">详情</a></td></tr>{% else %}<tr><td colspan="8" class="empty">暂无报告</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="admin-shell container">
+  <div class="admin-top">
+    <div><div class="eyebrow">报告管理</div><h1>报告管理</h1></div>
+    <div class="admin-links"><a href="/admin">总览</a><a href="/admin/leads">线索</a><a href="/admin/follow-tasks">任务</a><a class="active" href="/admin/reports">报告</a>{% if current_user.role != 'sales' %}<a href="/admin/orders">订单</a>{% endif %}</div>
+  </div>
+
+  <form class="card filter-bar" method="get">
+    <label>企业名称<input name="company_keyword" value="{{ filters.company_keyword }}" placeholder="搜索企业名称"></label>
+    <label>生成状态<select name="generation_status"><option value="">全部</option>{% for item in ['generated', 'pending'] %}<option value="{{ item }}" {{ 'selected' if filters.generation_status == item else '' }}>{{ item|report_generation_status_label }}</option>{% endfor %}</select></label>
+    <label>审核状态<select name="review_status"><option value="">全部</option>{% for item in ['draft', 'pending_review', 'reviewing', 'approved', 'rejected'] %}<option value="{{ item }}" {{ 'selected' if filters.review_status == item else '' }}>{{ item|report_review_status_label }}</option>{% endfor %}</select></label>
+    <label>评分等级<select name="grade"><option value="">全部</option>{% for item in ['S', 'A', 'B', 'C', 'D'] %}<option value="{{ item }}" {{ 'selected' if filters.grade == item else '' }}>{{ item }}级</option>{% endfor %}</select></label>
+    <label>每页数量<select name="page_size">{% for size in [10, 20, 50] %}<option value="{{ size }}" {{ 'selected' if filters.page_size == size else '' }}>每页{{ size }}条</option>{% endfor %}</select></label>
+    <button class="btn btn-primary">筛选</button><a class="text-link inline" href="/admin/reports">重置</a>
+  </form>
+
+  <div class="card table-card">
+    <table>
+      <thead><tr><th>ID</th><th>企业</th><th>评分</th><th>生成状态</th><th>审核状态</th><th>公开链接</th><th>创建时间</th><th>操作</th></tr></thead>
+      <tbody>
+      {% for x in reports %}
+      {% set generation_code = 'generated' if x.full_report_json else 'pending' %}
+      <tr data-report-id="{{ x.id }}">
+        <td>#{{ x.id }}</td><td>{{ x.assessment.company_name|display_company_name }}</td><td>{{ x.assessment.score }} / {{ x.assessment.grade }}级</td>
+        <td><span class="badge {{ 'paid' if generation_code == 'generated' else '' }}">{{ generation_code|report_generation_status_label }}</span></td>
+        <td>{{ x.review_status|report_review_status_label }}</td><td>{{ '有效' if x.public_token and x.token_expired_at else '-' }}</td><td>{{ x.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><a href="/admin/reports/{{ x.id }}">详情</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="empty">暂无符合条件的报告</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="report-pagination" aria-label="报告分页">
+    <span class="pagination-summary">当前第 {{ pagination.page }} 页 / 共 {{ pagination.total_pages }} 页，共 {{ pagination.total_count }} 份报告</span>
+    {% if pagination.total_pages > 1 %}
+    <nav class="pagination-links">
+      {% if pagination.has_previous %}<a class="pagination-button" href="{{ build_report_pagination_url(1) }}">首页</a><a class="pagination-button" href="{{ build_report_pagination_url(pagination.page - 1) }}">上一页</a>{% else %}<span class="pagination-button disabled">首页</span><span class="pagination-button disabled">上一页</span>{% endif %}
+      {% for page_number in pagination.pages %}<a class="pagination-button {{ 'active' if page_number == pagination.page else '' }}" href="{{ build_report_pagination_url(page_number) }}">{{ page_number }}</a>{% endfor %}
+      {% if pagination.has_next %}<a class="pagination-button" href="{{ build_report_pagination_url(pagination.page + 1) }}">下一页</a><a class="pagination-button" href="{{ build_report_pagination_url(pagination.total_pages) }}">末页</a>{% else %}<span class="pagination-button disabled">下一页</span><span class="pagination-button disabled">末页</span>{% endif %}
+    </nav>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}
