@@ -156,14 +156,17 @@ def create_internal_notification(db: Session, user_id: int, title: str, content:
     try:
         if not user_id:
             return None
-        recent_since = datetime.now() - timedelta(minutes=10)
-        existing = db.query(InternalNotification).filter(
+        duplicate_query = db.query(InternalNotification).filter(
             InternalNotification.user_id == user_id,
             InternalNotification.notification_type == notification_type,
             InternalNotification.related_type == (related_type or ""),
             InternalNotification.related_id == related_id,
-            InternalNotification.created_at >= recent_since,
-        ).first()
+        )
+        if related_type and related_id is not None:
+            existing = duplicate_query.first()
+        else:
+            recent_since = datetime.now() - timedelta(minutes=10)
+            existing = duplicate_query.filter(InternalNotification.created_at >= recent_since).first()
         if existing:
             return existing
         item = InternalNotification(user_id=user_id, title=title.strip()[:300],
@@ -213,6 +216,38 @@ def mark_notification_read(db: Session, notification_id: int, user_id: int,
         track_event(db, "internal_notification_read", data={"notification_id": item.id}, commit=False)
     if commit:
         db.commit()
+
+def notify_payment_success(db: Session, order, commit: bool = False) -> None:
+    try:
+        assessment = getattr(order, "assessment", None)
+        lead = getattr(assessment, "lead", None) if assessment else None
+        company = getattr(assessment, "company_name", "") or getattr(lead, "company_name", "") or "客户"
+        product = getattr(order, "product_name", "") or "服务产品"
+        amount = getattr(order, "amount", 0)
+        sales_id = getattr(lead, "assigned_sales_id", None) if lead else None
+        if sales_id:
+            create_internal_notification(db, sales_id, "客户已完成支付",
+                f"客户 {company} 已购买 {product}，请及时推动下一步交付。",
+                "payment_success", related_type="order", related_id=order.id,
+                action_url=f"/sales/leads/{lead.id}")
+        create_notifications_for_roles(db, {"admin", "super_admin"}, "新订单支付成功",
+            f"客户 {company} 已购买 {product}，支付金额 {amount} 元。",
+            "payment_success", related_type="order", related_id=order.id,
+            action_url=f"/admin/orders/{order.id}")
+        if commit:
+            db.commit()
+    except Exception as exc:
+        logger.warning("支付成功内部通知创建失败 order_id=%s error=%s", getattr(order, "id", None), exc)
+        try:
+            assessment = getattr(order, "assessment", None)
+            lead = getattr(assessment, "lead", None) if assessment else None
+            track_event(db, "notification_failed",
+                assessment_id=getattr(assessment, "id", None),
+                lead_id=getattr(lead, "id", None),
+                data={"order_id": getattr(order, "id", None), "notification_type": "payment_success", "error": str(exc)},
+                commit=False)
+        except Exception:
+            pass
     return item
 
 def mark_all_notifications_read(db: Session, user_id: int) -> int:

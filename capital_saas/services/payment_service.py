@@ -88,6 +88,7 @@ def mark_order_paid(
     operator: str = "system",
 ) -> Order:
     if order.status == "paid":
+        notify_payment_success(db, order, commit=True)
         return order
     if order.status == "refunded":
         raise ValueError("已退款订单不能重新标记为支付")

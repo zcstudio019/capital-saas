@@ -10,6 +10,7 @@ from db.database import get_db
 from db.models import Order
 from services.assessment_service import get_assessment
 from services.event_service import track_event
+from services.notification_service import notify_payment_success
 from services.payment_service import create_order, mark_order_paid
 from services.report_service import generate_full_report
 from services.settings_service import get_setting
@@ -103,6 +104,8 @@ def payment_success(request: Request, order_id: int, db: Session = Depends(get_d
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
+    if order.status == "paid":
+        notify_payment_success(db, order, commit=True)
     return templates.TemplateResponse(
         request=request,
         name="payment_success.html",
