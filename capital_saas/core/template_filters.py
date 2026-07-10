@@ -5,7 +5,7 @@ from utils.display_labels import (
     get_data_source_label, get_display_company_name, get_document_category_label,
     get_document_parse_status_label, get_document_verify_status_label, get_event_label,
     get_event_target_label, get_follow_status_label, get_funding_application_status_label,
-    get_landing_page_label, get_lead_grade_label, get_nav_label, get_notification_channel_label,
+    get_internal_notification_type_label, get_landing_page_label, get_lead_grade_label, get_nav_label, get_notification_channel_label,
     get_notification_status_label, get_order_status_label, get_payment_channel_label,
     get_payment_status_label, get_product_label, get_project_status_label, get_role_label,
     get_role_type_label, get_script_scenario_label, get_service_type_label,
@@ -116,6 +116,7 @@ def install_chinese_filters(templates: Jinja2Templates) -> Jinja2Templates:
     templates.env.filters["funding_application_status_label"] = get_funding_application_status_label
     templates.env.filters["notification_status_label"] = get_notification_status_label
     templates.env.filters["notification_channel_label"] = get_notification_channel_label
+    templates.env.filters["internal_notification_type_label"] = get_internal_notification_type_label
     templates.env.filters["safe_display_label"] = safe_display_label
     templates.env.filters["nav_label"] = get_nav_label
     templates.env.filters["role_label"] = get_role_label
@@ -158,6 +159,7 @@ def install_chinese_filters(templates: Jinja2Templates) -> Jinja2Templates:
         "get_funding_application_status_label": get_funding_application_status_label,
         "get_notification_status_label": get_notification_status_label,
         "get_notification_channel_label": get_notification_channel_label,
+        "get_internal_notification_type_label": get_internal_notification_type_label,
         "get_boolean_label": get_boolean_label,
         "get_display_company_name": get_display_company_name,
         "safe_display_label": safe_display_label,

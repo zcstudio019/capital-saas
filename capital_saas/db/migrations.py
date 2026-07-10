@@ -127,6 +127,9 @@ SQLITE_COLUMNS = {
         "deleted_at":"DATETIME","deleted_by":"INTEGER","delete_reason":"TEXT NOT NULL DEFAULT ''",
     },
     "customer_accounts":{"deleted_at":"DATETIME","deleted_by":"INTEGER","delete_reason":"TEXT NOT NULL DEFAULT ''"},
+    "internal_notifications": {
+        "action_url": "VARCHAR(300) NOT NULL DEFAULT ''",
+    },
     "funding_applications": {"org_id": "INTEGER", "institution_contact_id": "INTEGER"},
     "bank_products": {
         "product_code": "VARCHAR(80) NOT NULL DEFAULT ''",

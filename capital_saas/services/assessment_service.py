@@ -10,6 +10,7 @@ from services.attribution_service import ATTRIBUTION_FIELDS
 from services.event_service import track_event
 from services.follow_task_service import create_default_tasks
 from services.customer_portal_service import ensure_customer_account
+from services.notification_service import notify_new_lead
 from services.pilot_service import bind_by_invite_code, set_pilot_stage
 
 
@@ -101,6 +102,7 @@ def create_assessment(db: Session, form_data: dict) -> Assessment:
     if partner:
         track_event(db, "partner_lead_created", assessment.id, lead.id,
                     {"partner_id": partner.id, "source_code": partner.source_code}, commit=False)
+    notify_new_lead(db, lead, commit=False)
     db.commit()
     db.refresh(assessment)
     return assessment

@@ -12,6 +12,7 @@ from services.tag_service import add_named_tag
 from services.consulting_service import ensure_consulting_case
 from services.commission_service import create_commissions
 from services.settings_service import get_setting
+from services.notification_service import notify_payment_success
 from services.pilot_service import set_pilot_stage
 
 
@@ -135,6 +136,7 @@ def mark_order_paid(
         attribution={key: getattr(assessment, key, "") for key in ATTRIBUTION_FIELDS},
         commit=False,
     )
+    notify_payment_success(db, order, commit=False)
     db.commit()
     db.refresh(order)
     logger.info("订单已支付 order_id=%s operator=%s", order.id, operator)

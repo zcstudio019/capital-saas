@@ -164,11 +164,12 @@ async def client_document_upload(request:Request,document_category:str=Form('其
             uploaded_by=None,customer_id=customer.id,uploaded_source='customer',file_size=len(data),
             file_hash=hashlib.sha256(data).hexdigest(),note=note.strip())
         db.add(doc);db.flush();complete_document_tasks(db,customer,doc)
-        from services.notification_service import safe_create_notification
+        from services.notification_service import notify_document_uploaded, safe_create_notification
         lead=db.get(Lead,customer.lead_id);case=db.query(ConsultingCase).filter(ConsultingCase.lead_id==lead.id).order_by(ConsultingCase.id.desc()).first()
         recipients={lead.owner_user_id,(case.consultant_user_id or case.consultant_id) if case else None}
         for user_id in recipients:
             if user_id:safe_create_notification(db,'document_uploaded_consultant',{'company_name':customer.company_name,'document_name':doc.file_name},recipient_user_id=user_id,related_type='uploaded_document',related_id=doc.id)
+        notify_document_uploaded(db, lead, doc, commit=False)
         write_audit_log(db,'customer_document_uploaded','uploaded_document',doc.id,customer_id=customer.id,actor_type='customer',after={'file_name':doc.file_name,'size':doc.file_size},request=request,risk_level='medium')
         track_event(db,'client_document_uploaded',customer.assessment_id,customer.lead_id,{'document_id':doc.id,'customer_id':customer.id},commit=False);set_pilot_stage(db,db.get(Lead,customer.lead_id),'documents_uploaded',commit=False);db.commit();run_parse_task(db,doc)
     return RedirectResponse('/client/documents',303)

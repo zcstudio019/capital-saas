@@ -30,6 +30,7 @@ from services.crm_service import list_leads, list_orders, list_reports
 from services.event_service import track_event
 from services.follow_task_service import create_manual_task
 from services.follow_log_service import add_follow_log
+from services.notification_service import notify_lead_assigned
 from services.script_template_service import matched_scripts
 from services.payment_service import cancel_order, mark_order_paid, refund_order
 from services.report_service import generate_full_report, parse_report
@@ -477,6 +478,7 @@ def assign_sales_to_lead(
     add_follow_log(db, lead.id, user, "assign_sales", content, str(old_sales_id or ""), str(sales_user.id))
     track_event(db, "lead_sales_assigned", lead.assessment_id, lead.id, {"sales_user_id": sales_user.id, "operator": user.username}, commit=False)
     write_audit_log(db, "lead_sales_assigned", "lead", lead.id, user_id=user.id, before={"assigned_sales_id": old_sales_id}, after={"assigned_sales_id": sales_user.id}, request=request, risk_level="medium", commit=False)
+    notify_lead_assigned(db, lead, sales_user, commit=False)
     db.commit()
     return RedirectResponse(url="/admin/leads", status_code=303)
 
@@ -525,6 +527,7 @@ def batch_assign_sales_to_leads(
             risk_level="medium",
             commit=False,
         )
+        notify_lead_assigned(db, lead, sales_user, commit=False)
     db.commit()
     return RedirectResponse(
         url=f"/admin/leads?assign_success={len(leads_to_assign)}&sales_name={sales_name}",

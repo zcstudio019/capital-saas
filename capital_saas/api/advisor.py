@@ -25,6 +25,11 @@ from services.bank_product_import_service import disable_mock_products, import_b
 from services.consulting_service import ensure_consulting_case
 from services.event_service import track_event
 from services.follow_log_service import add_follow_log
+from services.notification_service import (
+    notify_advisor_booking_assigned,
+    notify_advisor_booking_submitted,
+    notify_document_uploaded,
+)
 from services.report_service import generate_full_report
 from services.settings_service import get_setting
 from services.document_parse_service import run_parse_task
@@ -318,6 +323,7 @@ def submit_advisor_booking(
     db.add(booking)
     db.commit()
     db.refresh(booking)
+    notify_advisor_booking_submitted(db, booking, commit=True)
     track_event(
         db,
         "advisor_booking_submitted",
@@ -453,6 +459,8 @@ def admin_advisor_booking_follow_up(
 ):
     booking = _advisor_booking_or_404(db, booking_id)
     lead = _assert_booking_access(db, booking, user, write=True)
+    old_owner_user_id = booking.owner_user_id
+    old_consultant_user_id = booking.consultant_user_id
     if owner_user_id:
         booking.owner_user_id = owner_user_id
         if lead:
@@ -472,6 +480,10 @@ def admin_advisor_booking_follow_up(
         service_result=service_result.strip(),
         create_case=create_consulting_case == "true",
     )
+    if owner_user_id and owner_user_id != old_owner_user_id:
+        notify_advisor_booking_assigned(db, booking, owner_user_id, commit=False)
+    if consultant_user_id and consultant_user_id != old_consultant_user_id:
+        notify_advisor_booking_assigned(db, booking, consultant_user_id, commit=False)
     db.commit()
     return RedirectResponse(url=f"/admin/advisor-bookings/{booking.id}", status_code=303)
 
@@ -945,6 +957,7 @@ async def upload_lead_document(
     db.flush()
     track_event(db, "document_uploaded", lead.assessment_id, lead.id,
                 {"document_id": item.id, "file_name": item.file_name}, commit=False)
+    notify_document_uploaded(db, lead, item, commit=False)
     db.commit()
     run_parse_task(db, item)
     logger.info("上传客户资料 lead_id=%s file=%s operator=%s", lead.id, item.file_name, user.username)

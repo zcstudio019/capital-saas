@@ -3,8 +3,8 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from db.models import (CustomerAccount, NotificationJob, NotificationLog,
-    NotificationPreference, NotificationTemplate)
+from db.models import (CustomerAccount, InternalNotification, NotificationJob, NotificationLog,
+    NotificationPreference, NotificationTemplate, User)
 from notifications.email_channel import EmailChannel
 from notifications.in_app_channel import InAppChannel
 from notifications.mock_channel import MockChannel
@@ -148,3 +148,181 @@ def safe_create_notification(db:Session,*args,**kwargs):
     except Exception as exc:
         logger.warning("通知任务创建降级 template=%s error=%s",args[0] if args else kwargs.get('template_key'),exc)
         return None
+
+def create_internal_notification(db: Session, user_id: int, title: str, content: str,
+    notification_type: str = "system", related_type: str | None = None,
+    related_id: int | None = None, action_url: str | None = None,
+    commit: bool = False) -> InternalNotification | None:
+    try:
+        if not user_id:
+            return None
+        recent_since = datetime.now() - timedelta(minutes=10)
+        existing = db.query(InternalNotification).filter(
+            InternalNotification.user_id == user_id,
+            InternalNotification.notification_type == notification_type,
+            InternalNotification.related_type == (related_type or ""),
+            InternalNotification.related_id == related_id,
+            InternalNotification.created_at >= recent_since,
+        ).first()
+        if existing:
+            return existing
+        item = InternalNotification(user_id=user_id, title=title.strip()[:300],
+            content=content.strip(), notification_type=notification_type,
+            related_type=related_type or "", related_id=related_id,
+            action_url=action_url or "", status="unread")
+        db.add(item); db.flush()
+        track_event(db, "internal_notification_created", data={
+            "notification_id": item.id, "user_id": user_id,
+            "notification_type": notification_type, "related_type": related_type or "",
+            "related_id": related_id}, commit=False)
+        if notification_type == "new_lead":
+            track_event(db, "new_lead_notification_created", data={
+                "notification_id": item.id, "user_id": user_id, "related_id": related_id}, commit=False)
+        if commit:
+            db.commit(); db.refresh(item)
+        return item
+    except Exception as exc:
+        logger.warning("内部通知创建失败 user_id=%s type=%s error=%s", user_id, notification_type, exc)
+        return None
+
+def create_notifications_for_roles(db: Session, roles, title: str, content: str,
+    notification_type: str, related_type: str | None = None,
+    related_id: int | None = None, action_url: str | None = None,
+    commit: bool = False) -> list[InternalNotification]:
+    items: list[InternalNotification] = []
+    try:
+        users = db.query(User).filter(User.role.in_(list(roles)), User.is_active.is_(True)).all()
+        for user in users:
+            item = create_internal_notification(db, user.id, title, content, notification_type,
+                related_type=related_type, related_id=related_id, action_url=action_url, commit=False)
+            if item:
+                items.append(item)
+        if commit:
+            db.commit()
+    except Exception as exc:
+        logger.warning("按角色创建内部通知失败 roles=%s type=%s error=%s", roles, notification_type, exc)
+    return items
+
+def mark_notification_read(db: Session, notification_id: int, user_id: int,
+    commit: bool = True) -> InternalNotification | None:
+    item = db.get(InternalNotification, notification_id)
+    if not item or item.user_id != user_id:
+        return None
+    if item.status == "unread":
+        item.status = "read"; item.read_at = datetime.now()
+        track_event(db, "internal_notification_read", data={"notification_id": item.id}, commit=False)
+    if commit:
+        db.commit()
+    return item
+
+def mark_all_notifications_read(db: Session, user_id: int) -> int:
+    count = db.query(InternalNotification).filter(
+        InternalNotification.user_id == user_id,
+        InternalNotification.status == "unread",
+    ).update({"status": "read", "read_at": datetime.now()}, synchronize_session=False)
+    db.commit()
+    return count
+
+def get_unread_count(db: Session, user_id: int) -> int:
+    return db.query(InternalNotification).filter(
+        InternalNotification.user_id == user_id,
+        InternalNotification.status == "unread",
+    ).count()
+
+def get_user_notifications(db: Session, user_id: int, status: str | None = None) -> list[InternalNotification]:
+    q = db.query(InternalNotification).filter(InternalNotification.user_id == user_id)
+    if status:
+        q = q.filter(InternalNotification.status == status)
+    return q.order_by(InternalNotification.created_at.desc()).all()
+
+def notify_new_lead(db: Session, lead, commit: bool = False) -> None:
+    company = getattr(lead, "company_name", "") or "客户"
+    create_notifications_for_roles(db, {"admin", "super_admin", "sales_manager"},
+        "新线索待分配", f"客户 {company} 已提交融资测评，请及时查看并分配销售跟进。",
+        "new_lead", related_type="lead", related_id=lead.id, action_url=f"/admin/leads/{lead.id}")
+    sales_id = getattr(lead, "assigned_sales_id", None) or getattr(lead, "owner_user_id", None)
+    if sales_id:
+        create_internal_notification(db, sales_id, "你收到一条新线索",
+            f"管理员已将客户 {company} 分配给你，请及时跟进。",
+            "lead_assigned", related_type="lead", related_id=lead.id, action_url=f"/sales/leads/{lead.id}")
+    if commit:
+        db.commit()
+
+def notify_lead_assigned(db: Session, lead, sales_user, commit: bool = False) -> None:
+    company = getattr(lead, "company_name", "") or "客户"
+    create_internal_notification(db, sales_user.id, "你收到一条分配线索",
+        f"客户 {company} 已分配给你，请尽快联系客户并记录跟进结果。",
+        "lead_assigned", related_type="lead", related_id=lead.id, action_url=f"/sales/leads/{lead.id}")
+    if commit:
+        db.commit()
+
+def notify_advisor_booking_submitted(db: Session, booking, commit: bool = False) -> None:
+    company = getattr(booking, "company_name", "") or "客户"
+    recipients = {getattr(booking, "owner_user_id", None), getattr(booking, "consultant_user_id", None)}
+    recipients.discard(None)
+    if recipients:
+        for user_id in recipients:
+            create_internal_notification(db, user_id, "客户提交顾问预约",
+                f"客户 {company} 提交了1对1融资顾问服务预约，请及时处理。",
+                "advisor_booking", related_type="advisor_booking", related_id=booking.id,
+                action_url=f"/admin/advisor-bookings/{booking.id}")
+    else:
+        create_notifications_for_roles(db, {"admin", "super_admin"}, "客户提交顾问预约",
+            f"客户 {company} 提交了1对1融资顾问服务预约，请及时处理。",
+            "advisor_booking", related_type="advisor_booking", related_id=booking.id,
+            action_url=f"/admin/advisor-bookings/{booking.id}")
+    if commit:
+        db.commit()
+
+def notify_advisor_booking_assigned(db: Session, booking, user_id: int, commit: bool = False) -> None:
+    if not user_id:
+        return
+    company = getattr(booking, "company_name", "") or "客户"
+    create_internal_notification(db, user_id, "你收到一个顾问预约",
+        f"客户 {company} 的顾问预约已分配给你，请及时联系客户。",
+        "advisor_booking", related_type="advisor_booking", related_id=booking.id,
+        action_url=f"/admin/advisor-bookings/{booking.id}")
+    if commit:
+        db.commit()
+
+def notify_document_uploaded(db: Session, lead, document=None, commit: bool = False) -> None:
+    company = getattr(lead, "company_name", "") or "客户"
+    recipients = {getattr(lead, "assigned_sales_id", None), getattr(lead, "owner_user_id", None)}
+    try:
+        from db.models import ConsultingCase
+        case = db.query(ConsultingCase).filter(ConsultingCase.lead_id == lead.id).order_by(ConsultingCase.id.desc()).first()
+        if case:
+            recipients.add(case.consultant_user_id or case.consultant_id)
+    except Exception:
+        pass
+    recipients.discard(None)
+    if recipients:
+        for user_id in recipients:
+            create_internal_notification(db, user_id, "客户已上传资料",
+                f"客户 {company} 上传了新的资料，请查看资料中心并跟进。",
+                "document_uploaded", related_type="document", related_id=getattr(document, "id", None),
+                action_url=f"/admin/leads/{lead.id}/document-center")
+    else:
+        create_notifications_for_roles(db, {"admin", "super_admin"}, "客户已上传资料",
+            f"客户 {company} 上传了新的资料，请查看资料中心并跟进。",
+            "document_uploaded", related_type="document", related_id=getattr(document, "id", None),
+            action_url=f"/admin/leads/{lead.id}/document-center")
+    if commit:
+        db.commit()
+
+def notify_payment_success(db: Session, order, commit: bool = False) -> None:
+    assessment = getattr(order, "assessment", None)
+    lead = getattr(assessment, "lead", None) if assessment else None
+    company = getattr(assessment, "company_name", "") or getattr(lead, "company_name", "") or "客户"
+    product = getattr(order, "product_name", "") or "服务产品"
+    sales_id = (getattr(lead, "assigned_sales_id", None) or getattr(lead, "owner_user_id", None)) if lead else None
+    if sales_id:
+        create_internal_notification(db, sales_id, "客户已完成支付",
+            f"客户 {company} 已购买 {product}，请及时推动下一步交付。",
+            "payment_success", related_type="order", related_id=order.id,
+            action_url=f"/sales/leads/{lead.id}" if lead else f"/admin/orders/{order.id}")
+    create_notifications_for_roles(db, {"admin", "super_admin"}, "新订单支付成功",
+        f"客户 {company} 已完成支付，金额 {getattr(order, 'amount', 0)} 元。",
+        "payment_success", related_type="order", related_id=order.id, action_url=f"/admin/orders/{order.id}")
+    if commit:
+        db.commit()

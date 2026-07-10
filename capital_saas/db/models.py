@@ -970,6 +970,7 @@ class InternalNotification(Base):
     status: Mapped[str] = mapped_column(String(20), default="unread", index=True)
     related_type: Mapped[str] = mapped_column(String(50), default="")
     related_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    action_url: Mapped[str] = mapped_column(String(300), default="")
     read_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 

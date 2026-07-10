@@ -27,6 +27,7 @@ from services.document_parse_service import classify_document, run_parse_task
 from services.due_diligence_service import generate_due_diligence
 from services.event_service import track_event
 from services.follow_log_service import add_follow_log
+from services.notification_service import notify_document_uploaded
 from services.settings_service import get_setting
 
 router = APIRouter()
@@ -150,6 +151,7 @@ async def upload_documents(request:Request,lead_id: int, document_category: str 
             {"document_id": item.id, "file_name": name, "duplicate": bool(duplicate)}, commit=False)
         write_audit_log(db,"document_uploaded","uploaded_document",item.id,user_id=user.id,
             after={"file_name":name,"size":len(content)},request=request,risk_level="medium")
+        notify_document_uploaded(db, lead, item, commit=False)
     db.commit()
     for item in created:
         run_parse_task(db, item)

@@ -136,8 +136,9 @@ FUNDING_APPLICATION_STATUS_LABELS = {
     "planned": "计划申请", "submitted": "已提交", "reviewing": "审核中", "supplement_required": "需补资料",
     "approved": "已批复", "rejected": "未通过", "disbursed": "已放款", "withdrawn": "已撤回",
 }
-NOTIFICATION_STATUS_LABELS = {"queued": "待发送", "sending": "发送中", "success": "发送成功", "failed": "发送失败", "cancelled": "已取消", "skipped": "已跳过"}
+NOTIFICATION_STATUS_LABELS = {"queued": "待发送", "sending": "发送中", "success": "发送成功", "failed": "发送失败", "cancelled": "已取消", "skipped": "已跳过", "unread": "未读", "read": "已读", "archived": "已归档"}
 NOTIFICATION_CHANNEL_LABELS = {"in_app": "站内通知", "email": "邮件", "sms": "短信", "wecom_webhook": "企业微信机器人", "mock": "模拟通道"}
+INTERNAL_NOTIFICATION_TYPE_LABELS = {"new_lead": "新线索", "lead_assigned": "线索分配", "advisor_booking": "顾问预约", "document_uploaded": "资料上传", "task_due": "任务到期", "task_overdue": "任务逾期", "payment_success": "支付成功", "report_ready": "报告完成", "system": "系统通知"}
 
 
 def get_landing_page_label(path):
@@ -216,6 +217,7 @@ def get_project_status_label(code): return PROJECT_STATUS_LABELS.get(str(code or
 def get_funding_application_status_label(code): return FUNDING_APPLICATION_STATUS_LABELS.get(str(code or "").strip().lower(), "未知申请状态")
 def get_notification_status_label(code): return NOTIFICATION_STATUS_LABELS.get(str(code or "").strip().lower(), "未知通知状态")
 def get_notification_channel_label(code): return NOTIFICATION_CHANNEL_LABELS.get(str(code or "").strip().lower(), "其他通知渠道")
+def get_internal_notification_type_label(code): return INTERNAL_NOTIFICATION_TYPE_LABELS.get(str(code or "").strip().lower(), "系统通知")
 
 EVENT_LABELS = {
     "audit_log_created": "审计日志已创建", "unhandled_exception": "系统异常", "assessment_page_viewed": "测评页面被访问",
@@ -378,6 +380,7 @@ def safe_display_label(value, category=None):
         SERVICE_TYPE_LABELS | COMMISSION_TRIGGER_LABELS | COMMISSION_TYPE_LABELS | SETTLEMENT_STATUS_LABELS |
         SOURCE_CHANNEL_LABELS | AB_VARIANT_LABELS | DATA_SOURCE_LABELS | PROJECT_STATUS_LABELS |
         FUNDING_APPLICATION_STATUS_LABELS | NOTIFICATION_STATUS_LABELS | NOTIFICATION_CHANNEL_LABELS
+        | INTERNAL_NOTIFICATION_TYPE_LABELS
     )
     lowered = text.lower()
     if lowered in known:
