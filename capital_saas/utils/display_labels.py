@@ -26,6 +26,18 @@ ROLE_LABELS = {
     "consultant": "融资顾问", "finance": "财务", "viewer": "只读账号", "partner": "渠道伙伴",
 }
 
+INSTITUTION_TYPE_LABELS = {
+    "bank": "银行",
+    "guarantee": "担保公司",
+    "factoring": "保理公司",
+    "leasing": "融资租赁公司",
+    "fund": "资金方",
+    "microloan": "小贷公司",
+    "trust": "信托机构",
+    "asset_management": "资管机构",
+    "other": "其他机构",
+}
+
 
 def get_nav_label(code):
     value = "" if code is None else str(code).strip().lower()
@@ -35,6 +47,11 @@ def get_nav_label(code):
 def get_role_label(role):
     value = "" if role is None else str(role).strip().lower()
     return ROLE_LABELS.get(value, "系统账号")
+
+
+def get_institution_type_label(code):
+    value = "" if code is None else str(code).strip().lower()
+    return INSTITUTION_TYPE_LABELS.get(value, "其他机构")
 
 
 def get_user_display_name(user):
@@ -138,6 +155,15 @@ FUNDING_APPLICATION_STATUS_LABELS = {
 }
 NOTIFICATION_STATUS_LABELS = {"queued": "待发送", "sending": "发送中", "success": "发送成功", "failed": "发送失败", "cancelled": "已取消", "skipped": "已跳过", "unread": "未读", "read": "已读", "archived": "已归档"}
 NOTIFICATION_CHANNEL_LABELS = {"in_app": "站内通知", "email": "邮件", "sms": "短信", "wecom_webhook": "企业微信机器人", "mock": "模拟通道"}
+NOTIFICATION_TEMPLATE_LABELS = {
+    "upgrade_recommend_customer": "升级推荐客户通知",
+    "payment_success_customer": "支付成功客户通知",
+    "payment_success_internal": "支付成功内部通知",
+    "new_lead_admin": "新线索管理员通知",
+    "lead_assigned_sales": "线索分配销售通知",
+    "advisor_booking_submitted_customer": "顾问预约客户通知",
+    "advisor_booking_submitted_internal": "顾问预约内部通知",
+}
 INTERNAL_NOTIFICATION_TYPE_LABELS = {"new_lead": "新线索", "lead_assigned": "线索分配", "advisor_booking": "顾问预约", "document_uploaded": "资料上传", "task_due": "任务到期", "task_overdue": "任务逾期", "payment_success": "支付成功", "report_ready": "报告完成", "system": "系统通知"}
 
 
@@ -217,6 +243,7 @@ def get_project_status_label(code): return PROJECT_STATUS_LABELS.get(str(code or
 def get_funding_application_status_label(code): return FUNDING_APPLICATION_STATUS_LABELS.get(str(code or "").strip().lower(), "未知申请状态")
 def get_notification_status_label(code): return NOTIFICATION_STATUS_LABELS.get(str(code or "").strip().lower(), "未知通知状态")
 def get_notification_channel_label(code): return NOTIFICATION_CHANNEL_LABELS.get(str(code or "").strip().lower(), "其他通知渠道")
+def get_notification_template_label(code): return NOTIFICATION_TEMPLATE_LABELS.get(str(code or "").strip().lower(), "客户通知")
 def get_internal_notification_type_label(code): return INTERNAL_NOTIFICATION_TYPE_LABELS.get(str(code or "").strip().lower(), "系统通知")
 
 EVENT_LABELS = {

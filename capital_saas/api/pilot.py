@@ -29,6 +29,7 @@ from db.models import (
 from services.auth_service import require_roles
 from services.customer_portal_service import require_customer
 from services.event_service import track_event
+from utils.journey_formatter import format_journey_event
 from services.pilot_service import (
     bind_lead_to_pilot,
     create_invite_code,
@@ -315,9 +316,17 @@ def customer_journey(request: Request, lead_id: int, event_type: str = "", db: S
     lead = db.get(Lead, lead_id)
     if not lead: raise HTTPException(404, "线索不存在")
     q = db.query(Event).filter((Event.lead_id == lead.id) | (Event.assessment_id == lead.assessment_id))
+    event_types = sorted(item[0] for item in q.with_entities(Event.event_type).distinct().all())
     if event_type: q = q.filter(Event.event_type == event_type)
     track_event(db, "customer_journey_viewed", lead.assessment_id, lead.id, {"user_id": user.id})
-    return templates.TemplateResponse(request=request, name="admin_customer_journey.html", context={"lead": lead, "events": q.order_by(Event.created_at.desc()).all(), "orders": db.query(Order).filter_by(assessment_id=lead.assessment_id).all(), "feedback": db.query(CustomerFeedback).filter_by(lead_id=lead.id).all(), "documents": db.query(UploadedDocument).filter_by(lead_id=lead.id).all(), "filters": {"event_type": event_type}, "current_user": user})
+    events = q.order_by(Event.created_at.desc()).all()
+    orders = db.query(Order).filter_by(assessment_id=lead.assessment_id).all()
+    users_by_id = {item.id: item for item in db.query(User).all()}
+    journey_events = [
+        format_journey_event(event, users_by_id=users_by_id, orders_by_id={item.id: item for item in orders}, lead=lead)
+        for event in events
+    ]
+    return templates.TemplateResponse(request=request, name="admin_customer_journey.html", context={"lead": lead, "journey_events": journey_events, "event_types": event_types, "orders": orders, "feedback": db.query(CustomerFeedback).filter_by(lead_id=lead.id).all(), "documents": db.query(UploadedDocument).filter_by(lead_id=lead.id).all(), "filters": {"event_type": event_type}, "current_user": user})
 
 
 @router.get("/admin/pilot-batches/{batch_id}/export.csv")

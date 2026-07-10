@@ -79,8 +79,11 @@ def partner_update(partner_id:int,partner_name:str=Form(...),commission_rate:flo
     p=_partner(db,partner_id); p.partner_name=partner_name.strip();p.commission_rate=commission_rate;p.settlement_mode=settlement_mode;p.status=status;p.updated_at=datetime.now();db.commit();return RedirectResponse(f'/admin/channel-partners/{p.id}',303)
 
 @router.get('/admin/institution-contacts',response_class=HTMLResponse)
-def contacts(request:Request,db:Session=Depends(get_db),user:User=Depends(require_roles(*READ))):
-    return templates.TemplateResponse(request=request,name='admin_institution_contacts.html',context={'contacts':db.query(InstitutionContact).order_by(InstitutionContact.cooperation_level).all(),'current_user':user})
+def contacts(request:Request,institution_type:str='',db:Session=Depends(get_db),user:User=Depends(require_roles(*READ))):
+    query=db.query(InstitutionContact)
+    if institution_type:
+        query=query.filter(InstitutionContact.institution_type==institution_type)
+    return templates.TemplateResponse(request=request,name='admin_institution_contacts.html',context={'contacts':query.order_by(InstitutionContact.cooperation_level).all(),'institution_type':institution_type,'current_user':user})
 @router.post('/admin/institution-contacts/create')
 def contact_create(institution_name:str=Form(...),institution_type:str=Form('bank'),bank_type:str=Form(''),city:str=Form(''),contact_name:str=Form(...),contact_role:str=Form('客户经理'),phone:str=Form(''),wechat_id:str=Form(''),email:str=Form(''),product_focus:str=Form(''),cooperation_level:str=Form('B'),note:str=Form(''),db:Session=Depends(get_db),user:User=Depends(require_roles("admin","super_admin","city_manager","consultant_manager"))):
     x=InstitutionContact(institution_name=institution_name.strip(),institution_type=institution_type,bank_type=bank_type,city=city,contact_name=contact_name.strip(),contact_role=contact_role,phone=phone,wechat_id=wechat_id,email=email,product_focus=product_focus,cooperation_level=cooperation_level,note=note,status='active');db.add(x);db.flush();track_event(db,'institution_contact_created',data={'contact_id':x.id},commit=False);db.commit();return RedirectResponse('/admin/institution-contacts',303)
