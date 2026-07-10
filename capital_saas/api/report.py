@@ -22,6 +22,7 @@ from services.report_service import (
     generate_full_report,
     parse_customer_free_summary,
     parse_customer_report,
+    parse_report,
 )
 from services.settings_service import get_bool_setting
 from utils.logger import logger
@@ -43,6 +44,8 @@ def _report_access_allowed(request: Request, db: Session, assessment_id: int) ->
 def _review_blocks_customer(request: Request, db: Session, report: Report) -> bool:
     if _admin_override(request, db):
         return False
+    if report.review_status == "quality_failed":
+        return True
     return (
         get_bool_setting(db, "report_review_required", False)
         and report.review_status != "approved"
@@ -75,7 +78,7 @@ def full_report(request: Request, assessment_id: int, db: Session = Depends(get_
         return templates.TemplateResponse(
             request=request,
             name="report_pending.html",
-            context={"assessment": assessment, "report_item": assessment.report},
+            context={"assessment": assessment, "report_item": assessment.report, "quality_failed": assessment.report.review_status == "quality_failed"},
             status_code=202,
         )
     full = parse_customer_report(assessment.report)
@@ -119,7 +122,7 @@ def print_report(request: Request, assessment_id: int, db: Session = Depends(get
         return templates.TemplateResponse(
             request=request,
             name="report_pending.html",
-            context={"assessment": assessment, "report_item": assessment.report},
+            context={"assessment": assessment, "report_item": assessment.report, "quality_failed": assessment.report.review_status == "quality_failed"},
             status_code=202,
         )
     full = parse_customer_report(assessment.report)
@@ -159,7 +162,7 @@ def bank_product_detail(
         return templates.TemplateResponse(
             request=request,
             name="report_pending.html",
-            context={"assessment": assessment, "report_item": assessment.report},
+            context={"assessment": assessment, "report_item": assessment.report, "quality_failed": assessment.report.review_status == "quality_failed"},
             status_code=202,
         )
     full = parse_customer_report(assessment.report)
@@ -215,6 +218,15 @@ def report_api(request: Request, assessment_id: int, db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="报告不存在")
     free = parse_customer_free_summary(report)
     full = parse_customer_report(report)
+    if full and _admin_override(request, db):
+        _, internal_full = parse_report(report)
+        if internal_full:
+            full["schema_version"] = internal_full.get("schema_version")
+            full["generated_by"] = internal_full.get("generated_by", {})
+            if isinstance(full.get("bank_approval"), dict):
+                full["bank_approval"]["approval_probability"] = (
+                    (internal_full.get("bank_approval") or {}).get("approval_probability")
+                )
     unlocked = _report_access_allowed(request, db, assessment_id)
     reviewed = not _review_blocks_customer(request, db, report)
     return {

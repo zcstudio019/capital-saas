@@ -231,9 +231,11 @@ def _decorate_match(item: dict[str, Any], base_path: str) -> dict[str, Any]:
 
 def build_bank_match_preview(matches: dict[str, Any] | None, base_path: str = "") -> dict[str, Any]:
     matches = matches or {}
-    products = [_decorate_match(item, base_path) for item in matches.get("matched_products", [])[:1]]
+    source_products = matches.get("formatted_bank_products") or matches.get("matched_products", [])
+    products = [_decorate_match(item, base_path) for item in source_products[:1]]
     return {
         "matched_products": products,
+        "formatted_bank_products": products,
         "fallback_notice": matches.get("fallback_notice", ""),
         "preview_only": True,
         "upgrade_product": "699_bank_match",
@@ -244,9 +246,11 @@ def build_bank_match_preview(matches: dict[str, Any] | None, base_path: str = ""
 
 def build_bank_match_full(matches: dict[str, Any] | None, base_path: str = "") -> dict[str, Any]:
     full = deepcopy(matches or {})
+    source_products = full.get("formatted_bank_products") or full.get("matched_products", [])
     full["matched_products"] = [
-        _decorate_match(item, base_path) for item in full.get("matched_products", [])
+        _decorate_match(item, base_path) for item in source_products
     ]
+    full["formatted_bank_products"] = full["matched_products"]
     full["preview_only"] = False
     return full
 
@@ -296,6 +300,7 @@ def build_document_checklist_full(checklist: dict[str, Any] | None = None) -> di
             groups.append(default_group)
     return {
         "required_documents": groups,
+        "formatted_document_checklist": groups,
         "optional_documents": checklist.get("optional_documents", []),
         "missing_risk": checklist.get("missing_risk", []),
         "preparation_priority": checklist.get("preparation_priority", []),

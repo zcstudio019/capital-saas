@@ -8,16 +8,20 @@ from ai.risk_agent import RiskAgent
 from ai.strategy_agent import StrategyAgent
 from core.bank_approval_engine import simulate_bank_approval
 from core.bank_product_matcher import match_bank_products
+from core.config import settings
 from core.pricing_engine import PRODUCT_RANK
 from ai.pipelines.report_pipeline import ReportPipeline
 from db.models import AIGenerationLog, Assessment, Order, Report, ReportVersion
 from services.settings_service import get_bool_setting
+from services.event_service import track_event
 from utils.report_display_mapper import (
     build_customer_report_display,
     display_value,
     enrich_report_display_fields,
 )
 from utils.report_formatters import normalize_report_action_steps
+from utils.report_render_formatter import format_report_for_render
+from utils.logger import logger
 
 
 def _assessment_data(item: Assessment) -> dict:
@@ -415,7 +419,9 @@ def _refresh_bank_product_matches(db: Session, assessment: Assessment, content: 
         details = content["chapters"][4].setdefault("details", {})
         details["bank_product_matches"] = matches
         details["best_application_order"] = matches.get("best_application_order", [])
-    return enrich_report_display_fields(_apply_product_depth(content, product_code))
+    return format_report_for_render(
+        enrich_report_display_fields(_apply_product_depth(content, product_code))
+    )
 
 
 def _save_version(
@@ -484,14 +490,45 @@ def generate_full_report(
     product_code = desired_product
     fallback = _build_professional_report(db, assessment)
     content, quality = ReportPipeline(db, report).run(assessment, product_code, fallback)
-    content = enrich_report_display_fields(_apply_product_depth(content, product_code))
+    content = format_report_for_render(
+        enrich_report_display_fields(_apply_product_depth(content, product_code))
+    )
     normalize_report_action_steps(content)
     report.full_report_json = json.dumps(content, ensure_ascii=False)
     report.html_content = ""
     report.is_unlocked = True
+    delivery_quality = quality.get("delivery_quality") or {}
+    delivery_issues = delivery_quality.get("issues") or []
+    delivery_failed = not delivery_quality.get("valid", True)
     review_required = get_bool_setting(db, "report_review_required", False)
-    report.review_status = "pending_review" if review_required else "approved"
-    if not review_required:
+    if delivery_failed:
+        logger.error("report delivery quality failed report_id=%s issues=%s", report.id, delivery_issues)
+        track_event(
+            db,
+            "report_quality_failed",
+            assessment_id=assessment.id,
+            lead_id=assessment.lead.id if assessment.lead else None,
+            data={"report_id": report.id, "issues": delivery_issues},
+            commit=False,
+        )
+        db.add(AIGenerationLog(
+            assessment_id=assessment.id,
+            report_id=report.id,
+            section_name="报告交付质量检查",
+            ai_mode="system",
+            model_name="",
+            prompt_name="report_delivery_quality",
+            status="failed",
+            error_message="；".join(delivery_issues),
+            token_usage_json=json.dumps({}, ensure_ascii=False),
+            quality_score=quality["quality_score"],
+        ))
+    if delivery_failed and settings.app_env == "production":
+        report.review_status = "quality_failed"
+        report.review_note = "报告正在重新整理，请稍后查看。"
+    else:
+        report.review_status = "pending_review" if review_required else "approved"
+    if not review_required and not delivery_failed:
         report.review_note = "系统配置为无需人工审核，生成后自动通过。"
     _save_version(
         db, report, content, product_code, quality["quality_score"], created_by
@@ -515,7 +552,7 @@ def parse_report(report: Report) -> tuple[dict, dict | None]:
 def parse_customer_report(report: Report) -> dict | None:
     """Read a customer-safe report payload with internal fields removed."""
     _, full = parse_report(report)
-    return build_customer_report_display(full)
+    return format_report_for_render(build_customer_report_display(format_report_for_render(full)))
 
 
 def parse_customer_free_summary(report: Report) -> dict:

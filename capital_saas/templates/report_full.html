@@ -34,25 +34,24 @@
       </div>
       {% endif %}
       <div class="chapter-structure">
-        <div><h3>关键问题</h3><ul>{% for item in chapter.key_issues %}<li>{{ item }}</li>{% endfor %}</ul></div>
+        <div><h3>关键问题</h3><ul>{% for item in chapter.formatted_key_issues %}<li>{{ item }}</li>{% endfor %}</ul></div>
         <div><h3>银行视角判断</h3><p>{{ chapter.bank_view }}</p></div>
-        <div><h3>老板应该怎么做</h3><ul>{% for item in chapter.owner_actions %}<li>{{ item }}</li>{% endfor %}</ul></div>
+        <div><h3>老板应该怎么做</h3><ul>{% for item in chapter.formatted_owner_actions %}<li>{{ item }}</li>{% endfor %}</ul></div>
         <div>
           <h3>下一步行动建议</h3>
-          {% if chapter.formatted_action_steps %}
+          {% if chapter.formatted_action_plan %}
           <div class="action-step-list">
-            {% for step in chapter.formatted_action_steps %}
-            <div class="action-step-card">
+            {% for step in chapter.formatted_action_plan %}
+            <div class="action-plan-card">
               <h4>{{ step.period }}</h4>
               {% if step.owner %}<p><strong>负责人：</strong>{{ step.owner }}</p>{% endif %}
-              {% if step.action %}<p><strong>行动：</strong>{{ step.action }}</p>{% endif %}
-              {% if step.goal %}<p><strong>目标：</strong>{{ step.goal }}</p>{% endif %}
-              {% if step.note %}<p><strong>说明：</strong>{{ step.note }}</p>{% endif %}
+              {% if step.actions %}<p><strong>核心动作：</strong></p><ul>{% for action in step.actions %}<li>{{ action }}</li>{% endfor %}</ul>{% endif %}
+              {% if step.outcome %}<p><strong>交付结果：</strong>{{ step.outcome }}</p>{% endif %}
             </div>
             {% endfor %}
           </div>
           {% else %}
-          <ol>{% for item in chapter.next_actions %}<li>{{ item }}</li>{% endfor %}</ol>
+          <ol>{% for item in chapter.formatted_next_steps %}<li>{{ item }}</li>{% endfor %}</ol>
           {% endif %}
         </div>
         <div class="risk-message"><h3>风险与合规提示</h3><p>{{ chapter.risk_warning }}</p></div>
@@ -72,9 +71,9 @@
       <div class="chapter-no">+</div><h2>银行产品匹配</h2>
       {% set bank_block = bank_match_full if bank_match_unlocked else bank_match_preview %}
       {% if bank_block.fallback_notice %}<p class="safe-note">{{ bank_block.fallback_notice }}</p>{% endif %}
-      {% for item in bank_block.matched_products %}
+      {% for item in bank_block.formatted_bank_products %}
       <a class="match-item match-card-link" href="{{ item.detail_url }}">
-        <div class="task-section-head"><h3>{{ item.product_name }}</h3><span>{{ item.match_level_display or '匹配' }} · {{ item.match_score }}分</span></div>
+        <div class="task-section-head"><h3>{{ item.product_name }}</h3><span>{{ item.match_level_display or '匹配' }} · {{ item.match_score_display }}</span></div>
         {% if bank_match_unlocked %}
         <p>{{ item.recommendation_reason or item.reason }}</p>
         <small>{{ item.bank_name or item.bank_type }} · {{ item.estimated_amount }} · {{ item.interest_rate_range }} · {{ item.loan_term }}</small>
@@ -101,7 +100,7 @@
       {% set checklist_block = document_checklist_full if document_checklist_unlocked else document_checklist_preview %}
       {% if document_checklist_unlocked %}
       <div class="document-full-grid">
-        {% for group in checklist_block.required_documents %}
+        {% for group in checklist_block.formatted_document_checklist %}
         <article class="document-full-card">
           <div class="task-section-head"><h3>{{ group.category }}</h3><span class="priority-pill">{{ group.priority_display }}</span></div>
           <p><strong>用途说明：</strong>{{ group.purpose }}</p>

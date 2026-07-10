@@ -1,3 +1,3 @@
 {% extends "base.html" %}
 {% block title %}报告审核中{% endblock %}
-{% block content %}<section class="error-page"><div class="card"><strong>AI</strong><h1>报告正在生成 / 审核中</h1><p>{{ assessment.company_name }} 的顾问报告已经进入质量检查与人工审核流程。审核通过后即可查看完整报告及打印版。</p><p>当前状态：{{ report_item.review_status|zh }}</p><a class="btn btn-primary" href="/">返回首页</a></div></section>{% endblock %}
+{% block content %}<section class="error-page"><div class="card"><strong>AI</strong>{% if quality_failed %}<h1>报告正在重新整理，请稍后查看。</h1><p>系统正在完成交付质量检查，整理完成后将自动更新为正式报告。</p>{% else %}<h1>报告正在生成 / 审核中</h1><p>{{ assessment.company_name }} 的顾问报告已经进入质量检查与人工审核流程。审核通过后即可查看完整报告及打印版。</p><p>当前状态：{{ report_item.review_status|zh }}</p>{% endif %}<a class="btn btn-primary" href="/">返回首页</a></div></section>{% endblock %}

@@ -69,6 +69,8 @@ INTERNAL_REPORT_KEYS = frozenset({
     "schema_version", "pipeline_version", "generated_by", "quality", "rewrite_attempts",
     "product_code", "data_source", "debug_scores", "eliminated", "eliminated_reason",
     "details", "customer_profile",
+    "action_plan", "action_steps", "timeline_plan", "next_steps", "next_actions",
+    "formatted_action_steps", "recommendations", "delivery_quality",
 })
 
 TEXT_ENUM_REPLACEMENTS = {
