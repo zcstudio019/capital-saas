@@ -75,11 +75,14 @@
       {% if bank_block.fallback_notice %}<p class="safe-note">{{ bank_block.fallback_notice }}</p>{% endif %}
       {% for item in bank_block.matched_products %}
       <a class="match-item match-card-link" href="{{ item.detail_url }}">
-        <div class="task-section-head"><h3>{{ item.product_name }}</h3><span>匹配度 {{ item.match_score }}</span></div>
+        <div class="task-section-head"><h3>{{ item.product_name }}</h3><span>{{ item.match_level or '匹配' }} · {{ item.match_score }}分</span></div>
         {% if bank_match_unlocked %}
-        <p>{{ item.reason }}</p>
+        <p>{{ item.recommendation_reason or item.reason }}</p>
         <small>{{ item.bank_name or item.bank_type }} · {{ item.estimated_amount }} · {{ item.interest_rate_range }} · {{ item.loan_term }}</small>
-        <p class="safe-note">{{ item.risk_notes }}</p>
+        {% if item.matched_points %}<p><strong>适合原因：</strong>{{ item.matched_points|join('；') }}</p>{% endif %}
+        {% if item.risk_points %}<p class="safe-note"><strong>风险提醒：</strong>{{ item.risk_points|join('；') }}</p>{% else %}<p class="safe-note">{{ item.risk_notes }}</p>{% endif %}
+        {% if item.missing_requirements %}<p class="safe-note"><strong>需补资料：</strong>{{ item.missing_requirements|join('；') }}</p>{% endif %}
+        {% if item.suggested_next_step %}<p><strong>下一步建议：</strong>{{ item.suggested_next_step }}</p>{% endif %}
         <b class="detail-hint">查看完整详情</b>
         {% else %}
         <p>{{ item.preview_reason }}</p>

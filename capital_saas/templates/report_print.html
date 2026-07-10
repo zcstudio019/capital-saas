@@ -54,7 +54,7 @@
       <h2>银行产品匹配</h2>
       {% set bank_block = bank_match_full if bank_match_unlocked else bank_match_preview %}
       {% for item in bank_block.matched_products %}
-      <div class="block"><h3>{{ item.product_name }} · 匹配度 {{ item.match_score }}</h3><p>{{ item.reason if bank_match_unlocked else item.preview_reason }}</p></div>
+      <div class="block"><h3>{{ item.product_name }} · {{ item.match_level or '匹配' }} · {{ item.match_score }}分</h3><p>{{ (item.recommendation_reason or item.reason) if bank_match_unlocked else item.preview_reason }}</p>{% if bank_match_unlocked and item.suggested_next_step %}<p>{{ item.suggested_next_step }}</p>{% endif %}</div>
       {% else %}<p>暂无匹配产品。</p>{% endfor %}
       {% if not bank_match_unlocked %}<div class="locked"><strong>当前为基础版预览</strong><p>升级699版本可查看完整产品匹配、申请顺序和额度预测。</p></div>{% endif %}
     </section>

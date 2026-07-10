@@ -7,6 +7,7 @@ from ai.financing_agent import FinancingAgent
 from ai.risk_agent import RiskAgent
 from ai.strategy_agent import StrategyAgent
 from core.bank_approval_engine import simulate_bank_approval
+from core.bank_product_matcher import match_bank_products
 from core.pricing_engine import PRODUCT_RANK
 from ai.pipelines.report_pipeline import ReportPipeline
 from db.models import AIGenerationLog, Assessment, Order, Report, ReportVersion
@@ -397,6 +398,16 @@ def _apply_product_depth(content: dict, product_code: str) -> dict:
     return content
 
 
+def _refresh_bank_product_matches(db: Session, assessment: Assessment, content: dict, product_code: str) -> dict:
+    matches = match_bank_products(db, assessment)
+    content["bank_product_matches"] = matches
+    if len(content.get("chapters") or []) >= 5:
+        details = content["chapters"][4].setdefault("details", {})
+        details["bank_product_matches"] = matches
+        details["best_application_order"] = matches.get("best_application_order", [])
+    return _apply_product_depth(content, product_code)
+
+
 def _save_version(
     db: Session,
     report: Report,
@@ -444,10 +455,16 @@ def generate_full_report(
                 and current.get("chapters")
                 and PRODUCT_RANK.get(current_product, 0) >= PRODUCT_RANK.get(desired_product, 0)
             ):
+                refreshed = _refresh_bank_product_matches(db, assessment, current, current_product)
+                if refreshed != current or json.loads(report.full_report_json) != refreshed:
+                    report.full_report_json = json.dumps(refreshed, ensure_ascii=False)
+                    report.html_content = ""
+                    db.commit()
+                    db.refresh(report)
                 if not db.query(ReportVersion).filter(ReportVersion.report_id == report.id).first():
                     quality = (current.get("quality") or {}).get("quality_score", 0)
                     _save_version(
-                        db, report, current, current.get("product_code", _current_product(db, assessment.id)),
+                        db, report, refreshed, refreshed.get("product_code", _current_product(db, assessment.id)),
                         quality, "legacy-import",
                     )
                     db.commit()
