@@ -1,0 +1,14 @@
+<section id="part-4" class="upgrade-gate">
+  <p class="eyebrow">融资方案深度升级</p>
+  <h2>诊断已经明确，下一步需要把问题转化为执行方案</h2>
+  <p>融资结构优化方案将在体检结论基础上，进一步给出优化处方、真实银行产品组合、资料清单和分阶段行动计划。</p>
+  <div class="unlock-grid"><div>四大优化处方</div><div>真实银行产品匹配</div><div>完整资料准备清单</div><div>30/90/180天行动计划</div></div>
+  <div class="upgrade-price">
+    <div><span>融资结构优化方案</span><br><strong>¥{{ health_report.prices.structure }}</strong></div>
+    {% if health_report.prices.structure_deduction %}
+    <div><del>原价 ¥{{ health_report.prices.structure_original }}</del><br>已购买体检报告抵扣 ¥{{ health_report.prices.structure_deduction }}</div>
+    {% endif %}
+  </div>
+  <a class="report-button" href="/checkout/{{ assessment.id }}?product=1999_structure_plan&upgrade=1">升级融资结构优化方案</a>
+  <p><small>本方案为企业专属分析结果，不保证任何金融机构最终审批。</small></p>
+</section>

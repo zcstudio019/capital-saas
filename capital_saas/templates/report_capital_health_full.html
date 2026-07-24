@@ -1,9 +1,41 @@
-{% extends "base.html" %}
-{% block title %}{{ health_report.title }}｜{{ assessment.company_name }}{% endblock %}
-{% block content %}
-<div class="health-report">
-  {% include "components/report_cover.html" %}
-  <nav class="health-report-nav"><a href="#part-1">体检总评</a><a href="#part-2">分项检查</a><a href="#part-3">风险汇总</a><a href="#part-4">优化处方</a><a href="#part-5">融资评估</a><a href="#part-6">行动计划</a><a href="#part-7">后续服务</a><a target="_blank" href="/report/{{ assessment.id }}/print">打印报告</a></nav>
-  <main class="health-report-content">{% include "components/report_capital_health_body.html" %}</main>
-</div>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ health_report.title }}｜{{ assessment.company_name }}</title>
+  <link rel="stylesheet" href="/static/css/capital_health_report.css">
+</head>
+<body class="capital-report-page">
+  <div class="report-toolbar">
+    {% if backend_view %}<a href="/admin/reports">返回报告管理</a>
+    {% elif client_view %}<a href="/client/reports">返回客户中心</a>
+    {% else %}<a href="/">返回客户中心</a>{% endif %}
+    <a target="_blank" href="/report/{{ assessment.id }}/print">打印报告</a>
+    <span class="toolbar-note">在打印窗口选择“另存为 PDF”即可下载</span>
+    {% if backend_view %}
+      <form method="post" action="/admin/reports/{{ assessment.report.id }}/regenerate"><button type="submit">重新生成报告</button></form>
+      <form method="post" action="/admin/reports/{{ assessment.report.id }}/rematch-products"><button type="submit">重新匹配产品</button></form>
+      <a href="/client/reports/{{ assessment.report.id }}">查看客户门户版本</a>
+      <a href="/admin/orders">查看订单</a>
+    {% endif %}
+  </div>
+  <nav class="report-chapter-nav">
+    <a href="#part-1">体检总评</a><a href="#part-2">分项检查</a><a href="#part-3">风险汇总</a>
+    <a href="#part-4">优化处方</a><a href="#part-5">融资评估</a><a href="#part-6">行动计划</a><a href="#part-7">后续服务</a>
+  </nav>
+  <main class="report-document">
+    {% include "components/report_cover.html" %}
+    {% include "components/report_toc.html" %}
+    <div class="report-inner">{% include "components/report_capital_health_body.html" %}</div>
+    <footer class="report-footer">{{ health_report.institution }}　｜　{{ health_report.report_no }}</footer>
+  </main>
+  <script>
+  (() => {
+    const links = [...document.querySelectorAll(".report-chapter-nav a")];
+    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) links.forEach(a => a.classList.toggle("is-active", a.hash === "#" + entry.target.id));
+    }), {rootMargin: "-20% 0px -65%"});
+    links.forEach(a => { const target = document.querySelector(a.hash); if (target) observer.observe(target); });
+  })();
+  </script>
+</body></html>

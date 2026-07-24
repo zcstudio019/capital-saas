@@ -1,0 +1,10 @@
+<div class="document-groups">
+  {% for group in health_report.document_plan %}
+  <article class="document-group">
+    <h3>{{ loop.index }}. {{ group.category }}</h3>
+    <p>{{ group.purpose }}</p>
+    <p><small>优先级：{{ group.priority }} · 准备批次：{{ group.batch }}</small></p>
+    {% for item in group["items"] %}<div class="document-item"><span>{{ item.name }}</span><span class="document-status">{{ item.status }}</span></div>{% endfor %}
+  </article>
+  {% endfor %}
+</div>

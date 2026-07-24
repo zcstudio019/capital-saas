@@ -66,9 +66,15 @@ def run():
         )
         assert paid.status_code == 303
 
+        pending = client.get(f"/report/{assessment_id}")
+        assert pending.status_code == 202
+        with SessionLocal() as db:
+            report = db.query(Report).filter(Report.assessment_id == assessment_id).one()
+            report.review_status = "approved"
+            db.commit()
         report_page = client.get(f"/report/{assessment_id}")
         assert report_page.status_code == 200
-        for text in ["银行产品组合建议", "资料准备清单", "免责声明", "优化处方"]:
+        for text in ["真实银行产品匹配", "融资资料准备清单", "免责声明", "优化处方"]:
             assert text in report_page.text
         print_page = client.get(f"/report/{assessment_id}/print")
         assert print_page.status_code == 200

@@ -14,7 +14,7 @@
     <ol class="content-list"><li>专属融资顾问陪跑</li><li>资料整理与预审</li><li>银行申请路径设计</li><li>融资进度跟进</li><li>贷后管理建议</li></ol>
     {% endif %}
   </div>
-  <div class="card payment-box"><div class="payment-row"><span>商品金额</span><strong>¥{{ product.price }}</strong></div><div class="payment-row muted"><span>优惠</span><span>¥0</span></div><div class="divider"></div><div class="payment-total"><span>应付金额</span><strong>¥{{ product.price }}</strong></div>
+  <div class="card payment-box"><div class="payment-row"><span>商品金额</span><strong>¥{{ product.original_price or product.price }}</strong></div><div class="payment-row muted"><span>已购体检报告抵扣</span><span>−¥{{ product.deduction or 0 }}</span></div><div class="divider"></div><div class="payment-total"><span>应付金额</span><strong>¥{{ product.price }}</strong></div>
     <div class="mock-notice">{% if payment_mode == 'mock' %}<strong>支付说明</strong><p>当前为模拟支付，不会产生真实扣款。</p>{% elif payment_mode == 'manual_transfer' %}<strong>人工转账</strong><p>下单后展示转账说明，由后台确认到账并解锁服务。</p>{% else %}<strong>支付接口预留模式</strong><p>当前渠道尚未正式接入，将生成待处理订单。</p>{% endif %}</div>
     <form action="/payment/mock-pay/{{ assessment.id }}?product={{ product_code }}" method="post" data-loading-form><button class="btn btn-primary btn-block btn-lg" type="submit">确认支付 ¥{{ product.price }}</button></form>
     <a class="text-link" href="/products">查看其他产品</a><p class="compliance-note">本服务用于企业融资规划参考，不构成贷款承诺或授信承诺；实际结果以金融机构审批为准。</p>

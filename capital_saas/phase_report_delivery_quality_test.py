@@ -108,7 +108,7 @@ def run() -> None:
             assert validate_report_for_delivery(text)["valid"]
             for forbidden in ("{'period'", "owner", "actions", "outcome", "medium", "_days"):
                 assert forbidden not in text.lower()
-            for expected in ("未来30天行动计划", "负责人", "核心动作", "交付结果", "中等风险"):
+            for expected in ("未来30天行动计划", "负责人", "核心动作", "关键成果", "黄灯"):
                 assert expected in text
 
     print("REPORT_DELIVERY_QUALITY_TEST_OK")

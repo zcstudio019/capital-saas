@@ -55,7 +55,7 @@ def report_price() -> int:
     return products["980_capital_health_report"]["price"]
 
 
-def get_product(product_code: str | None, db=None) -> tuple[str, dict]:
+def get_product(product_code: str | None, db=None, assessment_id: int | None = None) -> tuple[str, dict]:
     code = product_code if product_code in products else "980_capital_health_report"
     product = dict(products[code])
     if db is not None:
@@ -74,6 +74,22 @@ def get_product(product_code: str | None, db=None) -> tuple[str, dict]:
                 product["price"] = float(get_setting(db, price_key, str(product["price"])))
         except ValueError:
             pass
+        if code == "1999_structure_plan" and assessment_id:
+            from db.models import Order
+
+            mode = get_setting(db, "structure_plan_upgrade_mode", "deduct_report_price")
+            paid_report = db.query(Order).filter(
+                Order.assessment_id == assessment_id,
+                Order.product_code == "980_capital_health_report",
+                Order.status == "paid",
+            ).first()
+            if mode == "deduct_report_price" and paid_report:
+                original_price = float(product["price"])
+                deduction = min(float(paid_report.amount or 0), original_price)
+                product["original_price"] = original_price
+                product["deduction"] = deduction
+                product["price"] = max(0, original_price - deduction)
+                product["upgrade_mode"] = mode
     return code, product
 
 

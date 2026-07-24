@@ -133,7 +133,7 @@ def free_result(request: Request, assessment_id: int, db: Session = Depends(get_
     if not assessment or not assessment.report:
         raise HTTPException(status_code=404, detail="测评不存在")
     free = parse_customer_free_summary(assessment.report)
-    health_report = build_capital_health_report(db, assessment)
+    health_report = build_capital_health_report(db, assessment, include_extended=False)
     session_id = request.session.get("visitor_session_id") or request.session.get("session_id") or "anonymous"
     variant = assign_variant(
         db, session_id, assessment.id, assessment.lead.id if assessment.lead else None

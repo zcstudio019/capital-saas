@@ -10,6 +10,7 @@
   <meta name="robots" content="index,follow">
   <title>{% block title %}沪上银 · 企业资本战略AI诊断系统{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
   <header class="site-header"><div class="container nav">

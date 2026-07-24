@@ -8,6 +8,7 @@ from ai.risk_agent import RiskAgent
 from ai.strategy_agent import StrategyAgent
 from core.bank_approval_engine import simulate_bank_approval
 from core.bank_product_matcher import match_bank_products
+from core.capital_health_report import build_capital_health_report, report_entitlements
 from core.config import settings
 from core.pricing_engine import PRODUCT_RANK
 from ai.pipelines.report_pipeline import ReportPipeline
@@ -471,16 +472,10 @@ def generate_full_report(
                 and current.get("chapters")
                 and PRODUCT_RANK.get(current_product, 0) >= PRODUCT_RANK.get(desired_product, 0)
             ):
-                refreshed = _refresh_bank_product_matches(db, assessment, current, current_product)
-                if refreshed != current or json.loads(report.full_report_json) != refreshed:
-                    report.full_report_json = json.dumps(refreshed, ensure_ascii=False)
-                    report.html_content = ""
-                    db.commit()
-                    db.refresh(report)
                 if not db.query(ReportVersion).filter(ReportVersion.report_id == report.id).first():
                     quality = (current.get("quality") or {}).get("quality_score", 0)
                     _save_version(
-                        db, report, refreshed, refreshed.get("product_code", _current_product(db, assessment.id)),
+                        db, report, current, current.get("product_code", _current_product(db, assessment.id)),
                         quality, "legacy-import",
                     )
                     db.commit()
@@ -494,6 +489,14 @@ def generate_full_report(
         enrich_report_display_fields(_apply_product_depth(content, product_code))
     )
     normalize_report_action_steps(content)
+    entitlements = report_entitlements(db, assessment.id)
+    snapshot = build_capital_health_report(
+        db,
+        assessment,
+        include_extended=entitlements["structure_unlocked"],
+    )
+    snapshot["access_level"] = entitlements["access_level"]
+    content["capital_health_snapshot"] = snapshot
     report.full_report_json = json.dumps(content, ensure_ascii=False)
     report.html_content = ""
     report.is_unlocked = True
@@ -501,6 +504,10 @@ def generate_full_report(
     delivery_issues = delivery_quality.get("issues") or []
     delivery_failed = not delivery_quality.get("valid", True)
     review_required = get_bool_setting(db, "report_review_required", False)
+    if product_code in {"1999_structure_plan", "one_on_one_consulting", "high_ticket_consulting"}:
+        review_required = get_bool_setting(db, "structure_plan_review_required", True)
+    elif product_code == "980_capital_health_report":
+        review_required = get_bool_setting(db, "capital_health_report_review_required", False)
     if delivery_failed:
         logger.error("report delivery quality failed report_id=%s issues=%s", report.id, delivery_issues)
         track_event(
@@ -530,6 +537,15 @@ def generate_full_report(
         report.review_status = "pending_review" if review_required else "approved"
     if not review_required and not delivery_failed:
         report.review_note = "系统配置为无需人工审核，生成后自动通过。"
+    content["report_meta"] = {
+        "access_level": entitlements["access_level"],
+        "created_at": report.created_at.isoformat(),
+        "created_by": created_by,
+        "review_status": report.review_status,
+        "reviewer": "",
+        "change_summary": "重新生成报告" if force else "首次生成报告",
+    }
+    report.full_report_json = json.dumps(content, ensure_ascii=False)
     _save_version(
         db, report, content, product_code, quality["quality_score"], created_by
     )

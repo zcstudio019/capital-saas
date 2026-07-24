@@ -1,9 +1,11 @@
-{% extends 'client_base.html' %}
-{% block title %}{{ health_report.title }}{% endblock %}
-{% block content %}
-<div class="health-report health-client-report">
-  {% if not print_mode %}<div class="client-report-actions"><a class="btn" target="_blank" href="/client/reports/{{ assessment.report.id }}/print">打印 / 导出PDF</a></div>{% endif %}
-  {% include "components/report_cover.html" %}
-  <main class="health-report-content">{% include "components/report_capital_health_body.html" %}</main>
-</div>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ health_report.title }}｜{{ assessment.company_name }}</title><link rel="stylesheet" href="/static/css/capital_health_report.css"></head>
+<body class="capital-report-page">
+  {% if not print_mode %}<div class="report-toolbar"><a href="/client/reports">返回客户中心</a><a target="_blank" href="/client/reports/{{ assessment.report.id }}/print">打印报告</a><span class="toolbar-note">在打印窗口选择“另存为 PDF”即可下载</span></div>{% endif %}
+  <main class="report-document">
+    {% include "components/report_cover.html" %}{% include "components/report_toc.html" %}
+    <div class="report-inner">{% include "components/report_capital_health_body.html" %}</div>
+    <footer class="report-footer">{{ health_report.institution }}　｜　{{ health_report.report_no }}</footer>
+  </main>
+</body></html>

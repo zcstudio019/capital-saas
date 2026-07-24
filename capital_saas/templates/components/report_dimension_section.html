@@ -1,0 +1,27 @@
+<section id="part-2" class="report-section">
+  {% set section_number = "02" %}{% set section_kicker = "Detailed Examination" %}
+  {% set section_title = "分项检查报告" %}{% set section_description = "逐项呈现八维检查结果、评分依据和需要核验的资料。" %}
+  {% include "components/report_section_heading.html" %}
+  {% for dimension in health_report.dimensions %}
+  <article class="dimension-module">
+    <header class="dimension-header">
+      <div><h3>{{ loop.index }}. {{ dimension.dimension_name }}检查</h3><p>{{ dimension.purpose }}</p></div>
+      <div class="dimension-badge"><strong>{{ "%.1f"|format(dimension.raw_score) }} / 5</strong><span>权重 {{ dimension.weight }}% · <b class="light-tag light-{{ 'green' if dimension.status_light == '绿灯' else 'yellow' if dimension.status_light == '黄灯' else 'orange' if dimension.status_light == '橙灯' else 'red' }}">{{ dimension.status_light }}</b></span></div>
+    </header>
+    <table class="report-table dimension-check-table">
+      <thead><tr><th style="width:21%">检查项目</th><th style="width:27%">检查结果</th><th>评分依据</th><th style="width:10%">得分</th></tr></thead>
+      <tbody>
+        {% for item in dimension["items"] %}
+        <tr><td data-label="检查项目">{{ item.check_item }}</td><td data-label="检查结果">{{ item.check_result }}</td><td data-label="评分依据">{{ item.scoring_basis }}</td><td data-label="得分">{{ "%.1f"|format(item.score) if item.score is not none else "—" }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if dimension.missing_count %}<p class="verification-note">其中 {{ dimension.missing_count }} 项将在企业上传相关资料并完成核验后更新。</p>{% endif %}
+    <footer class="dimension-footer">
+      <div><span>维度小结</span><p>{{ dimension.summary }}</p></div>
+      <div><span>异常项提示</span><p>{{ dimension.abnormal_items | map(attribute="check_item") | join("、") if dimension.abnormal_items else "未发现明确异常项" }}</p></div>
+      <div><span>改进方向</span><p>{{ dimension.improvement_direction }}</p></div>
+    </footer>
+  </article>
+  {% endfor %}
+</section>

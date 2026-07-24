@@ -68,12 +68,12 @@ def run():
         full = client.get(f"/report/{assessment_id}")
         checks["full_report"] = full.status_code
         chapters = [
-            "第一部分",
-            "第二部分",
-            "第三部分",
+            "体检总评",
+            "分项检查报告",
+            "风险预警与异常项汇总",
         ]
         checks["ten_chapters"] = all(chapter in full.text for chapter in chapters)
-        checks["upgrade_to_699"] = "融资结构优化方案已生成" in full.text
+        checks["upgrade_to_699"] = "诊断已经明确" in full.text
         lead_page = client.get("/admin/leads")
         checks["lead_fields"] = all(
             value in lead_page.text for value in ["张总", "13800138000", "zhang_demo", "上海"]
@@ -110,7 +110,7 @@ def run():
         )
         checks["payment_699"] = pay_699.status_code
         report_699 = client.get(f"/report/{assessment_id}")
-        checks["upgrade_to_1999"] = "升级融资结构优化方案 1999元" in report_699.text
+        checks["upgrade_to_1999"] = "升级融资结构优化方案" in report_699.text
         checks["payment_1999"] = client.post(
             f"/payment/mock-pay/{assessment_id}?product=1999_structure_plan",
             follow_redirects=False,
@@ -164,7 +164,7 @@ def run():
         assert checks["upgrade_to_1999"] is True
         assert checks["consulting_cta"] is True
         assert checks["latest_product_code"] == "1999_structure_plan"
-        assert checks["latest_amount"] == 1999
+        assert checks["latest_amount"] == 1019
         print(checks)
         print("END_TO_END_OK")
 

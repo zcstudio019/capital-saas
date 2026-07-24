@@ -41,7 +41,7 @@ def checkout(
     assessment = get_assessment(db, assessment_id)
     if not assessment:
         raise HTTPException(status_code=404, detail="测评不存在")
-    product_code, product_info = get_product(product, db)
+    product_code, product_info = get_product(product, db, assessment.id)
     payment_mode = get_setting(db, "payment_mode", "mock")
     track_event(
         db,

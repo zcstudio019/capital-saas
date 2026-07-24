@@ -1,14 +1,21 @@
-{% include "components/report_summary.html" %}
+{% include "components/report_executive_summary.html" %}
 {% if health_report.entitlements.body_unlocked %}
-  {% include "components/report_dimension_checks.html" %}
+  {% include "components/report_dimension_section.html" %}
+  {% include "components/report_risk_register.html" %}
   {% if health_report.entitlements.structure_unlocked %}
-    {% include "components/report_remediation_plan.html" %}
+    {% include "components/report_remediation_prescription.html" %}
     {% include "components/report_financing_capacity.html" %}
-    {% include "components/report_action_plan.html" %}
+    {% include "components/report_action_timeline.html" %}
+    {% include "components/report_advisor_cta.html" %}
   {% else %}
-    {% if health_report.entitlements.bank_match_unlocked %}{% include "components/report_legacy_bank_match.html" %}{% endif %}
-    {% set lock_level = 'structure' %}{% include "components/report_paid_lock.html" %}
+    {% include "components/report_upgrade_gate.html" %}
   {% endif %}
 {% else %}
-  {% set lock_level = 'report' %}{% include "components/report_paid_lock.html" %}
+  {% if health_report.entitlements.legacy_report_unlocked %}
+  <section class="report-section">
+    <header class="report-section-heading"><span class="section-number">H</span><div><h2>历史报告内容</h2><p class="section-description">该订单继续享有原产品交付权益。新一代体检报告可按后台升级政策另行开通。</p></div></header>
+    {% if health_report.entitlements.bank_match_unlocked %}{% include "components/report_legacy_bank_match.html" %}{% endif %}
+  </section>
+  {% endif %}
+  {% set lock_level = "report" %}{% include "components/report_paid_lock.html" %}
 {% endif %}

@@ -27,7 +27,7 @@ def create_order(
     pay_channel: str = "mock",
     buyer_contact: str = "",
 ) -> Order:
-    product_code, product = get_product(product_code, db)
+    product_code, product = get_product(product_code, db, assessment.id)
     channel = pay_channel if pay_channel in VALID_PAYMENT_MODES else "mock"
     if channel == "mock":
         existing = (

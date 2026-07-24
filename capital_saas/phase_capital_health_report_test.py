@@ -116,9 +116,9 @@ def run() -> None:
         assert paid_980.status_code == 303
         report_980 = client.get(f"/report/{assessment_id}")
         assert report_980.status_code == 200
-        for expected in ("企业资本健康体检报告", "第一部分", "第二部分", "第三部分", "八维雷达评分概览", "融资结构优化方案已生成"):
+        for expected in ("企业资本健康体检报告", "报告目录", "体检总评", "分项检查报告", "八维资本健康评分", "诊断已经明确"):
             assert expected in report_980.text
-        assert "第四部分" not in report_980.text
+        assert "真实银行产品匹配</h3>" not in report_980.text
         assert "资料准备清单" in report_980.text  # 锁定卡片说明权益，不泄露明细。
         _assert_customer_safe(report_980.text)
 
@@ -127,16 +127,22 @@ def run() -> None:
             follow_redirects=False,
         )
         assert paid_1999.status_code == 303
+        pending = client.get(f"/report/{assessment_id}")
+        assert pending.status_code == 202
+        with SessionLocal() as db:
+            report = db.query(Report).filter(Report.assessment_id == assessment_id).one()
+            report.review_status = "approved"
+            db.commit()
         full = client.get(f"/report/{assessment_id}")
         printable = client.get(f"/report/{assessment_id}/print")
         for page in (full, printable):
             assert page.status_code == 200
             for expected in (
-                "第四部分", "第五部分", "第六部分", "第七部分",
-                "征信修复方案", "优质经营贷", "资料准备清单",
+                "优化处方", "融资能力全景评估", "融资落地行动计划", "后续服务建议",
+                "征信维护方案", "优质经营贷", "融资资料准备清单",
                 "未来30天行动计划", "未来90天行动计划",
                 "未来180天行动计划", "6个月融资落地节奏",
-                "预约融资顾问",
+                "预约1对1融资顾问服务",
             ):
                 assert expected in page.text
             _assert_customer_safe(page.text)

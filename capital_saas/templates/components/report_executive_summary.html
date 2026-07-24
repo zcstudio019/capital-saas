@@ -1,0 +1,29 @@
+<section id="part-1" class="report-section">
+  {% set section_number = "01" %}{% set section_kicker = "Executive Summary" %}
+  {% set section_title = "体检总评" %}{% set section_description = "综合判断企业资本健康状态和融资准备度。" %}
+  {% include "components/report_section_heading.html" %}
+  <div class="metric-grid">
+    <article class="report-card metric-card"><span>综合评分</span><strong>{{ health_report.score }} / 100</strong><small>资本健康度</small></article>
+    <article class="report-card metric-card"><span>综合评级</span><strong>{{ health_report.grade }}</strong><small>依据八维加权结果</small></article>
+    <article class="report-card metric-card"><span>风险等级</span><strong>{{ health_report.risk_level }}</strong><small>当前资本风险状态</small></article>
+    <article class="report-card metric-card"><span>融资建议</span><strong style="font-size:19px">{{ health_report.financing_capacity.path }}</strong><small>{{ health_report.financing_capacity.advice }}</small></article>
+  </div>
+  <div class="summary-layout">
+    <div class="report-card dimension-visual">
+      <h3 class="panel-title">八维资本健康评分</h3>
+      {% for dimension in health_report.dimensions %}
+      <div class="dimension-row">
+        <strong>{{ dimension.dimension_name }}</strong>
+        <div class="dimension-track"><i style="width:{{ (dimension.raw_score * 20)|round|int }}%"></i></div>
+        <span class="dimension-score">{{ "%.1f"|format(dimension.raw_score) }}/5</span>
+        <div class="dimension-meta"><span>{{ dimension.status_description }}</span><span>权重 {{ dimension.weight }}% · <b class="light-tag light-{{ 'green' if dimension.status_light == '绿灯' else 'yellow' if dimension.status_light == '黄灯' else 'orange' if dimension.status_light == '橙灯' else 'red' }}">{{ dimension.status_light }}</b></span></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="conclusion-stack">
+      {% for item in health_report.executive_summary %}
+      <article class="conclusion-card"><span>{{ item.label }}</span><h3>{{ item.title }}</h3><p>{{ item.content }}</p></article>
+      {% endfor %}
+    </div>
+  </div>
+</section>

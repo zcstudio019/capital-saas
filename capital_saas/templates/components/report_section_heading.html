@@ -1,0 +1,8 @@
+<header class="report-section-heading">
+  <span class="section-number">{{ section_number }}</span>
+  <div>
+    {% if health_report.show_subtitle %}<p class="section-kicker">{{ section_kicker }}</p>{% endif %}
+    <h2>{{ section_title }}</h2>
+    <p class="section-description">{{ section_description }}</p>
+  </div>
+</header>

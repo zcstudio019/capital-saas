@@ -55,10 +55,13 @@ def run() -> None:
             assert page.status_code == 200
             visible = re.sub(r"<(style|script)\b[^>]*>.*?</\1>", " ", page.text, flags=re.I | re.S)
             text = re.sub(r"<[^>]+>", " ", visible)
-            for expected in ("企业资本健康体检报告", "八维雷达评分概览", "风险预警", "分项检查"):
+            for expected in ("企业资本健康体检报告", "报告目录", "体检总评"):
                 assert expected in text
             for pattern in FORBIDDEN:
                 assert not re.search(pattern, text, re.I), pattern
+    body = (ROOT / "templates/components/report_capital_health_body.html").read_text(encoding="utf-8")
+    for component in ("report_dimension_section.html", "report_risk_register.html", "report_upgrade_gate.html"):
+        assert component in body
     print("CAPITAL_HEALTH_REPORT_OK")
 
 

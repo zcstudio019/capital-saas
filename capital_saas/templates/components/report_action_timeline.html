@@ -1,0 +1,23 @@
+<section id="part-6" class="report-section">
+  {% set section_number = "06" %}{% set section_kicker = "Execution Roadmap" %}
+  {% set section_title = "融资落地行动计划" %}{% set section_description = "按30、90、180天形成任务分工、交付物和完成标准。" %}
+  {% include "components/report_section_heading.html" %}
+  <div class="action-timeline" aria-label="未来30天、90天与180天行动计划">
+    {% for plan in health_report.action_plans[:3] %}
+    <article class="action-stage-card">
+      <span class="stage-label">阶段 {{ loop.index }}</span><h3>{{ plan.period }}</h3>
+      <p><strong>阶段目标：</strong>{{ plan.goal }}</p>
+      <p><strong>负责人：</strong>{{ plan.responsible }}</p>
+      <strong>核心动作</strong><ul class="detail-list">{% for action in plan.actions %}<li>{{ action }}</li>{% endfor %}</ul>
+      <p><strong>关键成果：</strong>{{ plan.deliverable }}</p>
+      <p><strong>完成标准：</strong>{{ plan.completion_standard }}</p>
+    </article>
+    {% endfor %}
+  </div>
+  <h3 class="panel-title" style="margin-top:30px">6个月融资落地节奏</h3>
+  <div class="month-rhythm">
+    {% for action in health_report.action_plans[3].actions %}<div><strong>第{{ loop.index }}月</strong><br>{{ action | replace("第" ~ loop.index ~ "月", "") }}</div>{% endfor %}
+  </div>
+  <h3 class="panel-title" style="margin-top:34px">融资资料准备清单</h3>
+  {% include "components/report_document_plan.html" %}
+</section>

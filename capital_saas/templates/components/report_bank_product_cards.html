@@ -1,0 +1,23 @@
+<div class="bank-product-grid">
+  {% for product in health_report.financing_capacity.bank_products %}
+  <article class="bank-product-card">
+    <header class="product-head">
+      <div><small>{{ product.bank_name or product.bank_type }}</small><h3>{{ product.product_name }}</h3></div>
+      <span class="match-pill">{{ product.match_level }} · {{ product.match_score }}分</span>
+    </header>
+    <div class="product-metrics">
+      <div>额度区间<strong>{{ product.amount_range or "以审批为准" }}</strong></div>
+      <div>参考利率<strong>{{ product.interest_rate_range or "以审批为准" }}</strong></div>
+      <div>期限<strong>{{ product.loan_term or "以审批为准" }}</strong></div>
+      <div>还款方式<strong>{{ product.repayment_method or "以产品规则为准" }}</strong></div>
+    </div>
+    <strong>推荐理由</strong><ul class="detail-list">{% for reason in product.matched_points %}<li>{{ reason }}</li>{% endfor %}</ul>
+    <strong>当前风险</strong><ul class="detail-list">{% for risk in product.risk_points %}<li>{{ risk }}</li>{% endfor %}</ul>
+    <strong>核心资料</strong><ul class="detail-list">{% for doc in product.core_documents %}<li>{{ doc }}</li>{% endfor %}</ul>
+    <p><strong>下一步：</strong>{{ product.suggested_next_step }}</p>
+    <a class="report-button no-print" href="/report/{{ assessment.id }}/bank-products/{{ product.product_id }}">查看产品详情</a>
+  </article>
+  {% else %}
+  <div class="report-card" style="padding:22px">当前真实产品库暂无满足基础条件的产品，建议补充资料并由顾问复核后重新匹配。</div>
+  {% endfor %}
+</div>

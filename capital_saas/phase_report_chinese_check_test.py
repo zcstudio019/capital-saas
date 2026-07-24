@@ -76,9 +76,9 @@ def run() -> None:
         assert_report_chinese_only(report_page.text)
         assert_report_chinese_only(print_page.text)
         assert_report_chinese_only(json.dumps(report_api, ensure_ascii=False))
-        assert "中等风险" in report_page.text
-        assert "一般" in report_page.text
-        assert "良好" in report_page.text
+        assert "黄灯" in report_page.text
+        assert "待资料核验" in report_page.text
+        assert "企业资本健康体检报告" in report_page.text
         assert "risk_level" not in report_api
         assert "funding_probability" not in report_api
         assert report_api["company_grade_display"] == "良好"

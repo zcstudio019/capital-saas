@@ -1,0 +1,17 @@
+<section id="part-4" class="report-section">
+  {% set section_number = "04" %}{% set section_kicker = "Remediation Prescription" %}
+  {% set section_title = "优化处方" %}{% set section_description = "把异常指标转化为可分工、可验收的改善任务。" %}
+  {% include "components/report_section_heading.html" %}
+  {% for plan in health_report.remediation_plans %}
+  <article class="prescription-card">
+    <h3>{{ plan.title }}</h3>
+    <table class="report-table">
+      <thead><tr><th>优化项目</th><th>当前状态</th><th>目标状态</th><th>核心措施</th><th>周期</th><th>负责人</th><th>完成标准</th></tr></thead>
+      <tbody>{% for row in plan.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table>
+    <p><strong>风险说明：</strong>{{ plan.risk_note }}</p>
+    <p><strong>预期改善：</strong>{{ plan.expected_improvement }}</p>
+    <p><strong>实施注意：</strong>{{ plan.implementation_note }}</p>
+  </article>
+  {% endfor %}
+</section>

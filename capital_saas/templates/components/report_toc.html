@@ -1,0 +1,18 @@
+<section class="report-toc report-inner">
+  <p class="section-kicker">Contents</p>
+  <h2 class="toc-title">报告目录</h2>
+  {% set toc = [
+    ("01", "体检总评", "综合评分、八维状态及核心结论", "part-1"),
+    ("02", "分项检查报告", "企业基本面、征信、流水、负债等八维检查", "part-2"),
+    ("03", "风险预警与异常项汇总", "红灯、黄灯和持续关注项汇总", "part-3"),
+    ("04", "优化处方", "针对异常指标制定修复措施", "part-4"),
+    ("05", "融资能力全景评估", "融资空间、路径和产品组合", "part-5"),
+    ("06", "融资落地行动计划", "未来30/90/180天及6个月落地节奏", "part-6"),
+    ("07", "后续服务建议", "顾问服务和下一步推进建议", "part-7")
+  ] %}
+  {% for number, title, description, anchor in toc %}
+  <a class="toc-item" href="#{{ anchor }}">
+    <span class="toc-number">{{ number }}</span><strong>{{ title }}</strong><span>{{ description }}</span>
+  </a>
+  {% endfor %}
+</section>

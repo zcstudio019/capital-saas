@@ -1,0 +1,15 @@
+<section id="part-7" class="report-section">
+  {% set section_number = "07" %}{% set section_kicker = "Advisory Service" %}
+  {% set section_title = "后续服务建议" %}{% set section_description = "由专业顾问协助把报告结论转化为融资推进结果。" %}
+  {% include "components/report_section_heading.html" %}
+  <div class="advisor-cta">
+    <p class="eyebrow">专业顾问服务</p>
+    <h3>报告解决“看清问题”，顾问服务负责“推动问题落地”</h3>
+    <ul class="advisor-services"><li>1对1报告解读</li><li>融资结构设计</li><li>银行申请顺序规划</li><li>资料包梳理</li><li>产品预匹配</li><li>申请进度跟进</li><li>融资完成复盘</li></ul>
+    {% if health_report.advisor_cta.status == "not_booked" %}
+      <a class="report-button no-print" href="{{ health_report.advisor_cta.booking_url }}">{{ health_report.advisor_cta.button_text }}</a>
+    {% else %}
+      <span class="report-button">{{ health_report.advisor_cta.button_text }}</span>
+    {% endif %}
+  </div>
+</section>

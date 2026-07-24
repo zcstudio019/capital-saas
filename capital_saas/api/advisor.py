@@ -594,9 +594,16 @@ def report_versions(
     versions = db.query(ReportVersion).filter(
         ReportVersion.report_id == report.id
     ).order_by(ReportVersion.version_no.desc()).all()
+    version_views = []
+    for version in versions:
+        try:
+            metadata = json.loads(version.report_json).get("report_meta", {})
+        except (TypeError, ValueError):
+            metadata = {}
+        version_views.append({"version": version, "metadata": metadata})
     return templates.TemplateResponse(
         request=request, name="admin_report_versions.html",
-        context={"report_item": report, "versions": versions, "current_user": user},
+        context={"report_item": report, "versions": versions, "version_views": version_views, "current_user": user},
     )
 
 
@@ -614,11 +621,12 @@ def report_version_detail(
     ).first()
     if not version:
         raise HTTPException(status_code=404, detail="报告版本不存在")
+    version_payload = json.loads(version.report_json)
     return templates.TemplateResponse(
         request=request, name="admin_report_version_detail.html",
         context={
             "report_item": report, "version": version,
-            "report": json.loads(version.report_json), "current_user": user,
+            "report": version_payload, "version_meta": version_payload.get("report_meta", {}), "current_user": user,
         },
     )
 
@@ -660,6 +668,18 @@ def regenerate_report(
     return RedirectResponse(url=f"/admin/reports/{report.id}", status_code=303)
 
 
+@router.post("/admin/reports/{report_id}/rematch-products")
+def rematch_report_products(
+    report_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin")),
+):
+    report = _report_or_404(db, report_id)
+    generate_full_report(db, report.assessment, force=True, created_by=f"{user.username}（重新匹配产品）")
+    logger.info("重新匹配报告产品 report_id=%s operator=%s", report.id, user.username)
+    return RedirectResponse(url=f"/admin/reports/{report.id}", status_code=303)
+
+
 @router.post("/admin/reports/{report_id}/approve")
 def approve_report(
     request: Request,
@@ -673,6 +693,19 @@ def approve_report(
     report.reviewed_by = user.id
     report.reviewed_at = datetime.now()
     report.review_note = review_note.strip()
+    current_version = db.get(ReportVersion, report.current_version_id) if report.current_version_id else None
+    if current_version:
+        try:
+            version_content = json.loads(current_version.report_json)
+        except (TypeError, ValueError):
+            version_content = {}
+        version_content.setdefault("report_meta", {}).update({
+            "review_status": "approved",
+            "reviewer": user.username,
+            "reviewed_at": report.reviewed_at.isoformat(),
+            "review_note": report.review_note,
+        })
+        current_version.report_json = json.dumps(version_content, ensure_ascii=False)
     from db.models import CustomerAccount
     from services.notification_service import safe_create_notification
     customer = db.query(CustomerAccount).filter(CustomerAccount.assessment_id == report.assessment_id,
@@ -706,6 +739,19 @@ def reject_report(
     report.review_note = review_note.strip()
     report.public_token = None
     report.token_expired_at = None
+    current_version = db.get(ReportVersion, report.current_version_id) if report.current_version_id else None
+    if current_version:
+        try:
+            version_content = json.loads(current_version.report_json)
+        except (TypeError, ValueError):
+            version_content = {}
+        version_content.setdefault("report_meta", {}).update({
+            "review_status": "rejected",
+            "reviewer": user.username,
+            "reviewed_at": report.reviewed_at.isoformat(),
+            "review_note": report.review_note,
+        })
+        current_version.report_json = json.dumps(version_content, ensure_ascii=False)
     from services.audit_service import write_audit_log
     write_audit_log(db,"report_rejected","report",report.id,user_id=user.id,after={"review_status":"rejected","note":report.review_note},request=request,risk_level="high")
     db.commit()

@@ -1,3 +1,9 @@
 {% extends "base.html" %}
 {% block title %}报告V{{ version.version_no }}{% endblock %}
-{% block content %}<section class="admin-shell container"><div class="admin-top"><div><div class="eyebrow">报告版本 {{ version.version_no }}</div><h1>{{ report_item.assessment.company_name }}</h1><p>{{ version.product_code|product_label }} · 质量分 {{ version.quality_score }} · {{ version.generator_mode|zh }}</p></div><a class="btn" href="/admin/reports/{{ report_item.id }}/versions">返回版本</a></div>{% for chapter in report.chapters %}<section class="card detail-card"><h2>{{ loop.index }}. {{ chapter.title }}</h2><p>{{ chapter.conclusion }}</p><strong>银行视角</strong><p>{{ chapter.bank_view }}</p></section>{% endfor %}</section>{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top"><div><div class="eyebrow">报告版本 V{{ version.version_no }}</div><h1>{{ report_item.assessment.company_name }}</h1><p>{{ version.product_code|product_label }} · 质量分 {{ version.quality_score }} · {{ version.generator_mode|zh }}</p></div><a class="btn" href="/admin/reports/{{ report_item.id }}/versions">返回版本</a></div>
+  <div class="card detail-grid"><div><span>创建时间</span><strong>{{ version.created_at.strftime('%Y-%m-%d %H:%M') }}</strong></div><div><span>创建方式</span><strong>{{ version.created_by }}</strong></div><div><span>审核状态</span><strong>{{ (version_meta.review_status or "待审核")|zh }}</strong></div><div><span>审核人</span><strong>{{ version_meta.reviewer or "—" }}</strong></div><div><span>变更说明</span><strong>{{ version_meta.change_summary or "历史版本迁移" }}</strong></div></div>
+  {% for chapter in report.chapters %}<section class="card detail-card"><h2>{{ loop.index }}. {{ chapter.title }}</h2><p>{{ chapter.conclusion }}</p><strong>银行视角</strong><p>{{ chapter.bank_view }}</p></section>{% endfor %}
+</section>
+{% endblock %}

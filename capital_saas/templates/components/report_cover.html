@@ -1,15 +1,22 @@
-<section class="health-cover">
-  <div class="health-cover-mark">资本健康管理 · 专业交付</div>
-  <h1>{{ health_report.title }}</h1>
-  {% if health_report.show_subtitle %}<p class="health-subtitle">{{ health_report.subtitle }}</p>{% endif %}
-  <div class="health-cover-rule"></div>
-  <dl class="health-cover-meta">
-    <div><dt>报告编号</dt><dd>{{ health_report.report_no }}</dd></div>
-    <div><dt>报告日期</dt><dd>{{ health_report.report_date }}</dd></div>
-    <div><dt>有效期至</dt><dd>{{ health_report.valid_until }}</dd></div>
-    <div><dt>受检企业</dt><dd>{{ health_report.company_name }}</dd></div>
-    <div><dt>体检类型</dt><dd>{{ health_report.check_type }}</dd></div>
-    <div><dt>体检机构</dt><dd>{{ health_report.institution }}</dd></div>
-  </dl>
-  <p class="health-disclaimer"><strong>免责声明：</strong>{{ health_report.disclaimer }}</p>
+<section class="report-cover" aria-label="企业资本健康体检报告封面">
+  <header class="cover-brand">
+    <strong>沪上银</strong>
+    <span>资本健康管理 · 专业交付</span>
+  </header>
+  <div class="cover-main">
+    <p class="cover-kicker">Capital Health Management</p>
+    <h1>{{ health_report.title }}</h1>
+    {% if health_report.show_subtitle %}<p class="cover-subtitle">{{ health_report.subtitle }}</p>{% endif %}
+    <div class="cover-gold-line"></div>
+    <p class="cover-company">受检企业<strong>{{ health_report.company_name }}</strong></p>
+  </div>
+  <div class="cover-meta">
+    <div><span>报告编号</span><strong>{{ health_report.report_no }}</strong></div>
+    <div><span>报告日期</span><strong>{{ health_report.report_date }}</strong></div>
+    <div><span>有效期至</span><strong>{{ health_report.valid_until }}</strong></div>
+    <div><span>体检类型</span><strong>{{ health_report.check_type }}</strong></div>
+    <div><span>体检机构</span><strong>{{ health_report.institution }}</strong></div>
+    <div><span>交付版本</span><strong>{{ "融资结构优化方案" if health_report.entitlements.structure_unlocked else "企业资本健康体检报告" }}</strong></div>
+  </div>
+  <aside class="cover-disclaimer"><strong>免责声明：</strong>{{ health_report.disclaimer }}</aside>
 </section>

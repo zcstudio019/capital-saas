@@ -1,0 +1,21 @@
+<section id="part-3" class="report-section">
+  {% set section_number = "03" %}{% set section_kicker = "Risk Register" %}
+  {% set section_title = "风险预警与异常项汇总" %}{% set section_description = "按紧迫程度汇总融资前需要处理和持续关注的事项。" %}
+  {% include "components/report_section_heading.html" %}
+  {% for level, subtitle, css in [("红灯", "必须立即处理", "red"), ("黄灯", "3个月内改善", "yellow"), ("绿灯", "持续关注", "green")] %}
+  {% set group = health_report.warnings | selectattr("warning_level", "equalto", level) | list %}
+  <div class="risk-group">
+    <div class="risk-group-title"><h3><span class="light-tag light-{{ css }}">{{ level }}</span></h3><span>{{ subtitle }}</span></div>
+    {% if group %}
+    <div class="risk-grid">
+      {% for risk in group %}
+      <article class="risk-card risk-{{ css }}">
+        <small>{{ risk.warning_level }} · {{ risk.urgency }}</small><h4>{{ risk.warning_item }}</h4>
+        <dl><dt>具体问题</dt><dd>{{ risk.description }}</dd><dt>可能影响</dt><dd>{{ risk.urgency }}</dd><dt>建议动作</dt><dd>{{ risk.suggestion }}</dd><dt>处理时限</dt><dd>{{ risk.deadline }}</dd></dl>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}<div class="risk-card risk-{{ css }}">当前未发现该级别风险。</div>{% endif %}
+  </div>
+  {% endfor %}
+</section>

@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from core.pricing_engine import PRODUCT_RANK
-from core.capital_health_report import build_capital_health_report
+from core.capital_health_report import ensure_capital_health_snapshot
 from db.database import get_db
 from db.models import Order, Report
 from services.assessment_service import get_assessment
@@ -47,10 +47,19 @@ def _review_blocks_customer(request: Request, db: Session, report: Report) -> bo
         return False
     if report.review_status == "quality_failed":
         return True
-    return (
-        get_bool_setting(db, "report_review_required", False)
-        and report.review_status != "approved"
-    )
+    paid_codes = {
+        item.product_code
+        for item in db.query(Order).filter(
+            Order.assessment_id == report.assessment_id,
+            Order.status == "paid",
+        )
+    }
+    requires_review = get_bool_setting(db, "report_review_required", False)
+    if paid_codes & {"1999_structure_plan", "one_on_one_consulting", "high_ticket_consulting"}:
+        requires_review = get_bool_setting(db, "structure_plan_review_required", True)
+    elif "980_capital_health_report" in paid_codes:
+        requires_review = get_bool_setting(db, "capital_health_report_review_required", False)
+    return requires_review and report.review_status != "approved"
 
 
 def _current_product(db: Session, assessment_id: int) -> str:
@@ -83,7 +92,8 @@ def full_report(request: Request, assessment_id: int, db: Session = Depends(get_
             status_code=202,
         )
     full = parse_customer_report(assessment.report)
-    health_report = build_capital_health_report(db, assessment)
+    health_report = ensure_capital_health_snapshot(db, assessment)
+    backend_view = current_user_optional(request, db) is not None
     current_product = _current_product(db, assessment_id)
     access_context = build_report_access_context(
         db,
@@ -107,6 +117,7 @@ def full_report(request: Request, assessment_id: int, db: Session = Depends(get_
             "report": full,
             "health_report": health_report,
             "current_product": current_product,
+            "backend_view": backend_view,
             **access_context,
         },
     )
@@ -129,7 +140,7 @@ def print_report(request: Request, assessment_id: int, db: Session = Depends(get
             status_code=202,
         )
     full = parse_customer_report(assessment.report)
-    health_report = build_capital_health_report(db, assessment)
+    health_report = ensure_capital_health_snapshot(db, assessment)
     current_product = _current_product(db, assessment_id)
     access_context = build_report_access_context(
         db,
@@ -198,7 +209,7 @@ def public_report(request: Request, public_token: str, db: Session = Depends(get
         raise HTTPException(status_code=403, detail="报告正在生成或审核中")
     generate_full_report(db, report.assessment)
     full = parse_customer_report(report)
-    health_report = build_capital_health_report(db, report.assessment)
+    health_report = ensure_capital_health_snapshot(db, report.assessment)
     access_context = build_report_access_context(
         db,
         report.assessment,
@@ -207,12 +218,14 @@ def public_report(request: Request, public_token: str, db: Session = Depends(get
     )
     return templates.TemplateResponse(
         request=request,
-        name="report_print.html",
+        name="report_full.html",
         context={
             "assessment": report.assessment,
             "report": full,
             "health_report": health_report,
             "current_product": _current_product(db, report.assessment_id),
+            "public_view": True,
+            "backend_view": False,
             **access_context,
         },
     )
