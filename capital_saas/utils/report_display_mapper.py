@@ -25,6 +25,7 @@ FINANCE_FEASIBILITY_MAP = {
 COMPANY_GRADE_MAP = {
     "S": "优秀",
     "A": "优秀",
+    "B+": "良好",
     "B": "良好",
     "C": "一般",
     "D": "较弱",

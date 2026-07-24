@@ -1,0 +1,10 @@
+<section class="health-section" id="part-4">
+  <header class="health-section-title"><span>第四部分</span><h2>优化处方</h2></header>
+  {% for plan in health_report.remediation_plans %}
+  <article class="health-check-block"><h3>4.{{ loop.index }} {{ plan.title }}</h3>
+    <div class="health-table-wrap"><table class="health-table"><thead><tr><th>项目</th><th>当前值</th><th>目标值</th><th>具体措施</th><th>预计时间</th></tr></thead>
+      <tbody>{% for row in plan.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table></div>
+  </article>
+  {% endfor %}
+</section>

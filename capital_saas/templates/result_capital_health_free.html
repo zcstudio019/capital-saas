@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}免费测评结果｜企业资本健康体检{% endblock %}
+{% block content %}
+<section class="health-free-hero"><div class="container"><span>免费测评结果</span><h1>{{ assessment.company_name }}资本健康度摘要</h1><p>本页仅展示体检摘要，完整分项检查与优化方案按服务层级解锁。</p></div></section>
+<main class="container health-free">
+  <section class="health-score-board">
+    <div class="health-score"><strong>{{ health_report.score }}</strong><span>分</span><small>企业资本健康度</small></div>
+    <div><p>综合评级</p><strong>{{ health_report.grade }}</strong></div>
+    <div><p>风险等级</p><strong>{{ health_report.risk_level }}</strong></div>
+  </section>
+  <section class="health-section"><h2>融资建议</h2><p class="health-lead">{{ health_report.financing_advice }}</p><h2>八维评分概览（预览）</h2>{% include "components/report_dimension_scores.html" %}</section>
+  <section class="health-section"><h2>前三个核心风险</h2><div class="health-warning-list">{% for warning in health_report.top_risks %}<article class="health-warning {{ 'warning-red' if warning.warning_level == '红灯' else 'warning-yellow' }}"><div><span>{{ warning.warning_level }}</span><strong>{{ warning.warning_item }}</strong></div><p>{{ warning.description }}</p></article>{% endfor %}</div><h2>初步优化建议</h2><p class="health-lead">{{ health_report.initial_suggestion }}</p></section>
+  {% set lock_level = 'report' %}{% include "components/report_paid_lock.html" %}
+</main>
+{% endblock %}

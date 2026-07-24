@@ -62,8 +62,9 @@ if (location.pathname.startsWith("/admin") || location.pathname.startsWith("/sal
     preparing: "资料准备中", bank_review: "金融机构审核中", supplement_required: "需补充资料",
     disbursed: "已放款", withdrawn: "已撤回", planned: "计划申请", complete: "完整", partial: "部分完整", weak: "较弱",
     pending_parse: "待解析", parsed: "已解析", parse_failed: "解析失败", verified: "已核验", unverified: "待核验",
-    "299_report": "299元基础诊断报告", "699_bank_match": "699元银行匹配报告",
-    "1999_structure_plan": "1999元融资结构方案", free_nurture: "免费培育",
+    free_assessment: "免费测评", "980_capital_health_report": "980元企业资本健康体检报告",
+    "299_report": "299元历史基础诊断报告", "699_bank_match": "699元银行匹配报告",
+    "1999_structure_plan": "1999元融资结构优化方案", one_on_one_consulting: "1对1融资顾问服务", free_nurture: "免费培育",
     bug: "程序问题", feature_request: "需求建议", data_issue: "数据问题", payment_issue: "支付问题",
     report_issue: "报告问题", operation_issue: "运营问题", new: "新反馈", reviewing: "处理中", ignored: "已忽略"
   };

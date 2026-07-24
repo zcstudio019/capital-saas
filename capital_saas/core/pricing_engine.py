@@ -1,4 +1,14 @@
 products = {
+    "free_assessment": {
+        "name": "免费测评",
+        "price": 0,
+        "description": "查看企业资本健康度评分、风险摘要与初步建议。",
+    },
+    "980_capital_health_report": {
+        "name": "企业资本健康体检报告",
+        "price": 980,
+        "description": "解锁八维资本体检报告、红旗清单、分项检查和基础融资建议。",
+    },
     "299_report": {
         "name": "AI企业融资+财商诊断完整报告",
         "price": 299,
@@ -10,40 +20,58 @@ products = {
         "description": "进一步获得银行产品匹配、申请顺序与额度预测。",
     },
     "1999_structure_plan": {
-        "name": "企业融资结构优化方案",
+        "name": "融资结构优化方案",
         "price": 1999,
-        "description": "围绕额度、成本、期限与工具组合设计融资结构。",
+        "description": "解锁优化处方、银行产品组合、资料清单、行动计划和融资落地节奏。",
+    },
+    "one_on_one_consulting": {
+        "name": "1对1融资顾问服务",
+        "price": 9800,
+        "description": "顾问陪跑、资料整理、银行申请路径设计与融资落地跟进。",
     },
 }
 
-REPORT_PRODUCT_NAME = products["299_report"]["name"]
-PRODUCT_RANK = {"299_report": 1, "699_bank_match": 2, "1999_structure_plan": 3}
+REPORT_PRODUCT_NAME = products["980_capital_health_report"]["name"]
+PRODUCT_RANK = {
+    "free_assessment": 0,
+    "299_report": 1,
+    "980_capital_health_report": 2,
+    "699_bank_match": 2,
+    "1999_structure_plan": 3,
+    "one_on_one_consulting": 4,
+}
 recommended_product_labels = {
     "299_report": "299元完整诊断报告",
+    "980_capital_health_report": "980元企业资本健康体检报告",
     "699_bank_match": "699元银行匹配报告",
     "1999_structure_plan": "1999元融资结构优化方案",
     "high_ticket_consulting": "高客单1对1融资顾问",
+    "one_on_one_consulting": "1对1融资顾问服务",
     "free_nurture": "免费长期培育",
 }
 
 
 def report_price() -> int:
-    return products["299_report"]["price"]
+    return products["980_capital_health_report"]["price"]
 
 
 def get_product(product_code: str | None, db=None) -> tuple[str, dict]:
-    code = product_code if product_code in products else "299_report"
+    code = product_code if product_code in products else "980_capital_health_report"
     product = dict(products[code])
     if db is not None:
         from services.settings_service import get_setting
 
         price_key = {
+            "free_assessment": None,
             "299_report": "report_price_299",
+            "980_capital_health_report": "capital_health_report_price",
             "699_bank_match": "report_price_699",
-            "1999_structure_plan": "report_price_1999",
+            "1999_structure_plan": "capital_structure_plan_price",
+            "one_on_one_consulting": "one_on_one_consulting_price",
         }[code]
         try:
-            product["price"] = float(get_setting(db, price_key, str(product["price"])))
+            if price_key:
+                product["price"] = float(get_setting(db, price_key, str(product["price"])))
         except ValueError:
             pass
     return code, product

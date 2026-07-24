@@ -1,0 +1,10 @@
+<div class="health-warning-list">
+  {% for warning in health_report.warnings %}
+  <article class="health-warning {{ 'warning-red' if warning.warning_level == '红灯' else 'warning-yellow' if warning.warning_level == '黄灯' else 'warning-green' }}">
+    <div><span>{{ warning.warning_level }}</span><strong>{{ warning.warning_item }}</strong><small>{{ warning.deadline }}</small></div>
+    <p>{{ warning.description }}</p>
+    <p><b>处理建议：</b>{{ warning.suggestion }}</p>
+  </article>
+  {% endfor %}
+</div>
+<p class="health-safe-note">风险口径说明：红灯为高风险，黄灯为中等风险，绿灯为当前安全项；所有状态均需结合最新征信、司法及财税资料持续复核。</p>

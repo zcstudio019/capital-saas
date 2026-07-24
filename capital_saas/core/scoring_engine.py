@@ -28,72 +28,78 @@ def calculate_score(data: dict) -> ScoreResult:
     years = int(data.get("years", 0))
     receivable_days = int(data.get("receivable_days", 0))
 
-    business = 4
-    business += 4 if years >= 5 else 3 if years >= 3 else 1
-    business += 4 if revenue >= 10_000_000 else 3 if revenue >= 3_000_000 else 1
-    business += {"高": 3, "中": 2, "低": 0}.get(data.get("asset_efficiency"), 1)
-
     profit_margin = _ratio(profit, revenue)
-    financial = 3
-    financial += 6 if profit_margin >= 0.15 else 4 if profit_margin >= 0.08 else 2 if profit > 0 else 0
     debt_ratio = _ratio(debt, revenue)
-    financial += 6 if debt_ratio <= 0.3 else 4 if debt_ratio <= 0.6 else 1
-    financial += 5 if revenue >= 5_000_000 else 3 if revenue >= 1_000_000 else 1
-
-    cash = 2
-    cash += 8 if cashflow >= revenue / 18 else 6 if cashflow > 0 else 0
-    cash += 6 if receivable_days <= 45 else 4 if receivable_days <= 90 else 1
-    cash += 4 if data.get("has_budget") else 0
-
-    debt_structure = 3
     short_ratio = _ratio(short_debt, debt)
-    debt_structure += 6 if debt == 0 or short_ratio <= 0.4 else 4 if short_ratio <= 0.7 else 1
-    debt_structure += 6 if debt_ratio <= 0.4 else 3 if debt_ratio <= 0.7 else 0
+    business = (
+        (5 if years >= 5 else 4 if years >= 3 else 2.5)
+        + (5 if revenue >= 10_000_000 else 4 if revenue >= 3_000_000 else 3)
+        + (5 if profit_margin >= .12 else 4 if profit > 0 else 2)
+    ) / 3
+    credit = 4.5 if data.get("credit_status") else 1.8
+    cash = (
+        (5 if cashflow >= revenue / 15 else 4 if cashflow > 0 else 1.5)
+        + (5 if receivable_days <= 45 else 3.5 if receivable_days <= 90 else 2)
+        + (4 if data.get("has_budget") else 2.5)
+    ) / 3
+    liabilities = (
+        (5 if debt_ratio <= .3 else 4 if debt_ratio <= .6 else 2)
+        + (5 if debt == 0 or short_ratio <= .35 else 3.5 if short_ratio <= .65 else 2)
+    ) / 2
+    judicial = 3.5  # 公开司法数据需在正式交付前复核，未核验时采用中性分。
+    tax = 4.5 if data.get("tax_status") else 1.8
+    assets = (
+        (4.5 if data.get("has_collateral") else 2)
+        + (5 if receivable_days <= 45 else 3.5 if receivable_days <= 90 else 2)
+        + {"高": 4.5, "中": 3.5, "低": 2.5}.get(data.get("asset_efficiency"), 3)
+    ) / 3
+    financing = (
+        (4.5 if data.get("credit_status") else 2)
+        + (4.5 if data.get("tax_status") else 2)
+        + (4 if funding_need <= max(revenue * .35, 1) else 2)
+    ) / 3
 
-    financing = 1
-    financing += 4 if data.get("tax_status") else 0
-    financing += 4 if data.get("credit_status") else 0
-    financing += 3 if data.get("has_collateral") else 0
-    financing += 3 if funding_need <= max(revenue * 0.3, 1) else 1
-
-    literacy = 1
-    literacy += 4 if data.get("knows_cashflow") else 0
-    literacy += 4 if data.get("has_budget") else 0
-    literacy += 3 if data.get("fund_usage_plan") else 0
-    literacy += {"适中": 3, "保守": 2, "激进": 0}.get(data.get("leverage_attitude"), 1)
-
-    dimensions = {
-        "商业模式": min(business, 15),
-        "财务健康": min(financial, 20),
-        "现金流质量": min(cash, 20),
-        "负债结构": min(debt_structure, 15),
-        "融资条件": min(financing, 15),
-        "财商能力": min(literacy, 15),
+    raw_dimensions = {
+        "企业基本面": business,
+        "征信状况": credit,
+        "流水质量": cash,
+        "负债情况": liabilities,
+        "司法风险": judicial,
+        "税务合规": tax,
+        "资产状况": assets,
+        "融资能力": financing,
     }
-    total = max(0, min(sum(dimensions.values()), 100))
+    weights = {
+        "企业基本面": 15, "征信状况": 20, "流水质量": 15, "负债情况": 15,
+        "司法风险": 10, "税务合规": 10, "资产状况": 5, "融资能力": 10,
+    }
+    dimensions = {name: round(max(1, min(5, score)), 1) for name, score in raw_dimensions.items()}
+    total = round(sum(dimensions[name] * weights[name] / 5 for name in dimensions))
 
-    if total >= 90:
-        grade, grade_text = "S", "可融资且结构优秀"
-    elif total >= 75:
-        grade, grade_text = "A", "可融资但需优化"
+    if total >= 80:
+        grade, grade_text = "A", "资本健康，具备较好融资基础"
+    elif total >= 70:
+        grade, grade_text = "B+", "资本亚健康，优化后融资更稳妥"
     elif total >= 60:
-        grade, grade_text = "B", "融资受限，需要调整"
-    elif total >= 45:
-        grade, grade_text = "C", "高风险，直接融资难度大"
+        grade, grade_text = "B", "资本亚健康，需要改善关键指标"
+    elif total >= 50:
+        grade, grade_text = "C", "资本风险较高，应先修复再融资"
     else:
-        grade, grade_text = "D", "暂不建议直接融资"
+        grade, grade_text = "D", "资本状态危急，暂不建议直接融资"
 
-    funding_probability = "high" if total >= 75 else "medium" if total >= 60 else "low"
-    risk_level = "low" if total >= 75 else "medium" if total >= 60 else "high"
+    funding_probability = "较高" if total >= 80 else "中等" if total >= 60 else "较低"
+    risk_level = "健康" if total >= 80 else "亚健康" if total >= 60 else "高风险" if total >= 40 else "危急"
 
     weakest = min(dimensions, key=dimensions.get)
     risk_map = {
-        "商业模式": "经营稳定性与商业模式证明不足，银行可能下调授信预期。",
-        "财务健康": "盈利与偿债指标偏弱，可能影响银行对还款来源的判断。",
-        "现金流质量": "经营现金流承压，应收账款周期可能形成资金缺口。",
-        "负债结构": "短期债务占比偏高，存在期限错配和集中偿付压力。",
-        "融资条件": "税务、征信或增信条件存在短板，申请前需要先行修复。",
-        "财商能力": "资金规划与预算管理不足，融资后资金使用风险较高。",
+        "企业基本面": "经营规模、盈利或持续经营证明不足，可能影响授信基础。",
+        "征信状况": "企业或法人征信存在待核验事项，申请前需要先行修复。",
+        "流水质量": "经营流水质量偏弱，应收账款周期可能形成资金缺口。",
+        "负债情况": "负债水平或短期债务占比偏高，存在期限错配压力。",
+        "司法风险": "司法公开数据尚需复核，重大诉讼或执行会影响准入。",
+        "税务合规": "纳税连续性或税务合规存在短板，可能影响税票类融资。",
+        "资产状况": "可用于抵押、增信或盘活的资产证明不足。",
+        "融资能力": "新增融资空间和准入条件偏弱，应先优化后申请。",
     }
     literacy_gap = (
         "当前缺少清晰的现金流预算和资金使用闭环。"
@@ -102,7 +108,7 @@ def calculate_score(data: dict) -> ScoreResult:
     )
     finance_now = (
         "建议马上进入融资方案设计"
-        if total >= 75
+        if total >= 80
         else "建议优化关键指标后再申请"
         if total >= 60
         else "暂不建议盲目申请融资"
@@ -118,4 +124,3 @@ def calculate_score(data: dict) -> ScoreResult:
         financial_literacy_gap=literacy_gap,
         finance_now=finance_now,
     )
-

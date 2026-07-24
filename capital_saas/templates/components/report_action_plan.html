@@ -1,0 +1,11 @@
+<section class="health-section" id="part-6">
+  <header class="health-section-title"><span>第六部分</span><h2>融资落地行动计划</h2></header>
+  <div class="health-plan-grid">{% for plan in health_report.action_plans %}<article class="health-plan"><h3>6.{{ loop.index }} {{ plan.period }}</h3><p><b>阶段目标：</b>{{ plan.goal }}</p><div><b>核心动作：</b><ul>{% for action in plan.actions %}<li>{{ action }}</li>{% endfor %}</ul></div><p><b>负责人：</b>{{ plan.responsible }}</p><p><b>交付结果：</b>{{ plan.deliverable }}</p><p><b>时间节点：</b>{{ plan.deadline }}</p></article>{% endfor %}</div>
+  <h3>资料准备清单</h3>
+  <div class="health-doc-grid">{% for group in health_report.document_checklist %}<article><h4>{{ group.category }}</h4><ul>{% for item in group['items'] %}<li>{{ item }}</li>{% endfor %}</ul></article>{% endfor %}</div>
+</section>
+<section class="health-section" id="part-7">
+  <header class="health-section-title"><span>第七部分</span><h2>后续服务建议</h2></header>
+  <div class="health-service-path"><div><span>7.1 推荐服务路径</span><strong>指标优化 → 资料预审 → 银行沟通 → 申请落地 → 贷后跟踪</strong></div><div><span>7.4 后续跟进事项</span><strong>每月复核流水、纳税、负债、征信查询和融资进度</strong></div></div>
+  <div class="health-consulting"><div><small>7.2 1对1顾问服务入口</small><h3>让体检结论真正进入融资落地</h3><p>由融资顾问陪同完成资料整理、银行申请路径设计与进度跟进。</p></div><a class="btn btn-gold btn-lg" href="/advisor/book/{{ assessment.report.id }}">7.3 预约1对1融资顾问服务 · {{ health_report.prices.consulting }}元起</a></div>
+</section>

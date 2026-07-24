@@ -68,19 +68,12 @@ def run():
         full = client.get(f"/report/{assessment_id}")
         checks["full_report"] = full.status_code
         chapters = [
-            "企业整体评分",
-            "商业模式诊断",
-            "财务健康体检",
-            "SWOT综合研判",
-            "融资策略",
-            "资金投放策略",
-            "贷后管理",
-            "长期资本路径",
-            "财商诊断",
-            "行动建议",
+            "第一部分",
+            "第二部分",
+            "第三部分",
         ]
         checks["ten_chapters"] = all(chapter in full.text for chapter in chapters)
-        checks["upgrade_to_699"] = "升级银行匹配与额度预测报告 699元" in full.text
+        checks["upgrade_to_699"] = "融资结构优化方案已生成" in full.text
         lead_page = client.get("/admin/leads")
         checks["lead_fields"] = all(
             value in lead_page.text for value in ["张总", "13800138000", "zhang_demo", "上海"]
@@ -117,7 +110,7 @@ def run():
         )
         checks["payment_699"] = pay_699.status_code
         report_699 = client.get(f"/report/{assessment_id}")
-        checks["upgrade_to_1999"] = "升级企业融资结构优化方案 1999元" in report_699.text
+        checks["upgrade_to_1999"] = "升级融资结构优化方案 1999元" in report_699.text
         checks["payment_1999"] = client.post(
             f"/payment/mock-pay/{assessment_id}?product=1999_structure_plan",
             follow_redirects=False,

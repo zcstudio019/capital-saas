@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from core.pricing_engine import PRODUCT_RANK
+from core.capital_health_report import build_capital_health_report
 from db.database import get_db
 from db.models import Order, Report
 from services.assessment_service import get_assessment
@@ -82,6 +83,7 @@ def full_report(request: Request, assessment_id: int, db: Session = Depends(get_
             status_code=202,
         )
     full = parse_customer_report(assessment.report)
+    health_report = build_capital_health_report(db, assessment)
     current_product = _current_product(db, assessment_id)
     access_context = build_report_access_context(
         db,
@@ -103,6 +105,7 @@ def full_report(request: Request, assessment_id: int, db: Session = Depends(get_
         context={
             "assessment": assessment,
             "report": full,
+            "health_report": health_report,
             "current_product": current_product,
             **access_context,
         },
@@ -126,6 +129,7 @@ def print_report(request: Request, assessment_id: int, db: Session = Depends(get
             status_code=202,
         )
     full = parse_customer_report(assessment.report)
+    health_report = build_capital_health_report(db, assessment)
     current_product = _current_product(db, assessment_id)
     access_context = build_report_access_context(
         db,
@@ -139,6 +143,7 @@ def print_report(request: Request, assessment_id: int, db: Session = Depends(get
         context={
             "assessment": assessment,
             "report": full,
+            "health_report": health_report,
             "current_product": current_product,
             **access_context,
         },
@@ -193,6 +198,7 @@ def public_report(request: Request, public_token: str, db: Session = Depends(get
         raise HTTPException(status_code=403, detail="报告正在生成或审核中")
     generate_full_report(db, report.assessment)
     full = parse_customer_report(report)
+    health_report = build_capital_health_report(db, report.assessment)
     access_context = build_report_access_context(
         db,
         report.assessment,
@@ -205,6 +211,7 @@ def public_report(request: Request, public_token: str, db: Session = Depends(get
         context={
             "assessment": report.assessment,
             "report": full,
+            "health_report": health_report,
             "current_product": _current_product(db, report.assessment_id),
             **access_context,
         },

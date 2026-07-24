@@ -1,0 +1,9 @@
+{% extends 'client_base.html' %}
+{% block title %}{{ health_report.title }}{% endblock %}
+{% block content %}
+<div class="health-report health-client-report">
+  {% if not print_mode %}<div class="client-report-actions"><a class="btn" target="_blank" href="/client/reports/{{ assessment.report.id }}/print">打印 / 导出PDF</a></div>{% endif %}
+  {% include "components/report_cover.html" %}
+  <main class="health-report-content">{% include "components/report_capital_health_body.html" %}</main>
+</div>
+{% endblock %}

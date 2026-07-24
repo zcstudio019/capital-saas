@@ -1,0 +1,17 @@
+<section class="health-section" id="part-1">
+  <header class="health-section-title"><span>第一部分</span><h2>体检总评</h2></header>
+  <div class="health-score-board">
+    <div class="health-score"><strong>{{ health_report.score }}</strong><span>分</span><small>资本健康度</small></div>
+    <div><p>综合评级</p><strong>{{ health_report.grade }}</strong></div>
+    <div><p>风险等级</p><strong>{{ health_report.risk_level }}</strong></div>
+  </div>
+  <h3>1.1 资本健康度综合评分</h3>
+  <p class="health-lead">{{ health_report.financing_advice }}</p>
+  <p class="health-safe-note">综合评价以优秀、良好、一般和需改善等中文口径呈现；最终等级以本报告综合评分为准。</p>
+  <h3>1.2 八维雷达评分概览</h3>
+  {% include "components/report_dimension_scores.html" %}
+  <h3>1.3 体检结论</h3>
+  <ol class="health-conclusions">{% for item in health_report.conclusions %}<li>{{ item }}</li>{% endfor %}</ol>
+  <h3>1.4 风险预警信号（红旗清单）</h3>
+  {% include "components/report_red_flags.html" %}
+</section>

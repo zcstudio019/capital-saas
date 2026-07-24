@@ -123,18 +123,16 @@ def run():
         report_page = client.get(f"/report/{assessment_id}")
         assert report_page.status_code == 200
         for text in [
-            "本章结论",
-            "关键问题",
-            "银行视角判断",
-            "老板应该怎么做",
-            "下一步行动建议",
-            "银行模拟通过率",
-            "预计可贷额度",
-            "可能被拒原因",
-            "推荐银行与产品",
-            "申请顺序",
+            "企业资本健康体检报告",
+            "第一部分",
+            "第二部分",
+            "第三部分",
+            "八维雷达评分概览",
+            "分项检查报告",
+            "风险预警与异常项汇总",
+            "融资结构优化方案已生成",
         ]:
-            assert text in report_page.text
+            assert text in report_page.text, text
 
         report_api = client.get(f"/api/report/{assessment_id}").json()["full_report"]
         assert report_api["schema_version"] == 3
@@ -146,7 +144,7 @@ def run():
         print_page = client.get(f"/report/{assessment_id}/print")
         assert print_page.status_code == 200
         assert "打印 / 保存为PDF" in print_page.text
-        assert "企业融资顾问诊断报告" in print_page.text
+        assert "企业资本健康体检报告" in print_page.text
 
         api_event = client.post(
             "/api/events/upgrade-click",

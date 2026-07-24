@@ -1,0 +1,26 @@
+<section class="health-section" id="part-5">
+  <header class="health-section-title"><span>第五部分</span><h2>融资能力全景评估</h2></header>
+  <h3>5.1 融资路径判定</h3>
+  <div class="health-path"><div><small>当前状态</small><strong>{{ health_report.financing_capacity.current_state }}</strong></div><b>→</b><div><small>融资路径</small><strong>{{ health_report.financing_capacity.path }}</strong></div><b>→</b><div><small>建议</small><strong>{{ health_report.financing_capacity.advice }}</strong></div></div>
+  <h3>5.2 当前状态 → 目标状态</h3>
+  <div class="health-table-wrap"><table class="health-table"><thead><tr><th>项目</th><th>当前状态</th><th>目标状态</th><th>具体措施</th><th>预计时间</th></tr></thead><tbody>{% for row in health_report.financing_capacity.transition %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+  <h3>5.3 可操作融资额度区间</h3>
+  <div class="health-metrics">{% for row in health_report.financing_capacity.metrics %}<div><small>{{ row[0] }}</small><strong>{{ row[1] }}</strong></div>{% endfor %}</div>
+  <h3>5.4 银行产品组合建议</h3>
+  <p class="health-safe-note">以下结果仅从已启用的人工维护或正式导入产品库中动态匹配，实际准入、额度、利率和期限以金融机构审批为准。</p>
+  <div class="health-product-grid">
+    {% for item in health_report.financing_capacity.bank_products %}
+    <article class="health-product">
+      <div><span>{{ item.bank_name or item.bank_type }}</span><strong>{{ item.product_name }}</strong><b>适配度 {{ item.match_score }}分</b></div>
+      <p><b>推荐理由：</b>{{ item.recommendation_reason }}</p>
+      <dl><div><dt>额度区间</dt><dd>{{ item.amount_range }}</dd></div><div><dt>利率区间</dt><dd>{{ item.interest_rate_range }}</dd></div><div><dt>期限</dt><dd>{{ item.loan_term }}</dd></div></dl>
+      <p><b>适合原因：</b>{{ item.matched_points|join('；') }}</p>
+      <p class="health-risk-note"><b>风险提醒：</b>{{ item.risk_notes }}</p>
+      <p><b>下一步建议：</b>{{ item.suggested_next_step }}</p>
+      <a class="btn" href="/report/{{ assessment.id }}/bank-products/{{ item.product_id }}">查看详情</a>
+    </article>
+    {% else %}<p class="health-empty">当前没有可展示的真实银行产品，请由顾问维护正式产品库后重新匹配。</p>{% endfor %}
+  </div>
+  <h3>5.5 融资申请顺序</h3>
+  <ol>{% for item in health_report.financing_capacity.application_order %}<li>{{ item }}</li>{% else %}<li>待真实产品匹配完成后生成申请顺序。</li>{% endfor %}</ol>
+</section>

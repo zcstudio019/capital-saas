@@ -12,6 +12,13 @@
     <label>299产品价格<input name="report_price_299" type="number" min="0" value="{{ settings.report_price_299 }}"></label>
     <label>699产品价格<input name="report_price_699" type="number" min="0" value="{{ settings.report_price_699 }}"></label>
     <label>1999产品价格<input name="report_price_1999" type="number" min="0" value="{{ settings.report_price_1999 }}"></label>
+    <h2>企业资本健康体检报告配置</h2>
+    <label>企业资本健康体检报告价格<input name="capital_health_report_price" type="number" min="0" value="{{ settings.capital_health_report_price }}"></label>
+    <label>融资结构优化方案价格<input name="capital_structure_plan_price" type="number" min="0" value="{{ settings.capital_structure_plan_price }}"></label>
+    <label>1对1顾问服务起价<input name="one_on_one_consulting_price" type="number" min="0" value="{{ settings.one_on_one_consulting_price }}"></label>
+    <label>体检机构名称<input name="capital_health_institution" value="{{ settings.capital_health_institution }}"></label>
+    <label>报告有效期（天）<input name="capital_health_report_validity_days" type="number" min="1" value="{{ settings.capital_health_report_validity_days }}"></label>
+    <label>显示英文副标题<select name="capital_health_show_english_subtitle"><option value="true" {{ 'selected' if settings.capital_health_show_english_subtitle == 'true' else '' }}>显示</option><option value="false" {{ 'selected' if settings.capital_health_show_english_subtitle != 'true' else '' }}>隐藏</option></select></label>
     <label>智能报告模式<select name="ai_mode"><option value="mock" {{ 'selected' if settings.ai_mode == 'mock' else '' }}>模拟模式</option><option value="openai" {{ 'selected' if settings.ai_mode == 'openai' else '' }}>在线智能模型</option></select></label>
     <label>智能模型名称<input name="openai_model" value="{{ settings.openai_model }}"></label>
     <label>支付模式<select name="payment_mode">{% for mode in ['mock','manual_transfer','wechat_pay','alipay'] %}<option value="{{ mode }}" {{ 'selected' if settings.payment_mode == mode else '' }}>{{ mode|zh }}</option>{% endfor %}</select></label>

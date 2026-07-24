@@ -1,0 +1,15 @@
+<section class="health-cover">
+  <div class="health-cover-mark">资本健康管理 · 专业交付</div>
+  <h1>{{ health_report.title }}</h1>
+  {% if health_report.show_subtitle %}<p class="health-subtitle">{{ health_report.subtitle }}</p>{% endif %}
+  <div class="health-cover-rule"></div>
+  <dl class="health-cover-meta">
+    <div><dt>报告编号</dt><dd>{{ health_report.report_no }}</dd></div>
+    <div><dt>报告日期</dt><dd>{{ health_report.report_date }}</dd></div>
+    <div><dt>有效期至</dt><dd>{{ health_report.valid_until }}</dd></div>
+    <div><dt>受检企业</dt><dd>{{ health_report.company_name }}</dd></div>
+    <div><dt>体检类型</dt><dd>{{ health_report.check_type }}</dd></div>
+    <div><dt>体检机构</dt><dd>{{ health_report.institution }}</dd></div>
+  </dl>
+  <p class="health-disclaimer"><strong>免责声明：</strong>{{ health_report.disclaimer }}</p>
+</section>

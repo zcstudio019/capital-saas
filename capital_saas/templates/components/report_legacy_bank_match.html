@@ -1,0 +1,9 @@
+<section class="health-section">
+  <header class="health-section-title"><span>历史权益</span><h2>银行产品匹配报告</h2></header>
+  <p class="health-safe-note">您已购买历史银行匹配产品，可继续查看来自正式产品库的动态匹配结果；优化处方与完整行动计划需升级融资结构优化方案。</p>
+  <div class="health-product-grid">
+    {% for item in health_report.financing_capacity.bank_products %}
+    <article class="health-product"><div><span>{{ item.bank_name or item.bank_type }}</span><strong>{{ item.product_name }}</strong><b>适配度 {{ item.match_score }}分</b></div><p><b>推荐理由：</b>{{ item.recommendation_reason }}</p><dl><div><dt>额度区间</dt><dd>{{ item.amount_range }}</dd></div><div><dt>利率区间</dt><dd>{{ item.interest_rate_range }}</dd></div><div><dt>期限</dt><dd>{{ item.loan_term }}</dd></div></dl><p class="health-risk-note"><b>风险提醒：</b>{{ item.risk_notes }}</p><p><b>下一步建议：</b>{{ item.suggested_next_step }}</p><a class="btn" href="/report/{{ assessment.id }}/bank-products/{{ item.product_id }}">查看详情</a></article>
+    {% else %}<p class="health-empty">当前没有可展示的真实银行产品，请由顾问维护正式产品库后重新匹配。</p>{% endfor %}
+  </div>
+</section>

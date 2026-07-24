@@ -449,7 +449,7 @@ def score_bank_product(product: BankProduct, customer_profile: dict[str, Any]) -
     }
 
 
-def _candidate_products(db: Session) -> tuple[list[BankProduct], str]:
+def _candidate_products(db: Session, real_only: bool = False) -> tuple[list[BankProduct], str]:
     products = (
         db.query(BankProduct)
         .filter(BankProduct.is_active.is_(True), BankProduct.data_source.in_(REAL_PRODUCT_SOURCES))
@@ -457,6 +457,8 @@ def _candidate_products(db: Session) -> tuple[list[BankProduct], str]:
     )
     if products:
         return products, ""
+    if real_only:
+        return [], "当前暂无符合条件的真实银行产品，建议由融资顾问补充产品库后重新匹配。"
     fallback = (
         db.query(BankProduct)
         .filter(BankProduct.is_active.is_(True), BankProduct.data_source == "mock")
@@ -465,9 +467,15 @@ def _candidate_products(db: Session) -> tuple[list[BankProduct], str]:
     return fallback, "当前暂无真实银行产品库，以下为模拟产品规则参考。"
 
 
-def match_bank_products(db: Session, assessment: Any, limit: int = 5, include_debug: bool = False) -> dict[str, Any]:
+def match_bank_products(
+    db: Session,
+    assessment: Any,
+    limit: int = 5,
+    include_debug: bool = False,
+    real_only: bool = False,
+) -> dict[str, Any]:
     customer_profile = build_customer_profile(assessment)
-    products, fallback_notice = _candidate_products(db)
+    products, fallback_notice = _candidate_products(db, real_only=real_only)
     scored = [score_bank_product(product, customer_profile) for product in products]
     scored.sort(key=lambda item: (item["eliminated"], -item["match_score"], item["product_id"] or 0))
 

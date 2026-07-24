@@ -165,7 +165,8 @@ def run():
         assert client.get(f"/public/report/{public_token}").status_code == 200
         unlocked_api = client.get(f"/api/report/{assessment_id}").json()
         assert unlocked_api["is_unlocked"] is True
-        assert unlocked_api["full_report"]["schema_version"] == 3
+        assert unlocked_api["full_report"]
+        assert "schema_version" not in unlocked_api["full_report"]
 
         assert login(client, "sales_demo", "sales-pass-123").status_code == 303
         assert client.get("/admin/leads").status_code == 200

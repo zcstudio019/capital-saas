@@ -64,8 +64,10 @@ def get_user_display_name(user):
     return f"{username}（{role_label}）" if username else role_label
 
 PRODUCT_LABELS = {
-    "299_report": "基础诊断报告（299元）", "699_bank_match": "银行匹配报告（699元）",
-    "1999_structure_plan": "融资结构优化方案（1999元）", "high_ticket_consulting": "高客单顾问服务", "free_nurture": "免费培育",
+    "free_assessment": "免费测评", "980_capital_health_report": "企业资本健康体检报告（980元）",
+    "299_report": "历史基础诊断报告（299元）", "699_bank_match": "银行匹配报告（699元）",
+    "1999_structure_plan": "融资结构优化方案（1999元）", "one_on_one_consulting": "1对1融资顾问服务",
+    "high_ticket_consulting": "高客单顾问服务", "free_nurture": "免费培育",
     "manual_consulting": "人工顾问服务", "structure_plan": "融资结构方案",
 }
 ORDER_STATUS_LABELS = {"pending": "待支付", "paid": "已支付", "refunded": "已退款", "cancelled": "已取消", "failed": "支付失败", "closed": "已关闭"}

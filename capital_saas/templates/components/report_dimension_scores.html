@@ -1,0 +1,9 @@
+<div class="health-dimension-grid">
+  {% for dimension in health_report.dimensions %}
+  <article class="health-dimension-card">
+    <div><strong>{{ dimension.dimension_name }}</strong><span class="health-light {{ 'light-green' if dimension.status_light == '绿灯' else 'light-yellow' if dimension.status_light == '黄灯' else 'light-orange' if dimension.status_light == '橙灯' else 'light-red' }}">{{ dimension.status_light }}</span></div>
+    <p><b>{{ dimension.raw_score }}</b> / 5分 · 权重{{ dimension.weight }}%</p>
+    <div class="health-meter"><i style="width:{{ dimension.raw_score * 20 }}%"></i></div>
+  </article>
+  {% endfor %}
+</div>

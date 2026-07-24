@@ -68,11 +68,11 @@ def run():
 
         report_page = client.get(f"/report/{assessment_id}")
         assert report_page.status_code == 200
-        for text in ["银行产品匹配", "融资资料准备清单", "合规声明", "质量评分"]:
+        for text in ["银行产品组合建议", "资料准备清单", "免责声明", "优化处方"]:
             assert text in report_page.text
         print_page = client.get(f"/report/{assessment_id}/print")
         assert print_page.status_code == 200
-        assert "不构成贷款承诺" in print_page.text
+        assert "不构成任何形式的融资承诺" in print_page.text
 
         with SessionLocal() as db:
             report = db.query(Report).filter(Report.assessment_id == assessment_id).one()
@@ -141,7 +141,7 @@ def run():
             assert token and report.review_status == "approved"
         public_page = client.get(f"/public/report/{token}")
         assert public_page.status_code == 200
-        assert "不构成贷款承诺" in public_page.text
+        assert "不构成任何形式的融资承诺" in public_page.text
 
         created = client.post(
             "/admin/bank-products/save",

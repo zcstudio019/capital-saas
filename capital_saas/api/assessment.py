@@ -15,6 +15,7 @@ from services.attribution_service import attribution_from_session, capture_attri
 from services.event_service import track_event
 from services.report_service import parse_customer_free_summary
 from utils.report_display_mapper import display_value
+from core.capital_health_report import build_capital_health_report
 from services.tag_service import auto_tag_lead
 
 
@@ -132,6 +133,7 @@ def free_result(request: Request, assessment_id: int, db: Session = Depends(get_
     if not assessment or not assessment.report:
         raise HTTPException(status_code=404, detail="测评不存在")
     free = parse_customer_free_summary(assessment.report)
+    health_report = build_capital_health_report(db, assessment)
     session_id = request.session.get("visitor_session_id") or request.session.get("session_id") or "anonymous"
     variant = assign_variant(
         db, session_id, assessment.id, assessment.lead.id if assessment.lead else None
@@ -145,7 +147,7 @@ def free_result(request: Request, assessment_id: int, db: Session = Depends(get_
     return templates.TemplateResponse(
         request=request, name="result_free.html",
         context={
-            "assessment": assessment, "result": free, "variant": variant,
+            "assessment": assessment, "result": free, "health_report": health_report, "variant": variant,
             "conversion_copy": result_conversion_copy(assessment.grade),
         },
     )

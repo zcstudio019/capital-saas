@@ -9,8 +9,8 @@ from db.models import Assessment, BankProduct, Order
 from utils.report_display_mapper import display_report_text, display_value, sanitize_report_text
 
 
-BANK_MATCH_PRODUCTS = {"699_bank_match", "1999_structure_plan"}
-DOCUMENT_CHECKLIST_PRODUCTS = {"1999_structure_plan"}
+BANK_MATCH_PRODUCTS = {"699_bank_match", "1999_structure_plan", "one_on_one_consulting", "high_ticket_consulting"}
+DOCUMENT_CHECKLIST_PRODUCTS = {"1999_structure_plan", "one_on_one_consulting", "high_ticket_consulting"}
 PAID_STATUSES = {"paid", "completed", "success"}
 
 
@@ -277,6 +277,7 @@ def _normalize_full_group(group: Any) -> dict[str, Any] | None:
     return {
         "category": category,
         "purpose": group.get("purpose") or default.get("purpose") or f"用于银行审核{category}相关信息。",
+        "priority": priority,
         "priority_display": display_value("priority", priority),
         "items": [str(item) for item in items if str(item).strip()],
         "missing_risk": group.get("missing_risk") or default.get("missing_risk") or "如果缺少该类资料，可能影响银行审批判断或导致补件。",
@@ -294,9 +295,7 @@ def build_document_checklist_full(checklist: dict[str, Any] | None = None) -> di
     for default_group in DEFAULT_CHECKLIST_FULL:
         if default_group["category"] not in existing:
             default_group = deepcopy(default_group)
-            default_group["priority_display"] = display_value(
-                "priority", default_group.pop("priority", "中")
-            )
+            default_group["priority_display"] = display_value("priority", default_group.get("priority", "中"))
             groups.append(default_group)
     return {
         "required_documents": groups,

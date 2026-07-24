@@ -33,7 +33,7 @@ def product_list(request: Request, db: Session = Depends(get_db)):
 def checkout(
     request: Request,
     assessment_id: int,
-    product: str = "299_report",
+    product: str = "980_capital_health_report",
     from_product: str = "",
     upgrade: int = 0,
     db: Session = Depends(get_db),
@@ -73,7 +73,7 @@ def checkout(
 @router.post("/payment/mock-pay/{assessment_id}")
 def pay(
     assessment_id: int,
-    product: str = "299_report",
+    product: str = "980_capital_health_report",
     db: Session = Depends(get_db),
 ):
     assessment = get_assessment(db, assessment_id)

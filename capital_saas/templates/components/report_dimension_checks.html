@@ -1,0 +1,27 @@
+<section class="health-section" id="part-2">
+  <header class="health-section-title"><span>第二部分</span><h2>分项检查报告</h2></header>
+  {% for dimension in health_report.dimensions %}
+  <article class="health-check-block">
+    <div class="health-check-head">
+      <div><small>2.{{ loop.index }}</small><h3>{{ dimension.dimension_name }}检查</h3><p>{{ dimension.purpose }}</p></div>
+      <strong>{{ dimension.raw_score }}分 · {{ dimension.status_light }}</strong>
+    </div>
+    <div class="health-table-wrap"><table class="health-table">
+      <thead><tr><th>检查项目</th><th>检查结果</th><th>评分依据</th><th>得分</th></tr></thead>
+      <tbody>{% for item in dimension['items'] %}<tr><td>{{ item.check_item }}</td><td>{{ item.check_result }}</td><td>{{ item.scoring_basis }}</td><td>{{ item.score }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="health-summary">{{ dimension.summary }}</p>
+  </article>
+  {% endfor %}
+</section>
+<section class="health-section" id="part-3">
+  <header class="health-section-title"><span>第三部分</span><h2>风险预警与异常项汇总</h2></header>
+  {% for level, title in [('红灯','3.1 高风险项（红灯）——必须立即处理'),('黄灯','3.2 中风险项（黄灯）——3个月内改善'),('绿灯','3.3 低风险项（绿灯）——持续关注')] %}
+  <h3>{{ title }}</h3>
+  <div class="health-warning-list">
+    {% for warning in health_report.warnings if warning.warning_level == level %}
+    <article class="health-warning {{ 'warning-red' if level == '红灯' else 'warning-yellow' if level == '黄灯' else 'warning-green' }}"><div><strong>{{ warning.warning_item }}</strong><small>{{ warning.deadline }}</small></div><p>{{ warning.description }}</p><p><b>建议：</b>{{ warning.suggestion }}</p></article>
+    {% else %}<p class="health-empty">本次体检暂未发现该级别异常项。</p>{% endfor %}
+  </div>
+  {% endfor %}
+</section>

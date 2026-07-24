@@ -1,0 +1,13 @@
+{% if lock_level == 'report' %}
+<section class="health-lock">
+  <span>完整报告待解锁</span><h2>完整企业资本健康体检报告已生成</h2>
+  <p>解锁后可查看八维分项检查、风险红旗清单、融资能力评估和基础融资建议。</p>
+  <a class="btn btn-gold btn-lg" href="/checkout/{{ assessment.id }}?product=980_capital_health_report&upgrade=1">解锁企业资本健康体检报告 {{ health_report.prices.report }}元</a>
+</section>
+{% else %}
+<section class="health-lock">
+  <span>落地方案待解锁</span><h2>融资结构优化方案已生成</h2>
+  <p>升级后可查看优化处方、银行产品组合、资料准备清单、30/90/180天行动计划和6个月融资落地节奏。</p>
+  <a class="btn btn-gold btn-lg" href="/checkout/{{ assessment.id }}?product=1999_structure_plan&upgrade=1">升级融资结构优化方案 {{ health_report.prices.structure }}元</a>
+</section>
+{% endif %}

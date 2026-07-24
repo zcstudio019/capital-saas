@@ -374,7 +374,7 @@ def _current_product(db: Session, assessment_id: int) -> str:
 def _apply_product_depth(content: dict, product_code: str) -> dict:
     matches = content.get("bank_product_matches", {})
     all_matches = matches.get("matched_products", [])
-    if product_code == "299_report":
+    if product_code in {"299_report", "980_capital_health_report"}:
         matches["matched_products"] = all_matches[:1]
         matches["preview_only"] = True
         content["delivery_scope"] = {

@@ -23,7 +23,7 @@ VALID_ORDER_STATUSES = {"pending", "paid", "failed", "cancelled", "refunded"}
 def create_order(
     db: Session,
     assessment: Assessment,
-    product_code: str = "299_report",
+    product_code: str = "980_capital_health_report",
     pay_channel: str = "mock",
     buyer_contact: str = "",
 ) -> Order:
@@ -106,7 +106,7 @@ def mark_order_paid(
         assessment.lead.follow_status = "已付款"
         set_pilot_stage(db, assessment.lead, "paid", commit=False)
         add_named_tag(db, assessment.lead, "已成交")
-        if order.product_code in {"299_report", "699_bank_match"}:
+        if order.product_code in {"299_report", "699_bank_match", "980_capital_health_report"}:
             add_named_tag(db, assessment.lead, "需复购")
     ensure_consulting_case(db, assessment, order.product_code)
     create_commissions(db, "paid_order", order.amount,
@@ -115,7 +115,7 @@ def mark_order_paid(
         partner_id=assessment.lead.source_partner_id if assessment.lead else None,
         order_id=order.id, assessment_id=assessment.id,
         lead_id=assessment.lead.id if assessment.lead else None, product_code=order.product_code)
-    if order.customer_id and order.product_code in {"299_report","699_bank_match"}:
+    if order.customer_id and order.product_code in {"299_report","699_bank_match","980_capital_health_report"}:
         from services.notification_service import safe_create_notification
         hours=int(get_setting(db,"upgrade_remind_hours","24"))
         safe_create_notification(db,"upgrade_recommend_customer",{"company_name":assessment.company_name},
@@ -144,7 +144,7 @@ def mark_order_paid(
     return order
 
 
-def mock_pay(db: Session, assessment: Assessment, product_code: str = "299_report") -> Order:
+def mock_pay(db: Session, assessment: Assessment, product_code: str = "980_capital_health_report") -> Order:
     order = create_order(db, assessment, product_code, "mock", assessment.phone)
     return mark_order_paid(db, order, operator="mock")
 
