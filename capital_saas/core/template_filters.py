@@ -54,7 +54,7 @@ ZH_MAP = {
     "variant_a": "风险提示版", "variant_b": "机会收益版",
     "free_result_conversion": "免费结果页转化实验",
     "free_assessment": "免费测评", "980_capital_health_report": "企业资本健康体检报告（980元）",
-    "299_report": "历史基础诊断报告（299元）", "699_bank_match": "银行匹配报告（699元）",
+    "299_report": "企业资本健康简版报告（299元）", "699_bank_match": "银行产品专项匹配报告（699元）",
     "1999_structure_plan": "融资结构优化方案（1999元）", "one_on_one_consulting": "1对1融资顾问服务",
     "high_ticket_consulting": "一对一融资顾问服务",
     "free_nurture": "免费培育", "direct": "直接访问",

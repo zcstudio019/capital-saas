@@ -1,15 +1,40 @@
 {% extends "base.html" %}
 {% block title %}企业资本健康服务｜沪上银{% endblock %}
 {% block content %}
-<section class="page-hero compact"><div class="container"><div class="eyebrow">产品服务</div><h1>从资本体检到融资落地</h1><p>先看清资本健康状态，再按需要解锁完整报告、优化方案与顾问陪跑。</p></div></section>
+<section class="page-hero compact">
+  <div class="container">
+    <div class="eyebrow">产品服务</div>
+    <h1>从资本体检到融资落地</h1>
+    <p>四个清晰服务层级：先免费了解现状，再按企业实际需要选择正式报告、落地方案或顾问陪跑。</p>
+  </div>
+</section>
 <section class="section"><div class="container"><div class="product-grid">
-  {% set product_labels = {'free_assessment':'免费入口','980_capital_health_report':'标准报告','1999_structure_plan':'落地方案','one_on_one_consulting':'顾问陪跑','299_report':'历史产品 / 限时体验','699_bank_match':'历史银行匹配'} %}
+  {% set product_labels = {
+    'free_assessment':'免费入口',
+    '980_capital_health_report':'正式体检报告',
+    '1999_structure_plan':'累计服务价',
+    'one_on_one_consulting':'顾问陪跑',
+    '299_report':'私域体验产品',
+    '699_bank_match':'银行专项服务'
+  } %}
   {% for code, item in products.items() %}
   <article class="card product-card {{ 'featured' if code == '980_capital_health_report' else '' }}">
     {% if code == '980_capital_health_report' %}<span class="product-ribbon">推荐</span>{% endif %}
-    <div class="eyebrow">{{ product_labels.get(code, '融资服务') }}</div><h2>{{ item.name }}</h2><p>{{ item.description }}</p>
-    <div class="product-price"><small>{{ '免费使用' if item.price == 0 else '一次性服务' }}</small><strong>¥{{ item.price }}</strong></div>
-    <a class="btn {{ 'btn-gold' if code in ['1999_structure_plan','one_on_one_consulting'] else 'btn-primary' }} btn-block" href="/assessment">{{ '开始免费测评' if code == 'free_assessment' else '先完成免费测评' }}</a>
+    <div class="eyebrow">{{ product_labels.get(code, '融资服务') }}</div>
+    <h2>{{ item.name }}</h2>
+    <p>{{ item.description }}</p>
+    <div class="product-price">
+      <small>
+        {% if code == '1999_structure_plan' %}累计服务价格
+        {% elif code == 'one_on_one_consulting' %}服务起价
+        {% elif item.price == 0 %}免费使用
+        {% else %}一次性服务{% endif %}
+      </small>
+      <strong>¥{{ item.price|int }}{% if code == 'one_on_one_consulting' %}<small>起</small>{% endif %}</strong>
+    </div>
+    <a class="btn {{ 'btn-gold' if code in ['1999_structure_plan','one_on_one_consulting'] else 'btn-primary' }} btn-block" href="/assessment">
+      {{ '开始免费测评' if code == 'free_assessment' else '先完成免费测评' }}
+    </a>
   </article>
   {% endfor %}
 </div></div></section>

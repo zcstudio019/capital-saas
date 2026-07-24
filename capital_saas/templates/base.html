@@ -19,6 +19,7 @@
       <a href="/assessment">免费测评</a><a href="/products">产品服务</a>
       {% if request.session.get('user_id') %}
         <a href="{{ '/sales/workbench' if request.session.get('role') == 'sales' else '/admin' }}">管理后台</a>
+        {% if request.session.get('role') in ['admin', 'super_admin', 'city_manager', 'sales_manager', 'sales'] %}<a href="/admin/products">产品管理</a>{% endif %}
         {% if request.session.get('role') in ['admin', 'super_admin'] %}<a href="/admin/qrcodes">推广二维码</a>{% endif %}
         <a href="/admin/notifications" class="nav-link nav-notification-link">
           <span>通知</span>

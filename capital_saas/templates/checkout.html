@@ -4,7 +4,9 @@
 <section class="page-hero compact"><div class="container"><div class="eyebrow">安全收银台</div><h1>确认购买服务</h1><p>{{ assessment.company_name }} · 测评编号 #{{ assessment.id }}</p></div></section>
 <section class="section"><div class="container checkout-grid">
   <div class="card order-product"><span class="tag">企业资本健康服务</span><h2>{{ product.name }}</h2><p>{{ product.description }}</p>
-    {% if product_code in ['980_capital_health_report','299_report'] %}
+    {% if product_code == '299_report' %}
+    <ol class="content-list"><li>企业资本健康综合评分</li><li>八维资本健康摘要</li><li>核心风险提示</li><li>基础融资方向</li></ol>
+    {% elif product_code == '980_capital_health_report' %}
     <ol class="content-list"><li>资本健康度综合评分与综合评级</li><li>八维评分概览</li><li>八维分项检查表</li><li>风险红旗清单与异常项汇总</li><li>基础融资能力评估与建议</li></ol>
     {% elif product_code == '699_bank_match' %}
     <ol class="content-list"><li>真实银行产品动态匹配</li><li>额度与期限区间</li><li>产品适合原因</li><li>风险提醒</li><li>申请顺序建议</li></ol>
@@ -14,9 +16,9 @@
     <ol class="content-list"><li>专属融资顾问陪跑</li><li>资料整理与预审</li><li>银行申请路径设计</li><li>融资进度跟进</li><li>贷后管理建议</li></ol>
     {% endif %}
   </div>
-  <div class="card payment-box"><div class="payment-row"><span>商品金额</span><strong>¥{{ product.original_price or product.price }}</strong></div><div class="payment-row muted"><span>已购体检报告抵扣</span><span>−¥{{ product.deduction or 0 }}</span></div><div class="divider"></div><div class="payment-total"><span>应付金额</span><strong>¥{{ product.price }}</strong></div>
+  <div class="card payment-box"><div class="payment-row"><span>商品金额</span><strong>¥{{ (product.original_price or product.price)|int }}</strong></div>{% if product.deduction %}<div class="payment-row muted"><span>已付款产品升级抵扣</span><span>−¥{{ product.deduction|int }}</span></div>{% endif %}<div class="divider"></div><div class="payment-total"><span>应付金额</span><strong>¥{{ product.price|int }}</strong></div>
     <div class="mock-notice">{% if payment_mode == 'mock' %}<strong>支付说明</strong><p>当前为模拟支付，不会产生真实扣款。</p>{% elif payment_mode == 'manual_transfer' %}<strong>人工转账</strong><p>下单后展示转账说明，由后台确认到账并解锁服务。</p>{% else %}<strong>支付接口预留模式</strong><p>当前渠道尚未正式接入，将生成待处理订单。</p>{% endif %}</div>
-    <form action="/payment/mock-pay/{{ assessment.id }}?product={{ product_code }}" method="post" data-loading-form><button class="btn btn-primary btn-block btn-lg" type="submit">确认支付 ¥{{ product.price }}</button></form>
+    <form action="/payment/mock-pay/{{ assessment.id }}?product={{ product_code }}" method="post" data-loading-form><button class="btn btn-primary btn-block btn-lg" type="submit">确认支付 ¥{{ product.price|int }}</button></form>
     <a class="text-link" href="/products">查看其他产品</a><p class="compliance-note">本服务用于企业融资规划参考，不构成贷款承诺或授信承诺；实际结果以金融机构审批为准。</p>
   </div>
 </div></section>

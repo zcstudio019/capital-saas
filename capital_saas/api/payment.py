@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from core.pricing_engine import get_product, products
+from core.pricing_engine import get_product, products, public_products
 from db.database import get_db
 from db.models import Order
 from services.assessment_service import get_assessment
@@ -23,7 +23,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent
 
 @router.get("/products", response_class=HTMLResponse)
 def product_list(request: Request, db: Session = Depends(get_db)):
-    runtime_products = {code: get_product(code, db)[1] for code in products}
+    runtime_products = public_products(db)
     return templates.TemplateResponse(
         request=request, name="products.html", context={"products": runtime_products}
     )
@@ -41,7 +41,11 @@ def checkout(
     assessment = get_assessment(db, assessment_id)
     if not assessment:
         raise HTTPException(status_code=404, detail="测评不存在")
+    if product not in products:
+        raise HTTPException(status_code=404, detail="产品不存在")
     product_code, product_info = get_product(product, db, assessment.id)
+    if not product_info.get("is_active", True):
+        raise HTTPException(status_code=404, detail="该产品当前未启用")
     payment_mode = get_setting(db, "payment_mode", "mock")
     track_event(
         db,
@@ -79,7 +83,11 @@ def pay(
     assessment = get_assessment(db, assessment_id)
     if not assessment:
         raise HTTPException(status_code=404, detail="测评不存在")
-    product_code, _ = get_product(product, db)
+    if product not in products:
+        raise HTTPException(status_code=404, detail="产品不存在")
+    product_code, product_info = get_product(product, db)
+    if not product_info.get("is_active", True):
+        raise HTTPException(status_code=404, detail="该产品当前未启用")
     payment_mode = get_setting(db, "payment_mode", "mock")
     order = create_order(
         db,

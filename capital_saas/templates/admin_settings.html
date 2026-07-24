@@ -2,7 +2,7 @@
 {% block title %}系统设置｜沪上银{% endblock %}
 {% block content %}
 <section class="admin-shell container">
-  <div class="admin-top"><div><div class="eyebrow">系统配置</div><h1>运营设置中心</h1></div><a class="btn" href="/admin">返回后台</a></div>
+  <div class="admin-top"><div><div class="eyebrow">系统配置</div><h1>运营设置中心</h1></div><div class="admin-links"><a href="/admin/products">产品管理</a><a class="btn" href="/admin">返回后台</a></div></div>
   <form class="card detail-card settings-form" method="post" action="/admin/settings">
     <h2>基础运营配置</h2>
     <label>网站名称<input name="site_name" value="{{ settings.site_name }}"></label>

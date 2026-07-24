@@ -13,7 +13,14 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from core.funnel_analytics import build_funnel_analytics
-from core.pricing_engine import PRODUCT_RANK, products, recommended_product_labels
+from core.pricing_engine import (
+    PRODUCT_DEDUCTION_RULES,
+    PRODUCT_RANK,
+    PRODUCT_TYPE_LABELS,
+    get_product,
+    products,
+    recommended_product_labels,
+)
 from core.config import settings
 from db.database import get_db
 from db.models import (
@@ -1104,6 +1111,108 @@ def admin_cancel(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return RedirectResponse(url=f"/admin/orders/{order_id}", status_code=303)
+
+
+@router.get("/admin/products", response_class=HTMLResponse)
+def admin_products(
+    request: Request,
+    generated_link: str = "",
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*SALES_WRITE_ROLES)),
+):
+    product_rows = []
+    for code in products:
+        item = get_product(code, db)[1]
+        targets = PRODUCT_DEDUCTION_RULES.get(code, {})
+        product_rows.append({
+            "code": code,
+            **item,
+            "product_type_label": PRODUCT_TYPE_LABELS.get(item.get("product_type", ""), "其他服务"),
+            "deduction_targets": [
+                {"code": target_code, "name": products[target_code]["name"], "amount": amount}
+                for target_code, amount in targets.items()
+            ],
+        })
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_products.html",
+        context={
+            "product_rows": product_rows,
+            "product_types": PRODUCT_TYPE_LABELS,
+            "generated_link": generated_link,
+            "current_user": user,
+        },
+    )
+
+
+@router.post("/admin/products/{product_code}/save")
+def save_admin_product(
+    request: Request,
+    product_code: str,
+    is_public: str = Form(""),
+    is_active: str = Form(""),
+    product_type: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "super_admin")),
+):
+    if product_code not in products:
+        raise HTTPException(status_code=404, detail="产品不存在")
+    selected_type = product_type if product_type in PRODUCT_TYPE_LABELS else products[product_code]["product_type"]
+    save_settings(db, {
+        f"product_{product_code}_is_public": "true" if is_public == "true" else "false",
+        f"product_{product_code}_is_active": "true" if is_active == "true" else "false",
+        f"product_{product_code}_type": selected_type,
+    })
+    write_audit_log(
+        db,
+        "product_visibility_updated",
+        "product",
+        None,
+        user_id=user.id,
+        after={
+            "product_code": product_code,
+            "is_public": is_public == "true",
+            "is_active": is_active == "true",
+            "product_type": selected_type,
+        },
+        request=request,
+    )
+    db.commit()
+    return RedirectResponse(url="/admin/products", status_code=303)
+
+
+@router.post("/admin/products/{product_code}/purchase-link")
+def generate_product_purchase_link(
+    product_code: str,
+    assessment_id: int = Form(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*SALES_WRITE_ROLES)),
+):
+    if product_code not in products:
+        raise HTTPException(status_code=404, detail="产品不存在")
+    product_info = get_product(product_code, db)[1]
+    if not product_info.get("is_active", True):
+        raise HTTPException(status_code=400, detail="该产品当前未启用，不能生成购买链接")
+    assessment = db.get(Assessment, assessment_id)
+    if not assessment:
+        raise HTTPException(status_code=404, detail="测评不存在")
+    if assessment.lead:
+        _assert_lead_access(db, user, assessment.lead)
+    purchase_link = (
+        f"{settings.site_base_url.rstrip('/')}/checkout/{assessment.id}"
+        f"?product={product_code}&from_product=direct_offer"
+    )
+    track_event(
+        db,
+        "direct_product_link_generated",
+        assessment_id=assessment.id,
+        lead_id=assessment.lead.id if assessment.lead else None,
+        data={"product_code": product_code, "operator_id": user.id},
+    )
+    return RedirectResponse(
+        url=f"/admin/products?{urlencode({'generated_link': purchase_link})}",
+        status_code=303,
+    )
 
 
 @router.get("/admin/settings", response_class=HTMLResponse)

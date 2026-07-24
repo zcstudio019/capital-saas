@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}产品管理｜沪上银{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top">
+    <div><div class="eyebrow">产品体系</div><h1>产品管理</h1><p>公开产品保持简洁，隐藏产品仅通过定向购买链接触达客户。</p></div>
+    <a class="btn" href="/admin">返回后台</a>
+  </div>
+
+  {% if generated_link %}
+  <div class="alert success"><strong>购买链接已生成</strong><p><a href="{{ generated_link }}">{{ generated_link }}</a></p></div>
+  {% endif %}
+
+  <div class="card table-card">
+    <table>
+      <thead><tr><th>产品</th><th>价格</th><th>是否公开</th><th>是否启用</th><th>产品类型</th><th>可抵扣目标产品</th><th>抵扣金额规则</th><th>操作</th></tr></thead>
+      <tbody>
+      {% for item in product_rows %}
+        <tr>
+          <td><strong>{{ item.name }}</strong></td>
+          <td>¥{{ item.price|int }}{% if item.code == "one_on_one_consulting" %}起{% endif %}</td>
+          <td>{{ "公开" if item.is_public else "不公开" }}</td>
+          <td>{{ "启用" if item.is_active else "停用" }}</td>
+          <td>{{ item.product_type_label }}</td>
+          <td>{% for target in item.deduction_targets %}{{ target.name }}{% if not loop.last %}<br>{% endif %}{% else %}—{% endfor %}</td>
+          <td>{% for target in item.deduction_targets %}已付本产品可抵扣 ¥{{ target.amount }}{% if not loop.last %}<br>{% endif %}{% else %}无抵扣规则{% endfor %}</td>
+          <td>
+            {% if current_user.role in ["admin", "super_admin"] %}
+            <form method="post" action="/admin/products/{{ item.code }}/save">
+              <label><input type="checkbox" name="is_public" value="true" {{ "checked" if item.is_public else "" }}>公开</label>
+              <label><input type="checkbox" name="is_active" value="true" {{ "checked" if item.is_active else "" }}>启用</label>
+              <select name="product_type">{% for code, label in product_types.items() %}<option value="{{ code }}" {{ "selected" if item.product_type == code else "" }}>{{ label }}</option>{% endfor %}</select>
+              <button class="btn-mini">保存</button>
+            </form>
+            {% endif %}
+            {% if item.code in ["299_report", "699_bank_match"] %}
+            <form method="post" action="/admin/products/{{ item.code }}/purchase-link">
+              <input name="assessment_id" type="number" min="1" placeholder="测评编号" required>
+              <button class="btn-mini btn-primary">生成定向购买链接</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

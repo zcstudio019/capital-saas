@@ -238,9 +238,9 @@ def build_bank_match_preview(matches: dict[str, Any] | None, base_path: str = ""
         "formatted_bank_products": products,
         "fallback_notice": matches.get("fallback_notice", ""),
         "preview_only": True,
-        "upgrade_product": "699_bank_match",
+        "upgrade_product": "1999_structure_plan",
         "upgrade_title": "当前为基础版预览",
-        "upgrade_text": "升级699版本可查看完整产品匹配、申请顺序和额度预测。",
+        "upgrade_text": "升级融资结构优化方案可查看完整产品匹配、申请顺序、资料清单和行动计划。",
     }
 
 
@@ -474,5 +474,5 @@ def build_bank_product_detail_context(
         "product": product_data,
         "matched_product": matched,
         "product_detail_unlocked": unlocked,
-        "upgrade_product": "699_bank_match",
+        "upgrade_product": "1999_structure_plan",
     }
