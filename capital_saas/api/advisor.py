@@ -11,7 +11,9 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from core.bank_product_matcher import match_bank_products
-from core.access_scope import get_access_scope
+from core.access_scope import effective_role, get_access_scope
+from core.capital_health_report import ensure_capital_health_snapshot
+from core.pricing_engine import PRODUCT_RANK
 from core.config import BASE_DIR, settings
 from core.document_checklist_engine import generate_document_checklist
 from core.document_completeness_engine import check_document_completeness
@@ -19,7 +21,7 @@ from core.document_request_script_engine import generate_document_request_script
 from db.database import get_db
 from db.models import (
     AdvisorBooking, AIGenerationLog, Assessment, BankProduct, ConsultingCase, CustomerTask,
-    DocumentParseTask, FollowTask, Lead, LeadFollowLog, Report, ReportVersion, UploadedDocument, User,
+    DocumentParseTask, FollowTask, Lead, LeadFollowLog, Order, Report, ReportVersion, UploadedDocument, User,
 )
 from services.auth_service import require_roles
 from services.bank_product_import_service import disable_mock_products, import_bank_products, parse_bank_product_file
@@ -27,9 +29,11 @@ from services.consulting_service import ensure_consulting_case
 from services.event_service import track_event
 from services.follow_log_service import add_follow_log
 from services.notification_service import (
+    create_internal_notification,
     notify_advisor_booking_assigned,
     notify_advisor_booking_submitted,
     notify_document_uploaded,
+    safe_create_notification,
 )
 from services.report_service import generate_full_report
 from services.settings_service import get_setting
@@ -42,12 +46,40 @@ router = APIRouter()
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 UPLOAD_DIR = BASE_DIR / "data" / "uploads"
 ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg"}
+REPORT_REVIEW_ROLES = ("admin", "super_admin", "consultant_manager", "consultant")
 ADVISOR_BOOKING_STATUSES = {"submitted", "contacted", "scheduled", "completed", "cancelled", "invalid"}
 ADVISOR_CONTACT_SCRIPT = (
     "您好，我是沪上银企业融资顾问。您刚刚提交了1对1融资顾问服务预约，"
     "我这边想先和您确认几个信息：企业目前主要是想了解银行产品匹配、融资结构设计，"
     "还是资料准备和申请推进？方便的话我先加您微信，帮您看一下下一步怎么安排。"
 )
+
+
+def _review_case(db: Session, report: Report) -> ConsultingCase | None:
+    return db.query(ConsultingCase).filter(
+        (ConsultingCase.report_id == report.id)
+        | (ConsultingCase.assessment_id == report.assessment_id)
+    ).order_by(ConsultingCase.created_at.desc()).first()
+
+
+def _assert_report_review_access(db: Session, report: Report, user: User) -> ConsultingCase | None:
+    role = effective_role(user)
+    case = _review_case(db, report)
+    if role == "super_admin":
+        return case
+    if role == "consultant":
+        if case and (case.consultant_user_id == user.id or case.consultant_id == user.id):
+            return case
+        raise HTTPException(status_code=403, detail="仅可审核分配给自己的顾问案件")
+    if role == "consultant_manager":
+        scope = get_access_scope(db, user)
+        lead = report.assessment.lead
+        if lead and (lead.owner_org_id in scope.allowed_org_ids or lead.org_id in scope.allowed_org_ids):
+            return case
+        if case and (case.owner_org_id in scope.allowed_org_ids or case.org_id in scope.allowed_org_ids):
+            return case
+        raise HTTPException(status_code=403, detail="无权审核其他组织的报告")
+    raise HTTPException(status_code=403, detail="当前角色不能审核报告")
 
 
 def _report_or_404(db: Session, report_id: int) -> Report:
@@ -583,6 +615,85 @@ def admin_advisor_booking_detail(
     )
 
 
+@router.get("/admin/reports/{report_id}/review", response_class=HTMLResponse)
+def report_review_page(
+    request: Request,
+    report_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*REPORT_REVIEW_ROLES)),
+):
+    report = _report_or_404(db, report_id)
+    review_case = _assert_report_review_access(db, report, user)
+    generate_full_report(db, report.assessment)
+    if report.review_status == "pending_review":
+        report.review_status = "reviewing"
+        report.reviewed_by = user.id
+        track_event(
+            db,
+            "report_review_started",
+            assessment_id=report.assessment_id,
+            lead_id=report.assessment.lead.id if report.assessment.lead else None,
+            data={"report_id": report.id, "reviewer_id": user.id},
+            commit=False,
+        )
+        db.commit()
+    health_report = ensure_capital_health_snapshot(db, report.assessment)
+    try:
+        report_payload = json.loads(report.full_report_json or "{}")
+    except (TypeError, ValueError):
+        report_payload = {}
+    current_version = db.get(ReportVersion, report.current_version_id) if report.current_version_id else None
+    paid_orders = db.query(Order).filter(
+        Order.assessment_id == report.assessment_id,
+        Order.status == "paid",
+    ).all()
+    product_code = max(
+        (item.product_code or "free_assessment" for item in paid_orders),
+        key=lambda code: PRODUCT_RANK.get(code, 0),
+        default="free_assessment",
+    )
+    quality = report_payload.get("quality") or {}
+    delivery_quality = quality.get("delivery_quality") or {}
+    consultant_user = (
+        db.get(User, review_case.consultant_user_id)
+        if review_case and review_case.consultant_user_id
+        else None
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_report_review.html",
+        context={
+            "report_item": report,
+            "assessment": report.assessment,
+            "health_report": health_report,
+            "report_payload": report_payload,
+            "product_code": product_code,
+            "current_version": current_version,
+            "review_case": review_case,
+            "consultant_user": consultant_user,
+            "quality": quality,
+            "delivery_quality": delivery_quality,
+            "current_user": user,
+        },
+    )
+
+
+@router.post("/admin/reports/{report_id}/review-note")
+def save_report_review_note(
+    report_id: int,
+    review_note: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*REPORT_REVIEW_ROLES)),
+):
+    report = _report_or_404(db, report_id)
+    _assert_report_review_access(db, report, user)
+    report.review_note = review_note.strip()
+    if report.review_status == "pending_review":
+        report.review_status = "reviewing"
+    db.commit()
+    return RedirectResponse(url=f"/admin/reports/{report.id}/review", status_code=303)
+
+
 @router.get("/admin/reports/{report_id}/versions", response_class=HTMLResponse)
 def report_versions(
     request: Request,
@@ -660,24 +771,26 @@ def set_current_version(
 def regenerate_report(
     report_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin")),
+    user: User = Depends(require_roles(*REPORT_REVIEW_ROLES)),
 ):
     report = _report_or_404(db, report_id)
+    _assert_report_review_access(db, report, user)
     generate_full_report(db, report.assessment, force=True, created_by=user.username)
     logger.info("重新生成报告 report_id=%s operator=%s", report.id, user.username)
-    return RedirectResponse(url=f"/admin/reports/{report.id}", status_code=303)
+    return RedirectResponse(url=f"/admin/reports/{report.id}/review", status_code=303)
 
 
 @router.post("/admin/reports/{report_id}/rematch-products")
 def rematch_report_products(
     report_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin")),
+    user: User = Depends(require_roles(*REPORT_REVIEW_ROLES)),
 ):
     report = _report_or_404(db, report_id)
+    _assert_report_review_access(db, report, user)
     generate_full_report(db, report.assessment, force=True, created_by=f"{user.username}（重新匹配产品）")
     logger.info("重新匹配报告产品 report_id=%s operator=%s", report.id, user.username)
-    return RedirectResponse(url=f"/admin/reports/{report.id}", status_code=303)
+    return RedirectResponse(url=f"/admin/reports/{report.id}/review", status_code=303)
 
 
 @router.post("/admin/reports/{report_id}/approve")
@@ -686,9 +799,11 @@ def approve_report(
     report_id: int,
     review_note: str = Form(""),
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin")),
+    user: User = Depends(require_roles(*REPORT_REVIEW_ROLES)),
 ):
     report = _report_or_404(db, report_id)
+    review_case = _assert_report_review_access(db, report, user)
+    previous_status = report.review_status
     report.review_status = "approved"
     report.reviewed_by = user.id
     report.reviewed_at = datetime.now()
@@ -707,21 +822,61 @@ def approve_report(
         })
         current_version.report_json = json.dumps(version_content, ensure_ascii=False)
     from db.models import CustomerAccount
-    from services.notification_service import safe_create_notification
     customer = db.query(CustomerAccount).filter(CustomerAccount.assessment_id == report.assessment_id,
         CustomerAccount.is_active.is_(True)).first()
+    paid_orders = db.query(Order).filter(
+        Order.assessment_id == report.assessment_id,
+        Order.status == "paid",
+    ).all()
+    approved_product_code = max(
+        (item.product_code or "free_assessment" for item in paid_orders),
+        key=lambda code: PRODUCT_RANK.get(code, 0),
+        default="free_assessment",
+    )
     if customer:
-        safe_create_notification(db,"report_approved_customer",{"company_name":customer.company_name},
+        notification_code = (
+            "structure_plan_approved_customer"
+            if PRODUCT_RANK.get(approved_product_code, 0) >= PRODUCT_RANK.get("1999_structure_plan", 0)
+            else "report_approved_customer"
+        )
+        safe_create_notification(db,notification_code,{
+            "company_name":customer.company_name,
+            "action_url":f"/client/reports/{report.id}",
+        },
             recipient_customer_id=customer.id,related_type="report",related_id=report.id)
-        lead = db.get(Lead, customer.lead_id)
-        for user_id in {lead.owner_user_id if lead else None}:
-            if user_id:safe_create_notification(db,"report_approved_customer",{"company_name":customer.company_name},
-                recipient_user_id=user_id,channel="in_app",related_type="report",related_id=report.id)
+    lead = report.assessment.lead
+    internal_recipients = {
+        user.id,
+        lead.owner_user_id if lead else None,
+        review_case.owner_user_id if review_case else None,
+        review_case.consultant_user_id if review_case else None,
+        review_case.consultant_id if review_case else None,
+    }
+    for user_id in internal_recipients - {None}:
+        create_internal_notification(
+            db,
+            user_id,
+            "融资结构优化方案已审核通过",
+            f"{report.assessment.company_name}的融资结构优化方案已完成专业复核。",
+            "report_review_approved",
+            related_type="report",
+            related_id=report.id,
+            action_url=f"/admin/reports/{report.id}/review",
+            commit=False,
+        )
+    track_event(
+        db,
+        "report_review_approved",
+        assessment_id=report.assessment_id,
+        lead_id=lead.id if lead else None,
+        data={"report_id": report.id, "reviewer_id": user.id, "previous_status": previous_status},
+        commit=False,
+    )
     from services.audit_service import write_audit_log
     write_audit_log(db,"report_approved","report",report.id,user_id=user.id,after={"review_status":"approved"},request=request,risk_level="high")
     db.commit()
     logger.info("审核通过报告 report_id=%s operator=%s", report.id, user.username)
-    return RedirectResponse(url=f"/admin/reports/{report.id}", status_code=303)
+    return RedirectResponse(url=f"/admin/reports/{report.id}/review", status_code=303)
 
 
 @router.post("/admin/reports/{report_id}/reject")
@@ -730,9 +885,12 @@ def reject_report(
     report_id: int,
     review_note: str = Form(...),
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin")),
+    user: User = Depends(require_roles(*REPORT_REVIEW_ROLES)),
 ):
     report = _report_or_404(db, report_id)
+    _assert_report_review_access(db, report, user)
+    if not review_note.strip():
+        raise HTTPException(status_code=400, detail="请填写驳回原因")
     report.review_status = "rejected"
     report.reviewed_by = user.id
     report.reviewed_at = datetime.now()
@@ -754,9 +912,17 @@ def reject_report(
         current_version.report_json = json.dumps(version_content, ensure_ascii=False)
     from services.audit_service import write_audit_log
     write_audit_log(db,"report_rejected","report",report.id,user_id=user.id,after={"review_status":"rejected","note":report.review_note},request=request,risk_level="high")
+    track_event(
+        db,
+        "report_review_rejected",
+        assessment_id=report.assessment_id,
+        lead_id=report.assessment.lead.id if report.assessment.lead else None,
+        data={"report_id": report.id, "reviewer_id": user.id, "reason": report.review_note},
+        commit=False,
+    )
     db.commit()
     logger.info("驳回报告 report_id=%s operator=%s", report.id, user.username)
-    return RedirectResponse(url=f"/admin/reports/{report.id}", status_code=303)
+    return RedirectResponse(url=f"/admin/reports/{report.id}/review", status_code=303)
 
 
 @router.get("/admin/bank-products", response_class=HTMLResponse)

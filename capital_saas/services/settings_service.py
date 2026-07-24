@@ -24,6 +24,8 @@ SETTING_DEFINITIONS = {
     "legacy_299_upgrade_policy": ("keep_legacy_rights", "旧299权益：keep_legacy_rights/grant_980_rights"),
     "capital_health_report_review_required": ("false", "980体检报告交付前是否必须人工审核"),
     "structure_plan_review_required": ("true", "1999结构优化方案交付前是否必须人工审核"),
+    "980_report_review_required": ("false", "980元企业资本健康体检报告是否必须人工审核"),
+    "1999_plan_review_required": ("true", "1999元融资结构优化方案是否必须人工审核"),
     "ai_mode": (settings.ai_mode, "AI运行模式：mock/openai"),
     "openai_model": (settings.openai_model, "OpenAI模型"),
     "payment_mode": (settings.payment_mode, "支付模式"),

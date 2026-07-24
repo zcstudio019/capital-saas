@@ -19,6 +19,7 @@ CHANNELS={"in_app":InAppChannel(),"email":EmailChannel(),"sms":SmsChannel(),
           "wecom_webhook":WecomChannel(),"mock":MockChannel()}
 DEFAULT_TEMPLATES=[
  ("report_approved_customer","报告已审核通过","customer","in_app","service","您的融资诊断报告已可查看","{{company_name}}的融资诊断报告已完成审核，请登录客户门户查看。"),
+ ("structure_plan_approved_customer","融资结构优化方案复核完成","customer","in_app","service","融资结构优化方案已完成","您的企业融资结构优化方案已完成专业复核，现在可以查看。"),
  ("document_missing_customer","资料补充提醒","customer","in_app","service","融资资料需要补充","当前尚缺：{{missing_documents}}。请登录客户门户上传，顾问将在收到后核验。"),
  ("document_uploaded_consultant","客户上传资料","consultant","in_app","service","客户已上传新资料","{{company_name}}已上传{{document_name}}，请及时核验。"),
  ("customer_task_due_customer","客户待办到期提醒","customer","in_app","service","待办事项即将到期","您的待办“{{task_title}}”即将到期，请登录门户处理。"),

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}报告复核中{% endblock %}
+{% block title %}方案复核中{% endblock %}
 {% block content %}
 <section class="error-page"><div class="card">
   {% if quality_failed %}
@@ -7,9 +7,14 @@
     <p>系统正在完成交付质量检查，整理完成后将更新为正式报告。</p>
   {% else %}
     <h1>方案正在由融资顾问复核</h1>
-    <p>{{ assessment.company_name }} 的融资产品、额度口径和行动方案正在进行人工复核，完成后将通知您。</p>
-    <p>当前状态：待审核</p>
+    <p>报告主体已经生成，顾问正在核验融资额度、银行产品匹配和行动方案。审核完成后，系统会通过通知中心提醒您。</p>
+    <div class="detail-grid">
+      <div><span>提交审核时间</span><strong>{{ report_item.created_at.strftime("%Y-%m-%d %H:%M") }}</strong></div>
+      <div><span>预计处理状态</span><strong>专业复核处理中</strong></div>
+      <div><span>当前状态</span><strong>{{ report_item.review_status|report_review_status_label }}</strong></div>
+    </div>
+    <p class="safe-note">复核时间取决于资料完整度和方案复杂度，完成后会在通知中心更新。</p>
   {% endif %}
-  <a class="btn btn-primary" href="/">返回首页</a>
+  <a class="btn btn-primary" href="/">返回客户中心</a>
 </div></section>
 {% endblock %}

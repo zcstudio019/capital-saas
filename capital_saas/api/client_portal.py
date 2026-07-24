@@ -17,7 +17,7 @@ from core.capital_health_report import ensure_capital_health_snapshot
 from db.database import get_db
 from db.models import (ConsultingCase, CustomerAccessToken, CustomerAccount,
     CustomerConfirmation, CustomerMessage, CustomerTask, Event, FinancingProject,
-    FundingApplication, Lead, Order, ProjectTimelineEvent, Report, UploadedDocument, User)
+    FundingApplication, Lead, Order, ProjectTimelineEvent, Report, ReportVersion, UploadedDocument, User)
 from services.auth_service import require_roles
 from services.customer_portal_service import (advisor_context, complete_document_tasks,
     ensure_customer_account, ensure_document_tasks, generate_login_token, portal_completeness,
@@ -112,7 +112,12 @@ def _client_report(db,customer,report_id):
 def client_report(request:Request,report_id:int,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
     report=_client_report(db,customer,report_id);paid=db.query(Order).filter(Order.assessment_id==customer.assessment_id,Order.status=='paid').first()
     if not paid:return templates.TemplateResponse(request=request,name='client_notice.html',context={'customer':customer,'title':'报告尚未解锁','message':'该报告尚未解锁。'})
-    if report.review_status!='approved':return templates.TemplateResponse(request=request,name='client_notice.html',context={'customer':customer,'title':'报告审核中','message':'报告正在生成/审核中，请稍后查看。'})
+    if report.review_status!='approved':
+        version=db.get(ReportVersion,report.current_version_id) if report.current_version_id else None
+        return templates.TemplateResponse(request=request,name='client_report_pending.html',context={
+            'customer':customer,'report_item':report,
+            'submitted_at':version.created_at if version else report.created_at,
+        })
     generate_full_report(db, report.assessment)
     full=parse_customer_report(report);health_report=ensure_capital_health_snapshot(db,report.assessment);track_event(db,'client_report_viewed',customer.assessment_id,customer.lead_id,{'report_id':report.id});set_pilot_stage(db,db.get(Lead,customer.lead_id),'report_viewed',commit=True)
     access_context=build_report_access_context(db,report.assessment,full,base_path=f'/client/reports/{report.id}')

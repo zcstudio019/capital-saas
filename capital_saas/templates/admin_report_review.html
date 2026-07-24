@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}报告审核｜{{ assessment.company_name }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/css/capital_health_report.css">{% endblock %}
+{% block content %}
+<section class="admin-shell container report-review-shell">
+  <div class="admin-top">
+    <div><div class="eyebrow">融资结构优化方案审核</div><h1>{{ assessment.company_name }}</h1><p>核验融资额度口径、真实银行产品、资料清单与行动方案后再正式交付。</p></div>
+    <div class="admin-links"><a href="/admin/reports?review_status=pending_review">返回待审核列表</a><a href="/admin/reports/{{ report_item.id }}">报告详情</a>{% if current_user and current_user.role in ["admin", "super_admin"] %}<a href="/admin/reports/{{ report_item.id }}/versions">历史版本</a>{% endif %}</div>
+  </div>
+
+  <div class="card detail-grid">
+    <div><span>企业名称</span><strong>{{ assessment.company_name }}</strong></div>
+    <div><span>报告编号</span><strong>{{ health_report.report_no }}</strong></div>
+    <div><span>产品层级</span><strong>{{ product_code|product_label }}</strong></div>
+    <div><span>生成时间</span><strong>{{ (current_version.created_at if current_version else report_item.created_at).strftime("%Y-%m-%d %H:%M") }}</strong></div>
+    <div><span>报告版本</span><strong>V{{ current_version.version_no if current_version else 1 }}</strong></div>
+    <div><span>当前审核状态</span><strong>{{ report_item.review_status|report_review_status_label }}</strong></div>
+    <div><span>负责顾问</span><strong>{{ consultant_user|user_display_name if consultant_user else "暂未分配" }}</strong></div>
+    <div><span>质量评分</span><strong>{{ quality.quality_score or current_version.quality_score if current_version else "待检查" }}</strong></div>
+  </div>
+
+  <section class="card detail-card">
+    <div class="task-section-head"><h2>审核重点概览</h2><span>所有数值均需有资料依据</span></div>
+    <div class="detail-grid">
+      <div><span>真实银行产品</span><strong>{{ health_report.financing_capacity.bank_products|length }} 个</strong></div>
+      <div><span>融资额度测算</span><strong>{{ health_report.financing_capacity.metrics|length }} 项</strong></div>
+      <div><span>行动计划</span><strong>{{ health_report.action_plans|length }} 个阶段</strong></div>
+      <div><span>资料清单</span><strong>{{ health_report.document_plan|length }} 类</strong></div>
+      <div><span>八维检查</span><strong>{{ health_report.dimensions|length }} 个维度</strong></div>
+      <div><span>质量检查</span><strong>{{ "通过" if delivery_quality.valid is not sameas false else "需要处理" }}</strong></div>
+    </div>
+    {% if delivery_quality.issues %}<div class="alert danger"><strong>质量问题：</strong>{{ delivery_quality.issues|join("；") }}</div>{% else %}<p class="safe-note">未发现阻断交付的质量问题，仍需人工核验额度、产品与执行方案。</p>{% endif %}
+  </section>
+
+  <section class="card detail-card" id="review-actions">
+    <h2>审核操作</h2>
+    <form method="post" action="/admin/reports/{{ report_item.id }}/review-note">
+      <label>审核备注<textarea name="review_note" rows="4" placeholder="记录核验结论、需补充资料或修改建议">{{ report_item.review_note }}</textarea></label>
+      <button class="btn">保存审核备注</button>
+    </form>
+    <div class="form-actions" style="margin-top:16px">
+      <form method="post" action="/admin/reports/{{ report_item.id }}/approve"><input type="hidden" name="review_note" value="{{ report_item.review_note }}"><button class="btn btn-primary">审核通过</button></form>
+      <form method="post" action="/admin/reports/{{ report_item.id }}/regenerate"><button class="btn">重新生成</button></form>
+      <form method="post" action="/admin/reports/{{ report_item.id }}/reject"><input name="review_note" required placeholder="请填写驳回原因"><button class="btn btn-danger">驳回修改</button></form>
+    </div>
+  </section>
+</section>
+
+<section class="container" style="max-width:1240px;margin:28px auto 80px">
+  <div class="admin-top"><div><div class="eyebrow">完整报告预览</div><h2>客户交付内容</h2></div><a class="btn" href="#review-actions">返回审核操作</a></div>
+  <main class="report-document" style="width:100%;margin:20px 0">
+    {% include "components/report_cover.html" %}
+    {% include "components/report_toc.html" %}
+    <div class="report-inner">{% include "components/report_capital_health_body.html" %}</div>
+    <footer class="report-footer">{{ health_report.institution }}　｜　{{ health_report.report_no }}</footer>
+  </main>
+</section>
+{% endblock %}

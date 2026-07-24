@@ -13,11 +13,11 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from core.funnel_analytics import build_funnel_analytics
-from core.pricing_engine import products, recommended_product_labels
+from core.pricing_engine import PRODUCT_RANK, products, recommended_product_labels
 from core.config import settings
 from db.database import get_db
 from db.models import (
-    AdvisorBooking, AIGenerationLog, Assessment, CustomerAccount, CustomerTask, Event, FinancingProject,
+    AdvisorBooking, AIGenerationLog, Assessment, ConsultingCase, CustomerAccount, CustomerTask, Event, FinancingProject,
     FollowTask, Lead, LeadFollowLog, Order, Organization, PilotBatch, ProjectTask, Report, ReportVersion,
     Tag, UploadedDocument, User
 )
@@ -778,10 +778,17 @@ def reports(
             query = query.filter(Lead.source_partner_id.in_(scope.allowed_partner_ids or [-1]))
         elif scope.role == "sales":
             query = query.filter(Lead.assigned_sales_id == user.id)
+        elif scope.role == "consultant":
+            assigned_report_ids = db.query(ConsultingCase.report_id).filter(
+                or_(ConsultingCase.consultant_user_id == user.id, ConsultingCase.consultant_id == user.id)
+            )
+            query = query.filter(Report.id.in_(assigned_report_ids))
         else:
             query = query.filter(
                 or_(Lead.owner_org_id.in_(scope.allowed_org_ids or [-1]), Lead.org_id.in_(scope.allowed_org_ids or [-1]))
             )
+    pending_query = query
+    pending_review_count = pending_query.filter(Report.review_status == "pending_review").count()
     if company_keyword:
         query = query.filter(Assessment.company_name.ilike(f"%{company_keyword.strip()}%"))
     if generation_status == "generated":
@@ -797,6 +804,28 @@ def reports(
     total_pages = max((total_count + page_size - 1) // page_size, 1)
     page = min(page, total_pages)
     report_items = query.order_by(Report.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    assessment_ids = [item.assessment_id for item in report_items]
+    paid_orders = db.query(Order).filter(
+        Order.assessment_id.in_(assessment_ids or [-1]),
+        Order.status == "paid",
+    ).all()
+    report_products: dict[int, str] = {}
+    for order in paid_orders:
+        current = report_products.get(order.assessment_id, "free_assessment")
+        if PRODUCT_RANK.get(order.product_code or "", 0) >= PRODUCT_RANK.get(current, 0):
+            report_products[order.assessment_id] = order.product_code
+    cases = db.query(ConsultingCase).filter(
+        ConsultingCase.report_id.in_([item.id for item in report_items] or [-1])
+    ).all()
+    cases_by_report = {item.report_id: item for item in cases}
+    review_role = effective_role(user)
+    reviewable_report_ids = set()
+    for item in report_items:
+        case = cases_by_report.get(item.id)
+        if review_role in {"super_admin", "consultant_manager"}:
+            reviewable_report_ids.add(item.id)
+        elif review_role == "consultant" and case and (case.consultant_user_id == user.id or case.consultant_id == user.id):
+            reviewable_report_ids.add(item.id)
 
     pagination_params = {"page_size": page_size}
     for key, value in {
@@ -818,6 +847,9 @@ def reports(
         name="admin_reports.html",
         context={
             "reports": report_items,
+            "report_products": report_products,
+            "reviewable_report_ids": reviewable_report_ids,
+            "pending_review_count": pending_review_count,
             "filters": {
                 "company_keyword": company_keyword,
                 "generation_status": generation_status,
@@ -859,6 +891,15 @@ def report_detail(
     if paid_orders or user.role == "admin":
         generate_full_report(db, report.assessment)
         _, full = parse_report(report)
+    review_case = db.query(ConsultingCase).filter(
+        or_(ConsultingCase.report_id == report.id, ConsultingCase.assessment_id == report.assessment_id)
+    ).order_by(ConsultingCase.created_at.desc()).first()
+    review_role = effective_role(user)
+    can_review = review_role in {"super_admin", "consultant_manager"} or (
+        review_role == "consultant"
+        and review_case
+        and (review_case.consultant_user_id == user.id or review_case.consultant_id == user.id)
+    )
     return templates.TemplateResponse(
         request=request,
         name="admin_report_detail.html",
@@ -869,6 +910,7 @@ def report_detail(
             "paid_orders": paid_orders,
             "report": full,
             "current_user": user,
+            "can_review": can_review,
             "site_base_url": settings.site_base_url.rstrip("/"),
             "versions": db.query(ReportVersion).filter(
                 ReportVersion.report_id == report.id
@@ -1101,6 +1143,8 @@ def update_settings(
     legacy_299_upgrade_policy: str = Form("keep_legacy_rights"),
     capital_health_report_review_required: str = Form("false"),
     structure_plan_review_required: str = Form("true"),
+    review_980_required: str = Form(""),
+    review_1999_required: str = Form(""),
     ai_mode: str = Form(...),
     openai_model: str = Form(...),
     payment_mode: str = Form(...),
@@ -1123,8 +1167,10 @@ def update_settings(
         "capital_health_show_english_subtitle": capital_health_show_english_subtitle,
         "structure_plan_upgrade_mode": structure_plan_upgrade_mode if structure_plan_upgrade_mode in {"full_price", "deduct_report_price"} else "deduct_report_price",
         "legacy_299_upgrade_policy": legacy_299_upgrade_policy if legacy_299_upgrade_policy in {"keep_legacy_rights", "grant_980_rights"} else "keep_legacy_rights",
-        "capital_health_report_review_required": capital_health_report_review_required,
-        "structure_plan_review_required": structure_plan_review_required,
+        "capital_health_report_review_required": review_980_required or capital_health_report_review_required,
+        "structure_plan_review_required": review_1999_required or structure_plan_review_required,
+        "980_report_review_required": review_980_required or capital_health_report_review_required,
+        "1999_plan_review_required": review_1999_required or structure_plan_review_required,
         "openai_model": openai_model, "payment_mode": payment_mode,
         "enable_registration": enable_registration,
         "report_review_required": report_review_required,

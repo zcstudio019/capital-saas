@@ -56,9 +56,9 @@ def _review_blocks_customer(request: Request, db: Session, report: Report) -> bo
     }
     requires_review = get_bool_setting(db, "report_review_required", False)
     if paid_codes & {"1999_structure_plan", "one_on_one_consulting", "high_ticket_consulting"}:
-        requires_review = get_bool_setting(db, "structure_plan_review_required", True)
+        requires_review = get_bool_setting(db, "1999_plan_review_required", True)
     elif "980_capital_health_report" in paid_codes:
-        requires_review = get_bool_setting(db, "capital_health_report_review_required", False)
+        requires_review = get_bool_setting(db, "980_report_review_required", False)
     return requires_review and report.review_status != "approved"
 
 

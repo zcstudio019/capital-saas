@@ -14,13 +14,10 @@
     <div><span>打印报告</span><strong>{% if report %}<a href="/report/{{ assessment.id }}/print" target="_blank">打开打印版</a>{% else %}-{% endif %}</strong></div>
   </div></section>
 
-  {% if current_user.role == 'admin' %}
-  <section class="card detail-card"><div class="task-section-head"><h2>生成与人工审核</h2><span>{{ report_item.review_status|zh }}</span></div>
-    <div class="action-row">
-      <form method="post" action="/admin/reports/{{ report_item.id }}/regenerate"><button class="btn">重新生成报告</button></form>
-      <form method="post" action="/admin/reports/{{ report_item.id }}/approve"><input name="review_note" placeholder="审核备注（可选）"><button class="btn btn-primary">审核通过</button></form>
-      <form method="post" action="/admin/reports/{{ report_item.id }}/reject"><input name="review_note" required placeholder="驳回原因"><button class="btn btn-danger">驳回</button></form>
-    </div>
+  {% if can_review %}
+  <section class="card detail-card"><div class="task-section-head"><h2>人工审核</h2><span>{{ report_item.review_status|report_review_status_label }}</span></div>
+    <p>请进入专属审核页面核验银行产品、额度口径、行动计划、资料清单和质量检查结果。</p>
+    <a class="btn btn-primary" href="/admin/reports/{{ report_item.id }}/review">{{ "立即审核" if report_item.review_status == "pending_review" else "进入审核页面" }}</a>
     {% if report_item.review_note %}<p>审核备注：{{ report_item.review_note }}</p>{% endif %}
   </section>
   {% endif %}

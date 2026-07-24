@@ -505,9 +505,9 @@ def generate_full_report(
     delivery_failed = not delivery_quality.get("valid", True)
     review_required = get_bool_setting(db, "report_review_required", False)
     if product_code in {"1999_structure_plan", "one_on_one_consulting", "high_ticket_consulting"}:
-        review_required = get_bool_setting(db, "structure_plan_review_required", True)
+        review_required = get_bool_setting(db, "1999_plan_review_required", True)
     elif product_code == "980_capital_health_report":
-        review_required = get_bool_setting(db, "capital_health_report_review_required", False)
+        review_required = get_bool_setting(db, "980_report_review_required", False)
     if delivery_failed:
         logger.error("report delivery quality failed report_id=%s issues=%s", report.id, delivery_issues)
         track_event(

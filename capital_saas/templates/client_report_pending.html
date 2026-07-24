@@ -1,0 +1,16 @@
+{% extends "client_base.html" %}
+{% block title %}方案复核中｜{{ customer.company_name }}{% endblock %}
+{% block content %}
+<section class="client-card client-notice">
+  <span>专业交付复核</span>
+  <h1>方案正在由融资顾问复核</h1>
+  <p>报告主体已经生成，顾问正在核验融资额度、银行产品匹配和行动方案。审核完成后，系统会通过通知中心提醒您。</p>
+  <div class="detail-grid">
+    <div><span>提交审核时间</span><strong>{{ submitted_at.strftime("%Y-%m-%d %H:%M") }}</strong></div>
+    <div><span>预计处理状态</span><strong>{{ "修改后重新复核" if report_item.review_status == "rejected" else "专业复核处理中" }}</strong></div>
+    <div><span>当前状态</span><strong>{{ report_item.review_status|report_review_status_label }}</strong></div>
+  </div>
+  <p class="safe-note">复核时间取决于资料完整度和方案复杂度，完成后会在通知中心更新。</p>
+  <a class="btn btn-primary" href="/client/dashboard">返回客户中心</a>
+</section>
+{% endblock %}
