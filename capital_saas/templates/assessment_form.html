@@ -27,6 +27,9 @@
   </nav>
 
   <form class="assessment-form" action="/assessment/submit" method="post" data-assessment-form novalidate>
+    <div class="assessment-submit-alert" data-submit-alert role="alert" {% if not submit_error %}hidden{% endif %}>
+      {{ submit_error or "" }}
+    </div>
     <p class="assessment-required-note"><span class="required-mark" aria-hidden="true">*</span> 为必填项，其余信息可根据实际掌握情况补充。</p>
     {% include "components/assessment_form_fields.html" %}
 
@@ -37,6 +40,9 @@
       </div>
       <button class="assessment-submit-button" type="submit" data-submit-button>生成免费测评结果</button>
     </div>
+    <script type="application/json" data-assessment-server-state>
+      {{ {"values": form_values|default({}, true), "errors": form_errors|default({}, true)}|tojson }}
+    </script>
   </form>
 </section>
 {% endblock %}

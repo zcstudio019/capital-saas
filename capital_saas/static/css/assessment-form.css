@@ -90,6 +90,21 @@
   font-size: 13px;
 }
 
+.assessment-submit-alert {
+  padding: 14px 16px;
+  border: 1px solid #efb9bb;
+  border-left: 4px solid var(--assessment-danger);
+  border-radius: 10px;
+  color: #9f2f34;
+  background: #fff3f3;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.assessment-submit-alert[hidden] {
+  display: none;
+}
+
 .assessment-section {
   min-width: 0;
   margin: 0;
