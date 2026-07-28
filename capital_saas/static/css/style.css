@@ -121,6 +121,17 @@ button, input, select, textarea { font: inherit; }
 .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
 .form-grid label { display: grid; gap: 8px; font-size: 14px; font-weight: 700; }
 .form-grid label.wide { grid-column: span 2; }
+.field-unit { color: var(--muted); font-size: 12px; font-weight: 500; }
+.field-help, .money-hint { color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.55; }
+.money-hint { color: #85651f; }
+.choice-field { min-width: 0; margin: 0; padding: 18px; grid-column: 1 / -1; border: 1px solid #d7dee7; border-radius: 10px; }
+.choice-field legend { padding: 0 8px; font-size: 14px; font-weight: 800; }
+.choice-grid { display: grid; margin-bottom: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 16px; }
+.choice-grid label { display: flex; gap: 8px; align-items: center; font-weight: 500; }
+.choice-grid input[type="checkbox"] { width: auto; margin: 0; }
+.optional-card summary { display: flex; cursor: pointer; align-items: center; justify-content: space-between; color: var(--navy); }
+.optional-card summary span { color: var(--muted); font-size: 13px; font-weight: 400; }
+.optional-card[open] summary { margin-bottom: 28px; }
 input, select, textarea { width: 100%; padding: 13px 14px; border: 1px solid #d7dee7; border-radius: 8px; outline: none; color: var(--ink); background: #fbfcfd; }
 input:focus, select:focus, textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,164,92,.12); }
 textarea { min-height: 90px; resize: vertical; }
@@ -635,6 +646,8 @@ details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold)
   .section { padding: 55px 0; }
   .feature-grid, .overview-grid, .form-grid, .data-grid, .canvas-grid, .analysis-row, .swot-grid, .action-grid, .dashboard-grid, .detail-data, .score-comparison { grid-template-columns: 1fr; }
   .form-grid label.wide { grid-column: auto; }
+  .choice-grid { grid-template-columns: 1fr; }
+  .optional-card summary { align-items: flex-start; flex-direction: column; gap: 6px; }
   .form-card, .report-chapter, .order-product, .payment-box { padding: 24px; }
   .submit-bar, .result-head { align-items: flex-start; flex-direction: column; gap: 24px; }
   .score-ring { width: 135px; height: 135px; }

@@ -245,6 +245,11 @@ def apply_autofill(lead_id: int, fields: list[str] = Form(...), db: Session = De
         elif field in {"annual_revenue", "net_profit", "monthly_cashflow", "debt_total", "short_debt"}: value = float(value)
         elif field in {"tax_status", "credit_status", "has_collateral"}: value = bool(value)
         setattr(lead.assessment, field, value); applied[field] = {"old": old, "new": value}
+        if field in {"annual_revenue", "net_profit"}:
+            revenue = float(lead.assessment.annual_revenue or 0)
+            lead.assessment.net_profit_margin = (
+                float(lead.assessment.net_profit or 0) / revenue * 100 if revenue else None
+            )
     score = calculate_score({c.name: getattr(lead.assessment, c.name) for c in lead.assessment.__table__.columns})
     lead.assessment.score, lead.assessment.grade = score.total, score.grade
     lead.assessment.risk_level, lead.assessment.funding_probability = score.risk_level, score.funding_probability

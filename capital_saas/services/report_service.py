@@ -11,6 +11,7 @@ from core.bank_product_matcher import match_bank_products
 from core.capital_health_report import build_capital_health_report, report_entitlements
 from core.config import settings
 from core.pricing_engine import PRODUCT_RANK
+from core.financial_metrics import net_profit_margin_fraction
 from ai.pipelines.report_pipeline import ReportPipeline
 from db.models import AIGenerationLog, Assessment, Order, Report, ReportVersion
 from services.settings_service import get_bool_setting
@@ -28,7 +29,7 @@ from utils.logger import logger
 def _assessment_data(item: Assessment) -> dict:
     fields = [
         "company_name", "industry", "years", "employee_count", "annual_revenue",
-        "net_profit", "monthly_cashflow", "debt_total", "short_debt",
+        "net_profit", "net_profit_margin", "monthly_cashflow", "debt_total", "short_debt",
         "receivable_days", "funding_need", "funding_purpose", "has_collateral",
         "tax_status", "credit_status", "knows_cashflow", "has_budget",
         "leverage_attitude", "asset_efficiency", "fund_usage_plan",
@@ -80,7 +81,9 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
 
     revenue = max(assessment.annual_revenue, 1)
     monthly_revenue = revenue / 12
-    profit_margin = assessment.net_profit / revenue
+    profit_margin = net_profit_margin_fraction(
+        assessment.net_profit, assessment.annual_revenue, assessment.net_profit_margin
+    )
     debt_ratio = assessment.debt_total / revenue
     short_ratio = assessment.short_debt / max(assessment.debt_total, 1)
     cash_ratio = assessment.monthly_cashflow / monthly_revenue
@@ -97,10 +100,10 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
     )
 
     financial_issues = [
-        f"年营收{_money(assessment.annual_revenue)}，净利润{_money(assessment.net_profit)}，净利率约{profit_margin * 100:.1f}%。",
-        f"总负债{_money(assessment.debt_total)}，占年营收约{debt_ratio * 100:.1f}%；其中短债占总负债约{short_ratio * 100:.1f}%。",
-        f"月均现金流{_money(assessment.monthly_cashflow)}，相当于月均收入的{cash_ratio * 100:.1f}%。",
-        f"应收账款周期{assessment.receivable_days}天，直接影响银行对回款稳定性和第一还款来源的判断。",
+        f"近12个月营业收入{_money(assessment.annual_revenue)}，净利润率约{profit_margin * 100:.1f}%。",
+        f"当前有息负债{_money(assessment.debt_total)}，占近12个月营业收入约{debt_ratio * 100:.1f}%；其中一年内到期负债占比约{short_ratio * 100:.1f}%。",
+        f"近6个月月均经营性现金流入{_money(assessment.monthly_cashflow)}，相当于月均收入的{cash_ratio * 100:.1f}%。",
+        f"平均应收账款回款周期{assessment.receivable_days}天，直接影响银行对回款稳定性和第一还款来源的判断。",
     ]
     if weak:
         financial_issues.append("企业评级尚未达到良好水平，银行更可能要求增信、降低额度或暂缓审批。")
@@ -166,7 +169,7 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
             f"企业净利率约{profit_margin * 100:.1f}%，负债/营收约{debt_ratio * 100:.1f}%，短债占比约{short_ratio * 100:.1f}%。"
             + ("财务结构总体可融资，但仍需控制新增负债成本。" if strong else "财务结构对新增授信形成约束，需要先改善现金覆盖和短债结构。"),
             financial_issues,
-            f"银行会重点核验经营现金流能否覆盖本息。当前月均现金流为{_money(assessment.monthly_cashflow)}，"
+            f"银行会重点核验经营现金流能否覆盖本息。近6个月月均经营性现金流入为{_money(assessment.monthly_cashflow)}，"
             f"{'可作为还款来源证明，但需保持稳定。' if assessment.monthly_cashflow > 0 else '不足以支持新增债务，应先修复。'}",
             [
                 "每月同时看利润表和现金流表，避免只看利润不看回款。",
@@ -228,7 +231,7 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
             [
                 "融资需求与业务回报之间需要建立可量化关系。",
                 "资金投放周期必须短于贷款期限，避免期限错配。",
-                f"当前净利润为{_money(assessment.net_profit)}，新增投入不能只追求收入增长而忽视利润和现金回收。",
+                f"当前净利润率约{profit_margin * 100:.1f}%，新增投入不能只追求收入增长而忽视利润和现金回收。",
             ],
             "贷后检查会关注资金真实用途、合同发票、支付路径及经营指标变化，资金挪用会影响续贷。",
             [
@@ -262,7 +265,7 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
             "长期资本路径",
             "未来资本路径应从单次借款升级为“经营现金流 + 银行授信 + 供应链工具 + 股权资本”的组合。",
             [
-                f"现有总负债{_money(assessment.debt_total)}，需要管理到期分布而非只管理总额。",
+                f"当前有息负债{_money(assessment.debt_total)}，需要管理到期分布而非只管理总额。",
                 "续贷、增额和债务置换应至少提前6个月规划。",
                 "股权融资只有在商业模式可复制、数据规范和增长可验证时才具备议价能力。",
             ],
@@ -349,6 +352,7 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
             "industry": assessment.industry,
             "annual_revenue": assessment.annual_revenue,
             "net_profit": assessment.net_profit,
+            "net_profit_margin": assessment.net_profit_margin,
             "monthly_cashflow": assessment.monthly_cashflow,
             "debt_total": assessment.debt_total,
             "short_debt": assessment.short_debt,

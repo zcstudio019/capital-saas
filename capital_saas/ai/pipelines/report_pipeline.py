@@ -22,7 +22,7 @@ class ReportPipeline:
             key: getattr(assessment, key)
             for key in [
                 "company_name", "industry", "years", "employee_count",
-                "annual_revenue", "net_profit", "monthly_cashflow", "debt_total",
+                "annual_revenue", "net_profit", "net_profit_margin", "monthly_cashflow", "debt_total",
                 "short_debt", "receivable_days", "funding_need", "funding_purpose",
                 "has_collateral", "tax_status", "credit_status", "score", "grade",
                 "risk_level", "funding_probability",

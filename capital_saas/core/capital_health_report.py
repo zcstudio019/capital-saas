@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from core.bank_product_matcher import match_bank_products
 from core.pricing_engine import get_product
+from core.financial_metrics import net_profit_margin_fraction
 from db.models import AdvisorBooking, Assessment, Order, ReportVersion, UploadedDocument
 from services.settings_service import get_bool_setting, get_setting
 
@@ -119,15 +120,30 @@ def _build_items(assessment: Assessment) -> dict[str, list[dict[str, Any]]]:
     monthly_flow = max(float(assessment.monthly_cashflow or 0), 0)
     debt = max(float(assessment.debt_total or 0), 0)
     short_debt = max(float(assessment.short_debt or 0), 0)
-    years = max(int(assessment.years or 0), 0)
+    years = max(float(assessment.years or 0), 0)
     employees = max(int(assessment.employee_count or 0), 0)
     debt_ratio = debt / revenue if revenue else 1
     short_ratio = short_debt / debt if debt else 0
-    profit_margin = profit / revenue if revenue else 0
+    profit_margin = net_profit_margin_fraction(
+        profit, revenue, assessment.net_profit_margin
+    )
     flow_coverage = monthly_flow * 12 / revenue if revenue else 0
     receivable_days = max(int(assessment.receivable_days or 0), 0)
     funding_need = max(float(assessment.funding_need or 0), 0)
     financing_space = max(revenue * 0.35 - debt, 0)
+    credit_labels = {
+        "no_overdue": "无逾期", "settled_overdue": "有已结清逾期",
+        "current_overdue": "有当前逾期", "unknown": "不清楚",
+    }
+    risk_labels = {"none": "无", "no": "无", "resolved": "有，已处理", "current": "当前仍存在", "unknown": "不清楚"}
+    public_inflow = float(assessment.public_inflow_monthly or monthly_flow)
+    public_outflow = float(assessment.public_outflow_monthly or 0)
+    enterprise_credit_value = assessment.enterprise_credit_status
+    if enterprise_credit_value == "unknown":
+        enterprise_credit_value = "no_overdue" if assessment.credit_status else "current_overdue"
+    tax_arrears_value = assessment.tax_arrears_status
+    if tax_arrears_value == "unknown":
+        tax_arrears_value = "none" if assessment.tax_status else "current"
 
     return {
         "企业基本面": [
@@ -136,72 +152,72 @@ def _build_items(assessment: Assessment) -> dict[str, list[dict[str, Any]]]:
             _item("行业类型", assessment.industry or "待补充", "行业信息用于判断准入政策", 4 if assessment.industry else 2),
             _missing_item("注册资本"),
             _item("员工人数", f"{employees}人", "人员规模用于佐证经营稳定性", 4 if employees >= 20 else 3 if employees >= 5 else 2.5),
-            _item("年营收", _money(revenue), "营收规模越稳定，授信基础越好", 5 if revenue >= 10_000_000 else 4 if revenue >= 3_000_000 else 3),
-            _item("年净利润", _money(profit), "持续盈利有利于证明偿债来源", 5 if profit_margin >= .12 else 4 if profit > 0 else 2),
-            _missing_item("营收增长率"),
+            _item("近12个月营业收入", _money(revenue), "营收规模越稳定，授信基础越好", 5 if revenue >= 10_000_000 else 4 if revenue >= 3_000_000 else 3),
+            _item("近12个月净利润率", _percent(profit_margin), "持续盈利有利于证明偿债来源", 5 if profit_margin >= .12 else 4 if profit_margin > 0 else 2),
+            _item("近12个月营业收入同比增长率", f"{assessment.revenue_growth_rate:.1f}%" if assessment.revenue_growth_rate is not None else "待补充资料核验", "用于判断经营成长性", 4 if assessment.revenue_growth_rate is not None and assessment.revenue_growth_rate >= 0 else 3 if assessment.revenue_growth_rate is not None else None),
             _item("主营业务", assessment.industry or "待补充主营业务说明", "业务口径应与合同、开票和流水一致", 3.5),
             _missing_item("上下游稳定性"),
         ],
         "征信状况": [
-            _item("企业征信状态", _yes_no(assessment.credit_status, "正常", "存在需核验事项"), "无逾期和不良记录为优", 4.5 if assessment.credit_status else 1.8),
+            _item("企业近24个月贷款逾期", credit_labels.get(enterprise_credit_value, "不清楚"), "当前逾期将显著影响准入", 4.8 if enterprise_credit_value == "no_overdue" else 3 if enterprise_credit_value == "settled_overdue" else 1.2 if enterprise_credit_value == "current_overdue" else 3),
             _missing_item("企业贷款笔数"),
-            _item("企业逾期记录", _yes_no(assessment.credit_status, "未发现异常", "需核验逾期情况"), "当前逾期将显著影响准入", 4.5 if assessment.credit_status else 1.5),
+            _item("企业逾期记录", credit_labels.get(enterprise_credit_value, "不清楚"), "当前逾期将显著影响准入", 4.5 if assessment.credit_status else 1.5),
             _item("企业关注或不良类", _yes_no(assessment.credit_status, "未发现异常", "需重点核验"), "关注及不良分类需先处理", 4.5 if assessment.credit_status else 1.5),
             _missing_item("企业担保情况"),
-            _item("法人逾期记录", _yes_no(assessment.credit_status, "未发现异常", "需调取法人征信"), "法人信用通常纳入企业授信审查", 4.5 if assessment.credit_status else 2),
-            _missing_item("近6月查询次数"),
-            _missing_item("信用卡使用率"),
+            _item("法人近24个月逾期", credit_labels.get(assessment.legal_credit_status, "不清楚"), "法人信用通常纳入企业授信审查", 4.8 if assessment.legal_credit_status == "no_overdue" else 3 if assessment.legal_credit_status in {"settled_overdue", "unknown"} else 1.2),
+            _item("近6个月贷款审批类查询次数", f"{assessment.credit_query_count_6m}次", "硬查询次数过多可能影响审批", 5 if assessment.credit_query_count_6m <= 3 else 3.5 if assessment.credit_query_count_6m <= 6 else 2),
+            _item("法人信用卡额度使用率", f"{assessment.credit_card_usage_rate:.1f}%" if assessment.credit_card_usage_rate is not None else "待补充资料核验", "建议保持合理额度使用率", 5 if assessment.credit_card_usage_rate is not None and assessment.credit_card_usage_rate <= 50 else 3 if assessment.credit_card_usage_rate is not None and assessment.credit_card_usage_rate <= 80 else 2 if assessment.credit_card_usage_rate is not None else None),
             _missing_item("个人贷款余额"),
             _missing_item("对外担保"),
-            _missing_item("多头借贷"),
+            _item("当前有余额金融机构数", f"{assessment.lender_count}家", "机构数量过多可能构成多头借贷", 5 if assessment.lender_count <= 2 else 3.5 if assessment.lender_count <= 4 else 2),
         ],
         "流水质量": [
-            _item("月均对公流入", _money(monthly_flow), "稳定经营流入是主要还款来源", 5 if monthly_flow >= revenue / 15 else 4 if monthly_flow > 0 else 1.5),
-            _missing_item("月均对公流出"),
-            _item("经营流水占比", _percent(min(flow_coverage, 1)), "经营流水应覆盖主要营收", 5 if flow_coverage >= .8 else 4 if flow_coverage >= .5 else 2.5),
+            _item("近6个月月均对公经营性流入", _money(public_inflow), "稳定经营流入是主要还款来源", 5 if public_inflow >= revenue / 15 else 4 if public_inflow > 0 else 1.5),
+            _item("近6个月月均对公经营性流出", _money(public_outflow) if public_outflow else "待补充资料核验", "用于判断资金收支结构", 3.5 if public_outflow else None),
+            _item("经营性流水占比", f"{assessment.operating_flow_ratio:.1f}%" if assessment.operating_flow_ratio is not None else _percent(min(flow_coverage, 1)), "经营流水应覆盖主要营收", 5 if (assessment.operating_flow_ratio or flow_coverage * 100) >= 80 else 4 if (assessment.operating_flow_ratio or flow_coverage * 100) >= 50 else 2.5),
             _missing_item("交易对手集中度"),
             _item("流水稳定性", "较稳定" if monthly_flow > 0 else "需改善", "连续稳定流入优于临时大额入账", 4 if monthly_flow > 0 else 1.5),
-            _missing_item("内部转账占比"),
-            _missing_item("快进快出识别"),
+            _item("内部或关联公司互转占比", f"{assessment.internal_transfer_ratio:.1f}%" if assessment.internal_transfer_ratio is not None else "待补充资料核验", "互转占比过高会降低流水认可度", 5 if assessment.internal_transfer_ratio is not None and assessment.internal_transfer_ratio <= 10 else 3 if assessment.internal_transfer_ratio is not None and assessment.internal_transfer_ratio <= 30 else 2 if assessment.internal_transfer_ratio is not None else None),
+            _item("大额资金快进快出", {"none":"基本没有","occasional":"偶尔存在","frequent":"经常存在","unknown":"不清楚"}.get(assessment.fast_in_out_status, "不清楚"), "频繁快进快出可能被视为非经营流水", 5 if assessment.fast_in_out_status == "none" else 3.5 if assessment.fast_in_out_status in {"occasional", "unknown"} else 1.8),
             _missing_item("月均个人流入"),
-            _item("公私往来占比", "需补充账户明细", "建议公私分离、回款归集对公账户", 2.8),
+            _item("公私账户往来占比", f"{assessment.public_private_ratio:.1f}%" if assessment.public_private_ratio is not None else "待补充资料核验", "建议公私分离、回款归集对公账户", 5 if assessment.public_private_ratio is not None and assessment.public_private_ratio <= 10 else 3 if assessment.public_private_ratio is not None and assessment.public_private_ratio <= 30 else 2 if assessment.public_private_ratio is not None else None),
             _missing_item("日均余额"),
         ],
         "负债情况": [
-            _item("负债与营收比", _percent(debt_ratio), "建议控制整体杠杆水平", 5 if debt_ratio <= .3 else 4 if debt_ratio <= .6 else 2),
+            _item("当前有息负债与营收比", _percent(debt_ratio), "建议控制整体杠杆水平", 5 if debt_ratio <= .3 else 4 if debt_ratio <= .6 else 2),
             _missing_item("月供与月营收比"),
             _missing_item("高息资金占比"),
-            _item("短贷长用情况", _percent(short_ratio) + "为短期负债占比", "短期资金用于长期投入会形成期限错配", 5 if short_ratio <= .35 else 3.5 if short_ratio <= .65 else 2),
+            _item("一年内到期负债", _money(short_debt), f"占当前有息负债的{_percent(short_ratio)}", 5 if short_ratio <= .35 else 3.5 if short_ratio <= .65 else 2),
             _missing_item("多头借贷情况"),
             _missing_item("隐性负债排查"),
         ],
         "司法风险": [
-            _missing_item("民事诉讼作为被告"),
-            _missing_item("民事诉讼作为原告"),
-            _missing_item("被执行记录"),
-            _missing_item("失信被执行人"),
-            _missing_item("行政处罚"),
-            _missing_item("限制高消费"),
+            _item("近3年未结诉讼（作为被告）", {"yes":"有","no":"无","unknown":"不清楚"}.get(assessment.lawsuit_defendant_status, "不清楚"), "作为被告的未结重大诉讼可能影响准入", 2 if assessment.lawsuit_defendant_status == "yes" else 4.5 if assessment.lawsuit_defendant_status == "no" else 3),
+            _item("近3年未结诉讼（作为原告）", {"yes":"有","no":"无","unknown":"不清楚"}.get(assessment.lawsuit_plaintiff_status, "不清楚"), "需结合案件金额和回款可能性判断", 3.5),
+            _item("法院强制执行记录", risk_labels.get(assessment.enforcement_status, "不清楚"), "当前执行记录会显著影响融资", 1 if assessment.enforcement_status == "current" else 3 if assessment.enforcement_status in {"resolved", "unknown"} else 5),
+            _item("失信被执行人", risk_labels.get(assessment.dishonest_status, "不清楚"), "失信记录属于重要准入风险", 1 if assessment.dishonest_status == "current" else 3 if assessment.dishonest_status in {"resolved", "unknown"} else 5),
+            _item("较大行政处罚", risk_labels.get(assessment.admin_penalty_status, "不清楚"), "需核验处罚性质及整改情况", 1.8 if assessment.admin_penalty_status == "current" else 3.5 if assessment.admin_penalty_status in {"resolved", "unknown"} else 5),
+            _item("限制高消费记录", risk_labels.get(assessment.consumption_restriction_status, "不清楚"), "当前限制高消费会影响准入", 1 if assessment.consumption_restriction_status == "current" else 3 if assessment.consumption_restriction_status in {"resolved", "unknown"} else 5),
             _missing_item("股权冻结"),
         ],
         "税务合规": [
-            _item("纳税信用等级", _yes_no(assessment.tax_status, "纳税状态正常", "需核验异常"), "连续正常纳税有利于税票类融资", 4.5 if assessment.tax_status else 1.8),
-            _missing_item("年纳税总额"),
-            _item("纳税及时性", _yes_no(assessment.tax_status, "正常", "需改善"), "逾期申报和欠税会影响准入", 4.5 if assessment.tax_status else 1.8),
+            _item("纳税信用等级", f"{assessment.tax_credit_grade}级" if assessment.tax_credit_grade != "unknown" else "不清楚", "连续正常纳税有利于税票类融资", 5 if assessment.tax_credit_grade == "A" else 4 if assessment.tax_credit_grade in {"B", "M"} else 2 if assessment.tax_credit_grade in {"C", "D"} else 3),
+            _item("近12个月实际纳税总额", _money(assessment.tax_paid_12m) if assessment.tax_paid_12m else "待补充资料核验", "纳税额可用于税票类产品评估", 4 if assessment.tax_paid_12m else None),
+            _item("欠税或逾期申报", {"none":"无","rectified":"已整改","current":"当前仍存在","unknown":"不清楚"}.get(tax_arrears_value, "不清楚"), "逾期申报和欠税会影响准入", 4.8 if tax_arrears_value == "none" else 3.5 if tax_arrears_value in {"rectified", "unknown"} else 1.5),
             _item("发票合规性", "需补充开票明细", "发票应与合同、流水和收入一致", 3.2),
             _missing_item("关联交易定价"),
             _missing_item("社保公积金缴纳"),
         ],
         "资产状况": [
-            _item("不动产", _yes_no(assessment.has_collateral, "具备可评估抵押物", "暂未提供"), "权属清晰的抵押物可增强授信", 4.5 if assessment.has_collateral else 2),
-            _missing_item("车辆"),
-            _missing_item("知识产权"),
+            _item("房产、厂房及土地", _money(assessment.property_value + assessment.factory_value + assessment.land_value) if assessment.property_value + assessment.factory_value + assessment.land_value else (assessment.collateral_types or "暂未提供"), "权属清晰的抵押物可增强授信", 4.5 if assessment.has_collateral else 2),
+            _item("车辆及设备", _money(assessment.vehicle_value + assessment.equipment_value) if assessment.vehicle_value + assessment.equipment_value else "待补充资料核验", "可结合权属和变现能力评估增信价值", 4 if assessment.vehicle_value + assessment.equipment_value else None),
+            _item("知识产权", assessment.intellectual_property_types or "待补充资料核验", "部分知识产权可用于科技类融资佐证", 4 if assessment.intellectual_property_types and "暂无" not in assessment.intellectual_property_types else 2 if assessment.intellectual_property_types else None),
             _item("应收账款", f"平均回款周期{receivable_days}天", "账期越短、付款方越优质越有利", 5 if receivable_days <= 45 else 3.5 if receivable_days <= 90 else 2),
-            _missing_item("存货"),
-            _missing_item("对外投资"),
+            _item("存货", _money(assessment.inventory_value) if assessment.inventory_value else "待补充资料核验", "需结合周转率和可变现性评估", 3.5 if assessment.inventory_value else None),
+            _item("对外投资", _money(assessment.external_investment_value) if assessment.external_investment_value else "待补充资料核验", "需核验股权价值和可处置性", 3.5 if assessment.external_investment_value else None),
         ],
         "融资能力": [
-            _item("当前负债总额", _money(debt), "结合营收判断杠杆与偿债压力", 5 if debt_ratio <= .3 else 4 if debt_ratio <= .6 else 2),
+            _item("当前有息负债总额", _money(debt), "结合营收判断杠杆与偿债压力", 5 if debt_ratio <= .3 else 4 if debt_ratio <= .6 else 2),
             _item("可新增融资空间", _money(financing_space), "按营收与现有负债进行审慎测算", 5 if financing_space >= funding_need else 3.5 if financing_space > 0 else 1.5),
             _item("净可用融资额", _money(min(financing_space, funding_need or financing_space)), "以需求额与审慎空间孰低估算", 4 if financing_space > 0 else 1.5),
             _item("融资后总负债率", _percent((debt + min(financing_space, funding_need)) / revenue) if revenue else "无法测算", "融资后杠杆应保持可持续", 4 if revenue and (debt + min(financing_space, funding_need)) / revenue <= .65 else 2),

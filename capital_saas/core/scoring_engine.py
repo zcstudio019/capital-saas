@@ -25,37 +25,82 @@ def calculate_score(data: dict) -> ScoreResult:
     debt = max(float(data.get("debt_total", 0)), 0)
     short_debt = max(float(data.get("short_debt", 0)), 0)
     funding_need = max(float(data.get("funding_need", 0)), 0)
-    years = int(data.get("years", 0))
+    years = float(data.get("years", 0))
     receivable_days = int(data.get("receivable_days", 0))
 
-    profit_margin = _ratio(profit, revenue)
+    margin_input = data.get("net_profit_margin")
+    profit_margin = float(margin_input) / 100 if margin_input is not None else _ratio(profit, revenue)
     debt_ratio = _ratio(debt, revenue)
     short_ratio = _ratio(short_debt, debt)
     business = (
         (5 if years >= 5 else 4 if years >= 3 else 2.5)
         + (5 if revenue >= 10_000_000 else 4 if revenue >= 3_000_000 else 3)
-        + (5 if profit_margin >= .12 else 4 if profit > 0 else 2)
+        + (5 if profit_margin >= .12 else 4 if profit_margin > 0 else 2)
     ) / 3
     credit = 4.5 if data.get("credit_status") else 1.8
+    query_count = max(int(data.get("credit_query_count_6m") or 0), 0)
+    card_usage = data.get("credit_card_usage_rate")
+    if query_count:
+        credit += 0.3 if query_count <= 3 else -0.4 if query_count <= 6 else -1
+    if card_usage is not None:
+        credit += 0.2 if float(card_usage) <= 50 else -0.4 if float(card_usage) <= 80 else -0.8
+    if data.get("online_loan_status") == "active":
+        credit -= 0.7
+    credit = max(1, min(5, credit))
     cash = (
         (5 if cashflow >= revenue / 15 else 4 if cashflow > 0 else 1.5)
         + (5 if receivable_days <= 45 else 3.5 if receivable_days <= 90 else 2)
         + (4 if data.get("has_budget") else 2.5)
     ) / 3
+    operating_flow_ratio = data.get("operating_flow_ratio")
+    internal_transfer_ratio = data.get("internal_transfer_ratio")
+    if operating_flow_ratio is not None:
+        cash += 0.3 if float(operating_flow_ratio) >= 80 else -0.4 if float(operating_flow_ratio) < 50 else 0
+    if internal_transfer_ratio is not None and float(internal_transfer_ratio) > 30:
+        cash -= 0.4
+    if data.get("fast_in_out_status") == "frequent":
+        cash -= 0.6
+    cash = max(1, min(5, cash))
     liabilities = (
         (5 if debt_ratio <= .3 else 4 if debt_ratio <= .6 else 2)
         + (5 if debt == 0 or short_ratio <= .35 else 3.5 if short_ratio <= .65 else 2)
     ) / 2
     judicial = 3.5  # 公开司法数据需在正式交付前复核，未核验时采用中性分。
-    tax = 4.5 if data.get("tax_status") else 1.8
+    judicial_statuses = [
+        data.get("enforcement_status", "unknown"),
+        data.get("dishonest_status", "unknown"),
+        data.get("consumption_restriction_status", "unknown"),
+    ]
+    if "current" in judicial_statuses:
+        judicial = 1.2
+    elif "resolved" in judicial_statuses:
+        judicial = 2.8
+    if data.get("lawsuit_defendant_status") == "yes":
+        judicial -= 0.6
+    judicial = max(1, judicial)
+    tax_unknown = (
+        data.get("tax_arrears_status", "unknown") == "unknown"
+        and data.get("tax_credit_grade", "unknown") == "unknown"
+    )
+    tax = 3.2 if tax_unknown else 4.5 if data.get("tax_status") else 1.8
+    if data.get("tax_credit_grade") == "A":
+        tax = min(5, tax + 0.4)
+    elif data.get("tax_credit_grade") in {"C", "D"}:
+        tax = max(1, tax - 1)
     assets = (
         (4.5 if data.get("has_collateral") else 2)
         + (5 if receivable_days <= 45 else 3.5 if receivable_days <= 90 else 2)
         + {"高": 4.5, "中": 3.5, "低": 2.5}.get(data.get("asset_efficiency"), 3)
     ) / 3
+    asset_value = sum(float(data.get(key) or 0) for key in (
+        "property_value", "factory_value", "land_value", "vehicle_value",
+        "equipment_value", "financeable_receivables", "inventory_value",
+    ))
+    if asset_value > 0:
+        assets = min(5, assets + 0.5)
     financing = (
         (4.5 if data.get("credit_status") else 2)
-        + (4.5 if data.get("tax_status") else 2)
+        + (3.2 if tax_unknown else 4.5 if data.get("tax_status") else 2)
         + (4 if funding_need <= max(revenue * .35, 1) else 2)
     ) / 3
 
