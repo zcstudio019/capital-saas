@@ -1,63 +1,10 @@
 document.querySelectorAll("[data-loading-form]").forEach((form) => {
-  form.addEventListener("submit", (event) => {
-    const purposes = [...form.querySelectorAll('input[name="funding_purposes"]')];
-    const otherPurpose = form.querySelector('input[name="funding_purpose_other"]');
-    if (purposes.length && !purposes.some((item) => item.checked) && !otherPurpose?.value.trim()) {
-      event.preventDefault();
-      otherPurpose.setCustomValidity("请选择至少一项融资用途，或填写其他用途");
-      otherPurpose.reportValidity();
-      return;
-    }
-    if (otherPurpose) otherPurpose.setCustomValidity("");
-    const collateral = [...form.querySelectorAll("[data-collateral-option]")];
-    if (collateral.length && !collateral.some((item) => item.checked)) {
-      event.preventDefault();
-      collateral[0].setCustomValidity("请选择至少一项可用于融资的资产，或选择暂无抵押物");
-      collateral[0].reportValidity();
-      return;
-    }
-    collateral.forEach((item) => item.setCustomValidity(""));
+  form.addEventListener("submit", () => {
     const button = form.querySelector("button[type='submit']");
     if (button) {
       button.disabled = true;
       button.dataset.originalText = button.textContent;
       button.textContent = "正在处理，请稍候…";
-    }
-  });
-});
-
-const formatMoneyHint = (input) => {
-  const hint = input.parentElement?.querySelector("[data-money-hint]");
-  if (!hint) return;
-  const amount = Number(input.value);
-  if (!input.value || !Number.isFinite(amount) || amount < 0) {
-    hint.textContent = "";
-    return;
-  }
-  hint.textContent = amount >= 10000
-    ? `约${(amount / 10000).toLocaleString("zh-CN", {maximumFractionDigits: 2})}万元`
-    : `约${amount.toLocaleString("zh-CN", {maximumFractionDigits: 2})}元`;
-};
-document.querySelectorAll("[data-money-input]").forEach((input) => {
-  input.addEventListener("input", () => formatMoneyHint(input));
-  formatMoneyHint(input);
-});
-
-document.querySelectorAll('input[name="funding_purposes"], input[name="funding_purpose_other"]').forEach((input) => {
-  input.addEventListener("input", () => {
-    document.querySelector('input[name="funding_purpose_other"]')?.setCustomValidity("");
-  });
-});
-
-document.querySelectorAll("[data-collateral-option]").forEach((input) => {
-  input.addEventListener("change", () => {
-    const group = [...document.querySelectorAll("[data-collateral-option]")];
-    group.forEach((item) => item.setCustomValidity(""));
-    if (input.value === "暂无抵押物" && input.checked) {
-      group.filter((item) => item !== input).forEach((item) => { item.checked = false; });
-    } else if (input.checked) {
-      const none = group.find((item) => item.value === "暂无抵押物");
-      if (none) none.checked = false;
     }
   });
 });

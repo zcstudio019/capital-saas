@@ -1,0 +1,343 @@
+<section class="assessment-section" id="section-contact">
+  <header class="assessment-section-header">
+    <span class="assessment-section-index" aria-hidden="true">01</span>
+    <div>
+      <h2 class="assessment-section-title">联系人信息</h2>
+      <p class="assessment-section-description">用于发送诊断结果和后续融资方案沟通。</p>
+    </div>
+  </header>
+  <div class="assessment-grid">
+    <div class="form-field">
+      <label class="form-label" for="contact-name">联系人姓名<span class="required-mark" aria-hidden="true">*</span></label>
+      <input class="form-control" id="contact-name" name="contact_name" required maxlength="100" placeholder="请输入联系人姓名" autocomplete="name" data-error-required="请输入联系人姓名">
+      <p class="form-help" aria-hidden="true">&nbsp;</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="contact-phone">手机号<span class="required-mark" aria-hidden="true">*</span></label>
+      <input class="form-control" id="contact-phone" name="phone" type="tel" required maxlength="30" pattern="^[0-9+\-\s]{6,30}$" placeholder="请输入手机号" inputmode="tel" autocomplete="tel" data-error-required="请输入手机号" data-error-pattern="请输入正确的手机号">
+      <p class="form-help">用于接收测评结果及必要的服务通知。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="contact-wechat">微信号</label>
+      <input class="form-control" id="contact-wechat" name="wechat_id" maxlength="100" placeholder="选填" autocomplete="off">
+      <p class="form-help" aria-hidden="true">&nbsp;</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="contact-city">所在城市</label>
+      <input class="form-control" id="contact-city" name="city" maxlength="100" placeholder="选填，例如：上海" autocomplete="address-level2">
+      <p class="form-help" aria-hidden="true">&nbsp;</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<section class="assessment-section" id="section-company">
+  <header class="assessment-section-header">
+    <span class="assessment-section-index" aria-hidden="true">02</span>
+    <div>
+      <h2 class="assessment-section-title">企业基础信息</h2>
+      <p class="assessment-section-description">核心字段请务必填写，金额字段直接填写人民币元，不需要输入逗号或单位。</p>
+    </div>
+  </header>
+  <div class="assessment-grid">
+    <div class="form-field form-field-wide">
+      <label class="form-label" for="company-name">企业名称<span class="required-mark" aria-hidden="true">*</span></label>
+      <input class="form-control" id="company-name" name="company_name" required maxlength="200" placeholder="请输入营业执照上的企业全称" autocomplete="organization" data-error-required="请输入企业名称">
+      <p class="form-help">请与营业执照登记名称保持一致。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="company-industry">所属行业<span class="required-mark" aria-hidden="true">*</span></label>
+      <input class="form-control" id="company-industry" name="industry" list="industry-options" required placeholder="例如：制造业、批发零售、软件信息服务业" data-error-required="请输入所属行业">
+      <datalist id="industry-options"><option value="制造业"><option value="批发零售"><option value="软件和信息技术服务业"><option value="建筑业"><option value="交通运输与物流"><option value="住宿餐饮"><option value="商务服务"><option value="医疗健康"><option value="教育培训"><option value="文化传媒"><option value="农业"><option value="其他"></datalist>
+      <p class="form-help">可输入主营业务所属行业，也可从常见行业中选择。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="company-years">经营年限（年）<span class="required-mark" aria-hidden="true">*</span></label>
+      <input class="form-control" id="company-years" name="years" type="number" min="0" step="0.1" inputmode="decimal" required placeholder="例如：2.5" data-error-required="请输入经营年限" data-error-range="经营年限不能小于0">
+      <p class="form-help">请填写企业实际连续经营年限。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="employee-count">当前员工人数（人）</label>
+      <input class="form-control" id="employee-count" name="employee_count" type="number" min="0" step="1" inputmode="numeric" placeholder="填写当前实际在职人数" data-error-range="员工人数不能小于0">
+      <p class="form-help">按当前实际在职人数填写。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="annual-revenue">近12个月营业收入（元）<span class="required-mark" aria-hidden="true">*</span></label>
+      <input class="form-control" id="annual-revenue" name="annual_revenue" type="number" min="0" step="0.01" inputmode="decimal" required placeholder="请输入近12个月营业收入" data-money-input data-error-required="请输入近12个月营业收入" data-error-range="营业收入不能小于0">
+      <p class="form-help">请按近12个月实际累计收入填写，不是注册资本。</p>
+      <p class="money-hint" data-money-hint aria-live="polite"></p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="net-profit-margin">近12个月净利润率（%）<span class="required-mark" aria-hidden="true">*</span></label>
+      <input class="form-control" id="net-profit-margin" name="net_profit_margin" type="number" step="0.01" inputmode="decimal" required placeholder="例如：8.5，亏损可填写负数" data-error-required="请输入近12个月净利润率" data-error-number="净利润率请输入数字">
+      <p class="form-help">净利润率 = 近12个月净利润 ÷ 近12个月营业收入 × 100%。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="monthly-cashflow">近6个月月均经营性现金流入（元）</label>
+      <input class="form-control" id="monthly-cashflow" name="monthly_cashflow" type="number" min="0" step="0.01" inputmode="decimal" placeholder="请输入近6个月平均每月经营性资金流入" data-money-input data-error-range="经营性现金流入不能小于0">
+      <p class="form-help">不包括股东借款、内部转账和非经营性往来。</p>
+      <p class="money-hint" data-money-hint aria-live="polite"></p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="debt-total">当前有息负债总额（元）<span class="required-mark" aria-hidden="true">*</span></label>
+      <input class="form-control" id="debt-total" name="debt_total" type="number" min="0" step="0.01" inputmode="decimal" required placeholder="包括银行贷款、小贷、信用卡分期、经营性借款等" data-money-input data-error-required="请输入当前有息负债总额" data-error-range="有息负债总额不能小于0">
+      <p class="form-help">不包括正常应付账款，除非已经逾期或形成融资性质。</p>
+      <p class="money-hint" data-money-hint aria-live="polite"></p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="short-debt">一年内到期的短期负债（元）<span class="required-mark" aria-hidden="true">*</span></label>
+      <input class="form-control" id="short-debt" name="short_debt" type="number" min="0" step="0.01" inputmode="decimal" required placeholder="请输入未来12个月内需偿还的负债" data-money-input data-error-required="请输入一年内到期的短期负债" data-error-range="短期负债不能小于0">
+      <p class="form-help">短期负债是指未来12个月内需要偿还的负债。</p>
+      <p class="money-hint" data-money-hint aria-live="polite"></p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="receivable-days">平均应收账款回款周期（天）</label>
+      <input class="form-control" id="receivable-days" name="receivable_days" type="number" min="0" step="1" inputmode="numeric" placeholder="例如：30、60、90" data-error-range="回款周期不能小于0">
+      <p class="form-help">从开票或交付到实际收到客户款项的平均天数。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="funding-need">本次计划融资金额（元）<span class="required-mark" aria-hidden="true">*</span></label>
+      <input class="form-control" id="funding-need" name="funding_need" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="请输入本次希望获得的融资金额" data-money-input data-error-required="请输入本次计划融资金额" data-error-range="融资金额必须大于0">
+      <p class="form-help">请填写本次实际希望获得的融资金额。</p>
+      <p class="money-hint" data-money-hint aria-live="polite"></p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="assessment-dual-groups">
+    <fieldset class="checkbox-group" data-checkbox-group="funding-purpose">
+      <legend class="checkbox-group-title">本次融资主要用途<span class="required-mark" aria-hidden="true">*</span></legend>
+      <div class="checkbox-grid">
+        {% for item in ["补充流动资金","采购原材料","扩充产能","设备采购","门店装修","研发投入","项目垫资","置换高成本负债","偿还即将到期贷款","其他"] %}
+        <label class="checkbox-item">
+          <input type="checkbox" name="funding_purposes" value="{{ item }}" data-purpose-option>
+          <span>{{ item }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="other-purpose-field" data-other-purpose hidden>
+        <label class="form-label" for="funding-purpose-other">其他用途说明</label>
+        <textarea class="form-control" id="funding-purpose-other" name="funding_purpose_other" placeholder="请补充说明其他融资用途"></textarea>
+      </div>
+      <p class="form-help">可多选；选择“其他”后，请补充具体用途。</p>
+      <p class="form-error" aria-live="polite">请至少选择一个融资用途</p>
+    </fieldset>
+
+    <fieldset class="checkbox-group" data-checkbox-group="collateral">
+      <legend class="checkbox-group-title">是否有可用于融资的抵押物<span class="required-mark" aria-hidden="true">*</span></legend>
+      <div class="checkbox-grid">
+        {% for item in ["有房产","有厂房","有土地","有车辆","有设备","有应收账款","有知识产权","有其他资产","暂无抵押物"] %}
+        <label class="checkbox-item">
+          <input type="checkbox" name="collateral_types" value="{{ item }}" data-collateral-option>
+          <span>{{ item }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="form-help">可多选；选择“暂无抵押物”时，无需选择其他资产。</p>
+      <p class="form-error" aria-live="polite">请选择至少一项资产，或选择“暂无抵押物”</p>
+    </fieldset>
+  </div>
+</section>
+
+<section class="assessment-section" id="section-credit">
+  <header class="assessment-section-header">
+    <span class="assessment-section-index" aria-hidden="true">03</span>
+    <div>
+      <h2 class="assessment-section-title">征信与负债信息</h2>
+      <p class="assessment-section-description">不清楚的项目可如实选择“不清楚”，不要凭印象填写。</p>
+    </div>
+  </header>
+  <div class="assessment-grid">
+    <div class="form-field">
+      <label class="form-label" for="enterprise-credit-status">企业近24个月是否有贷款逾期<span class="required-mark" aria-hidden="true">*</span></label>
+      <select class="form-control" id="enterprise-credit-status" name="enterprise_credit_status" required data-error-required="请选择企业逾期情况"><option value="">请选择</option><option value="no_overdue">无逾期</option><option value="settled_overdue">有已结清逾期</option><option value="current_overdue">有当前逾期</option><option value="unknown">不清楚</option></select>
+      <p class="form-help">以企业征信报告中的贷款逾期记录为准。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="legal-credit-status">法人近24个月是否有贷款或信用卡逾期</label>
+      <select class="form-control" id="legal-credit-status" name="legal_credit_status"><option value="unknown">不清楚</option><option value="no_overdue">无逾期</option><option value="settled_overdue">有已结清逾期</option><option value="current_overdue">有当前逾期</option></select>
+      <p class="form-help">包含法人名下贷款及信用卡逾期情况。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="credit-query-count">法人近6个月贷款审批类征信查询次数（次）<span class="required-mark" aria-hidden="true">*</span></label>
+      <input class="form-control" id="credit-query-count" name="credit_query_count_6m" type="number" min="0" step="1" inputmode="numeric" required placeholder="请输入查询次数" data-error-required="请输入征信查询次数" data-error-range="征信查询次数不能小于0">
+      <p class="form-help">仅统计贷款审批、信用卡审批、担保资格审查等硬查询，贷后管理通常不计算。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="credit-card-rate">法人信用卡平均额度使用率（%）</label>
+      <input class="form-control" id="credit-card-rate" name="credit_card_usage_rate" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="例如：40" data-error-range="信用卡使用率应在0到100之间">
+      <p class="form-help">信用卡已使用额度 ÷ 信用卡总额度 × 100%。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="lender-count">当前有贷款余额的金融机构数量（家）</label>
+      <input class="form-control" id="lender-count" name="lender_count" type="number" min="0" step="1" inputmode="numeric" placeholder="请输入机构数量" data-error-range="金融机构数量不能小于0">
+      <p class="form-help">包括银行、小贷、消费金融等。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="online-loan-status">企业或法人当前是否有小贷、网贷或消费金融借款</label>
+      <select class="form-control" id="online-loan-status" name="online_loan_status"><option value="unknown">不清楚</option><option value="none">无</option><option value="settled">有，已结清</option><option value="active">有，当前仍有余额</option></select>
+      <p class="form-help">请同时考虑企业和法人名下仍有余额的借款。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<details class="assessment-section assessment-optional-section" id="section-operation">
+  <summary class="assessment-optional-summary">
+    <span class="assessment-section-index" aria-hidden="true">04</span>
+    <span class="assessment-optional-heading"><strong>流水、税务与经营信息</strong><small>建议填写，资料越完整评估越准确</small></span>
+    <span class="assessment-optional-action" aria-hidden="true">展开填写</span>
+  </summary>
+  <div class="assessment-grid assessment-optional-content">
+    {% for field in [
+      ("public-inflow-monthly","public_inflow_monthly","近6个月月均对公账户经营性流入（元）",""),
+      ("public-outflow-monthly","public_outflow_monthly","近6个月月均对公账户经营性流出（元）","")
+    ] %}
+    <div class="form-field">
+      <label class="form-label" for="{{ field[0] }}">{{ field[2] }}</label>
+      <input class="form-control" id="{{ field[0] }}" name="{{ field[1] }}" type="number" min="0" step="0.01" inputmode="decimal" data-money-input>
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="money-hint" data-money-hint aria-live="polite"></p><p class="form-error" aria-live="polite"></p>
+    </div>
+    {% endfor %}
+    <div class="form-field">
+      <label class="form-label" for="operating-flow-ratio">经营性流水占全部对公流入的比例（%）</label>
+      <input class="form-control" id="operating-flow-ratio" name="operating_flow_ratio" type="number" min="0" max="100" step="0.01" inputmode="decimal">
+      <p class="form-help">不包括股东借款、内部转账和关联公司临时调拨。</p><p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="public-private-ratio">对公账户与法人/股东个人账户往来占比（%）</label>
+      <input class="form-control" id="public-private-ratio" name="public_private_ratio" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="不清楚可留空">
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="internal-transfer-ratio">公司内部账户或关联公司互转占比（%）</label>
+      <input class="form-control" id="internal-transfer-ratio" name="internal_transfer_ratio" type="number" min="0" max="100" step="0.01" inputmode="decimal">
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="fast-in-out-status">是否存在大额资金当天进、当天出</label>
+      <select class="form-control" id="fast-in-out-status" name="fast_in_out_status"><option value="unknown">不清楚</option><option value="none">基本没有</option><option value="occasional">偶尔存在</option><option value="frequent">经常存在</option></select>
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="tax-credit-grade">纳税信用等级</label>
+      <select class="form-control" id="tax-credit-grade" name="tax_credit_grade"><option value="unknown">不清楚</option>{% for grade in ["A","B","M","C","D"] %}<option value="{{ grade }}">{{ grade }}级</option>{% endfor %}</select>
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="tax-paid">近12个月实际纳税总额（元）</label>
+      <input class="form-control" id="tax-paid" name="tax_paid_12m" type="number" min="0" step="0.01" inputmode="decimal" data-money-input>
+      <p class="form-help">包括增值税、企业所得税等主要税种。</p><p class="money-hint" data-money-hint aria-live="polite"></p><p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="invoiced-revenue">近12个月开票收入（元）</label>
+      <input class="form-control" id="invoiced-revenue" name="invoiced_revenue_12m" type="number" min="0" step="0.01" inputmode="decimal" data-money-input>
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="money-hint" data-money-hint aria-live="polite"></p><p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="tax-arrears-status">当前是否存在欠税或逾期申报</label>
+      <select class="form-control" id="tax-arrears-status" name="tax_arrears_status"><option value="unknown">不清楚</option><option value="none">无</option><option value="rectified">已整改</option><option value="current">当前仍存在</option></select>
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="form-error" aria-live="polite"></p>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="revenue-growth-rate">近12个月营业收入同比增长率（%）</label>
+      <input class="form-control" id="revenue-growth-rate" name="revenue_growth_rate" type="number" step="0.01" inputmode="decimal" placeholder="例如：15，下降可填写负数">
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="form-error" aria-live="polite"></p>
+    </div>
+  </div>
+</details>
+
+<details class="assessment-section assessment-optional-section" id="section-assets">
+  <summary class="assessment-optional-summary">
+    <span class="assessment-section-index" aria-hidden="true">05</span>
+    <span class="assessment-optional-heading"><strong>司法风险与资产信息</strong><small>可后续补充，用于识别增信条件和硬性准入风险</small></span>
+    <span class="assessment-optional-action" aria-hidden="true">展开填写</span>
+  </summary>
+  <div class="assessment-grid assessment-optional-content">
+    {% set risk_options = [("unknown","不清楚"),("none","无"),("resolved","有，已处理"),("current","当前仍存在")] %}
+    {% for field in [
+      ("enforcement-status","enforcement_status","企业或法人当前是否存在被法院强制执行记录"),
+      ("dishonest-status","dishonest_status","企业或法人是否被列为失信被执行人"),
+      ("consumption-restriction-status","consumption_restriction_status","企业或法人是否存在限制高消费记录")
+    ] %}
+    <div class="form-field">
+      <label class="form-label" for="{{ field[0] }}">{{ field[2] }}</label>
+      <select class="form-control" id="{{ field[0] }}" name="{{ field[1] }}">{% for value,text in risk_options %}<option value="{{ value }}">{{ text }}</option>{% endfor %}</select>
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="form-error" aria-live="polite"></p>
+    </div>
+    {% endfor %}
+    {% for field in [
+      ("lawsuit-plaintiff-status","lawsuit_plaintiff_status","近3年是否涉及未结诉讼（作为原告）"),
+      ("lawsuit-defendant-status","lawsuit_defendant_status","近3年是否涉及未结诉讼（作为被告）")
+    ] %}
+    <div class="form-field">
+      <label class="form-label" for="{{ field[0] }}">{{ field[2] }}</label>
+      <select class="form-control" id="{{ field[0] }}" name="{{ field[1] }}"><option value="unknown">不清楚</option><option value="no">无</option><option value="yes">有</option></select>
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="form-error" aria-live="polite"></p>
+    </div>
+    {% endfor %}
+    <div class="form-field">
+      <label class="form-label" for="admin-penalty-status">近3年是否受到较大行政处罚</label>
+      <select class="form-control" id="admin-penalty-status" name="admin_penalty_status"><option value="unknown">不清楚</option><option value="no">无</option><option value="resolved">有，已整改</option><option value="current">当前仍存在</option></select>
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="form-error" aria-live="polite"></p>
+    </div>
+    {% for name,label in [("property_value","企业名下房产估值"),("factory_value","企业名下厂房估值"),("land_value","企业名下土地估值"),("vehicle_value","企业名下车辆估值"),("equipment_value","企业名下设备估值"),("financeable_receivables","可融资应收账款余额"),("inventory_value","存货估值"),("external_investment_value","对外投资或子公司股权估值")] %}
+    <div class="form-field">
+      <label class="form-label" for="asset-{{ name|replace('_', '-') }}">{{ label }}（元）</label>
+      <input class="form-control" id="asset-{{ name|replace('_', '-') }}" name="{{ name }}" type="number" min="0" step="0.01" inputmode="decimal" data-money-input>
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="money-hint" data-money-hint aria-live="polite"></p><p class="form-error" aria-live="polite"></p>
+    </div>
+    {% endfor %}
+    <fieldset class="checkbox-group form-field-full" data-checkbox-group="intellectual-property">
+      <legend class="checkbox-group-title">知识产权情况</legend>
+      <div class="checkbox-grid checkbox-grid-compact">
+        {% for item in ["发明专利","实用新型专利","软件著作权","商标","暂无"] %}
+        <label class="checkbox-item"><input type="checkbox" name="intellectual_property_types" value="{{ item }}"><span>{{ item }}</span></label>
+        {% endfor %}
+      </div>
+      <p class="form-help">可多选；如无相关知识产权请选择“暂无”。</p>
+      <p class="form-error" aria-live="polite"></p>
+    </fieldset>
+  </div>
+</details>
+
+<details class="assessment-section assessment-optional-section" id="section-management">
+  <summary class="assessment-optional-summary">
+    <span class="assessment-section-index" aria-hidden="true">06</span>
+    <span class="assessment-optional-heading"><strong>资金管理情况</strong><small>建议填写，用于补充企业主资金管理能力判断</small></span>
+    <span class="assessment-optional-action" aria-hidden="true">展开填写</span>
+  </summary>
+  <div class="assessment-grid assessment-optional-content">
+    {% for field in [
+      ("knows-cashflow","knows_cashflow","是否清楚现金流和利润的区别",[("false","不太清楚"),("true","清楚")]),
+      ("has-budget","has_budget","是否有现金流预算",[("false","没有"),("true","有")]),
+      ("leverage-attitude","leverage_attitude","杠杆态度",[("适中","适中"),("保守","保守"),("激进","激进")]),
+      ("asset-efficiency","asset_efficiency","资产使用效率",[("中","中"),("低","低"),("高","高")]),
+      ("fund-usage-plan","fund_usage_plan","是否有资金使用计划",[("false","没有"),("true","有")])
+    ] %}
+    <div class="form-field">
+      <label class="form-label" for="{{ field[0] }}">{{ field[2] }}</label>
+      <select class="form-control" id="{{ field[0] }}" name="{{ field[1] }}">{% for value,text in field[3] %}<option value="{{ value }}">{{ text }}</option>{% endfor %}</select>
+      <p class="form-help" aria-hidden="true">&nbsp;</p><p class="form-error" aria-live="polite"></p>
+    </div>
+    {% endfor %}
+  </div>
+</details>
