@@ -43,10 +43,11 @@ def run() -> None:
             assert text in public_login.text
         assert 'name="viewport"' in public_login.text
         assert 'data-nav-toggle' in public_login.text and 'href="/client/login"' in public_login.text
-        assert all(internal not in public_login.text for internal in ["管理后台", "客户账号管理", "产品管理", "推广二维码"])
+        assert 'href="/admin/login">管理后台</a>' in public_login.text
+        assert all(internal not in public_login.text for internal in ["客户账号管理", "产品管理", "推广二维码"])
 
         home = client.get("/")
-        assert "客户登录" in home.text and "管理后台" not in home.text
+        assert "客户登录" in home.text and 'href="/admin/login">管理后台</a>' in home.text
 
         submitted = client.post("/assessment/submit", data=assessment_payload(phone), follow_redirects=False)
         assert submitted.status_code == 303

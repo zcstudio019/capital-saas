@@ -1,0 +1,33 @@
+{% set admin_logged_in = request.session.get('user_id') %}
+{% set admin_role = request.session.get('role') %}
+<header class="site-header admin-site-header">
+  <div class="container admin-header-inner">
+    <a class="brand" href="{{ '/admin' if admin_logged_in else '/' }}">
+      <span>{{ request.state.company_name }}</span>
+      <small>内部管理系统</small>
+    </a>
+    {% if admin_logged_in %}
+      <nav class="admin-global-nav" aria-label="后台管理导航">
+        <a href="/admin">总览</a>
+        <a href="/admin/leads">线索</a>
+        <a href="/admin/follow-tasks">任务</a>
+        <a href="/admin/reports">报告</a>
+        <a href="/admin/consulting-cases">顾问案件</a>
+        <a href="/admin/advisor-bookings">顾问预约</a>
+        <a href="/admin/orders">订单</a>
+        {% if admin_role in ['admin', 'super_admin'] %}
+          <a href="/admin/customers">客户账号</a>
+          <a href="/admin/products">产品管理</a>
+          <a href="/admin/qrcodes">推广二维码</a>
+          <a href="/admin/settings">系统设置</a>
+        {% endif %}
+        <a href="/admin/notifications">通知</a>
+        <a href="/logout">退出后台</a>
+      </nav>
+    {% else %}
+      <nav class="admin-global-nav" aria-label="后台登录辅助导航">
+        <a href="/">返回网站首页</a>
+      </nav>
+    {% endif %}
+  </div>
+</header>
