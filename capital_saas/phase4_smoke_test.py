@@ -54,7 +54,7 @@ def run():
     with TestClient(app) as client:
         unauth = client.get("/admin", follow_redirects=False)
         assert unauth.status_code == 303
-        assert unauth.headers["location"].startswith("/login")
+        assert unauth.headers["location"].startswith("/admin/login")
 
         assert login(client, "admin", "admin123").status_code == 303
         assert client.get("/admin").status_code == 200

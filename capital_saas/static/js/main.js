@@ -9,6 +9,23 @@ document.querySelectorAll("[data-loading-form]").forEach((form) => {
   });
 });
 
+document.querySelectorAll("[data-nav-toggle]").forEach((button) => {
+  const menuId = button.getAttribute("aria-controls");
+  const menu = menuId ? document.getElementById(menuId) : null;
+  if (!menu) return;
+  const closeMenu = () => {
+    menu.classList.remove("is-open");
+    button.setAttribute("aria-expanded", "false");
+  };
+  button.addEventListener("click", () => {
+    const open = !menu.classList.contains("is-open");
+    menu.classList.toggle("is-open", open);
+    button.setAttribute("aria-expanded", String(open));
+  });
+  menu.querySelectorAll("a").forEach((link) => link.addEventListener("click", closeMenu));
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeMenu(); });
+});
+
 document.querySelectorAll("[data-consult]").forEach((button) => {
   button.addEventListener("click", () => {
     alert("请联系融资顾问预约1对1服务。");

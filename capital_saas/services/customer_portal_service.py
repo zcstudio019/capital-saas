@@ -32,13 +32,16 @@ def ensure_customer_account(db: Session, lead: Lead, commit: bool = True) -> Cus
     if not customer:
         customer = CustomerAccount(lead_id=lead.id, assessment_id=lead.assessment_id,
             company_name=lead.company_name, name=lead.contact_name, contact_name=lead.contact_name, phone=lead.phone,
-            wechat_id=lead.wechat_id, login_phone=normalized_phone or lead.phone, is_active=True)
+            wechat_id=lead.wechat_id, login_phone=normalized_phone or lead.phone,
+            status="pending_activation", is_active=True)
         db.add(customer); db.flush()
         track_event(db, "customer_portal_created", lead.assessment_id, lead.id,
                     {"customer_id": customer.id}, commit=False)
     else:
         if not customer.login_phone and normalized_phone:
             customer.login_phone = normalized_phone
+        if not customer.password_hash and customer.status == "active":
+            customer.status = "pending_activation"
         if lead.wechat_id and not customer.wechat_id:
             customer.wechat_id = lead.wechat_id
         track_event(db, "assessment_linked_to_customer", lead.assessment_id, lead.id,
@@ -135,7 +138,7 @@ def backfill_customer_account_links(db: Session, customer: CustomerAccount | Non
                     company_name=lead.company_name, name=lead.contact_name,
                     contact_name=lead.contact_name, phone=lead.phone,
                     wechat_id=lead.wechat_id, login_phone=normalized,
-                    status="active", is_active=True,
+                    status="pending_activation", is_active=True,
                 )
                 db.add(account)
                 db.flush()
@@ -146,6 +149,8 @@ def backfill_customer_account_links(db: Session, customer: CustomerAccount | Non
     for account in customers:
         if not account.is_active or account.status == "disabled":
             continue
+        if not account.password_hash and account.status == "active":
+            account.status = "pending_activation"
         normalized = normalize_customer_phone(account.login_phone or account.phone)
         if not normalized:
             continue
@@ -231,8 +236,11 @@ def generate_login_token(db: Session, customer: CustomerAccount,
 def customer_from_session(request: Request, db: Session) -> CustomerAccount | None:
     customer_id = request.session.get("customer_id")
     customer = db.get(CustomerAccount, int(customer_id)) if customer_id else None
-    if customer and customer.is_active and customer.status == "active":
-        return customer
+    if customer and customer.is_active:
+        if customer.status == "active":
+            return customer
+        if customer.status == "pending_activation" and request.session.get("token_login_notice"):
+            return customer
     from services.customer_auth_service import customer_from_remember_cookie
     return customer_from_remember_cookie(request, db)
 

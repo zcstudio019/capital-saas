@@ -105,11 +105,13 @@ def _customer_login_response(request: Request, db: Session, customer: CustomerAc
 
 
 @router.get("/client/login", response_class=HTMLResponse)
-def customer_login_page(request: Request, next: str = "/client/dashboard", db: Session = Depends(get_db)):
+def customer_login_page(request: Request, next: str = "/client/dashboard", password_reset: int = 0,
+                        db: Session = Depends(get_db)):
     if customer_from_session(request, db):
         return RedirectResponse("/client/dashboard", 303)
     return templates.TemplateResponse(request=request, name="client_login.html", context={
-        "error": "", "phone": "", "next_url": next if next.startswith("/client/") else "/client/dashboard",
+        "error": "", "phone": "", "password_reset": bool(password_reset),
+        "next_url": next if next.startswith("/client/") else "/client/dashboard",
     })
 
 
@@ -126,6 +128,7 @@ def customer_login_submit(
     if not customer:
         return templates.TemplateResponse(request=request, name="client_login.html", context={
             "error": "手机号或密码不正确", "phone": phone,
+            "password_reset": False,
             "next_url": next_url if next_url.startswith("/client/") else "/client/dashboard",
         }, status_code=400)
     backfill_customer_account_links(db, customer)
@@ -180,6 +183,90 @@ def customer_setup_submit(
     db.commit()
     track_event(db, "customer_account_password_set", customer.assessment_id, customer.lead_id,
                 {"customer_id": customer.id})
+    return _customer_login_response(request, db, customer, "/client/reports", True)
+
+
+def _valid_customer_token(db: Session, token: str, token_type: str) -> CustomerAccessToken | None:
+    return db.query(CustomerAccessToken).filter(
+        CustomerAccessToken.token == token,
+        CustomerAccessToken.token_type == token_type,
+        CustomerAccessToken.is_active.is_(True),
+        CustomerAccessToken.expired_at > datetime.now(),
+    ).first()
+
+
+@router.get("/client/activate", response_class=HTMLResponse)
+def customer_activate_page(request: Request, phone: str = ""):
+    return templates.TemplateResponse(request=request, name="client_activate.html", context={
+        "phone": phone, "submitted": False, "development_link": "",
+    })
+
+
+@router.post("/client/activate", response_class=HTMLResponse)
+def customer_activate_request(request: Request, phone: str = Form(...), db: Session = Depends(get_db)):
+    normalized = normalize_login_phone(phone)
+    customer = db.query(CustomerAccount).filter(
+        CustomerAccount.login_phone == normalized,
+        CustomerAccount.is_active.is_(True),
+    ).first()
+    development_link = ""
+    if customer and not customer.password_hash and customer.status != "disabled":
+        customer.status = "pending_activation"
+        token = generate_login_token(db, customer, token_type="account_activation", days=1)
+        activation_path = f"/client/activate/{token.token}"
+        from services.notification_service import safe_create_notification
+        safe_create_notification(db, "customer_account_activation", {
+            "activation_url": f"{str(request.base_url).rstrip('/')}{activation_path}",
+        }, recipient_customer_id=customer.id, related_type="customer_access_token", related_id=token.id)
+        track_event(db, "customer_account_activation_requested", customer.assessment_id, customer.lead_id,
+                    {"customer_id": customer.id}, commit=False)
+        db.commit()
+        if settings.app_env != "production":
+            development_link = activation_path
+    return templates.TemplateResponse(request=request, name="client_activate.html", context={
+        "phone": phone, "submitted": True, "development_link": development_link,
+    })
+
+
+@router.get("/client/activate/{token}", response_class=HTMLResponse)
+def customer_activation_password_page(request: Request, token: str, db: Session = Depends(get_db)):
+    item = _valid_customer_token(db, token, "account_activation")
+    if not item:
+        raise HTTPException(401, "账号激活链接不存在或已过期")
+    customer = _customer(db, item.customer_id)
+    if not customer.is_active or customer.status == "disabled":
+        raise HTTPException(403, "客户账号已停用")
+    if customer.password_hash:
+        return RedirectResponse("/client/login", 303)
+    return templates.TemplateResponse(request=request, name="client_activate_password.html", context={
+        "token": token, "phone": customer.login_phone, "error": "",
+    })
+
+
+@router.post("/client/activate/{token}", response_class=HTMLResponse)
+def customer_activation_password_submit(request: Request, token: str, password: str = Form(...),
+                                        confirm_password: str = Form(...), db: Session = Depends(get_db)):
+    item = _valid_customer_token(db, token, "account_activation")
+    if not item:
+        raise HTTPException(401, "账号激活链接不存在或已过期")
+    customer = _customer(db, item.customer_id)
+    error = ""
+    if len(password) < 8:
+        error = "密码至少需要8位"
+    elif password != confirm_password:
+        error = "两次输入的密码不一致"
+    elif not customer.is_active or customer.status == "disabled":
+        error = "客户账号已停用"
+    if error:
+        return templates.TemplateResponse(request=request, name="client_activate_password.html", context={
+            "token": token, "phone": customer.login_phone, "error": error,
+        }, status_code=400)
+    set_customer_password(db, customer, password)
+    item.is_active = False
+    item.used_at = datetime.now()
+    track_event(db, "customer_account_activated", customer.assessment_id, customer.lead_id,
+                {"customer_id": customer.id}, commit=False)
+    db.commit()
     return _customer_login_response(request, db, customer, "/client/reports", True)
 
 
@@ -238,7 +325,7 @@ def customer_reset_submit(request: Request, token: str, password: str = Form(...
     item.is_active = False
     item.used_at = datetime.now()
     db.commit()
-    return _customer_login_response(request, db, customer, "/client/dashboard", True)
+    return RedirectResponse("/client/login?password_reset=1", 303)
 
 @router.get('/client/login-token/{token}')
 def client_token_login(request:Request,token:str,next:str="/client/reports",db:Session=Depends(get_db)):
@@ -247,7 +334,7 @@ def client_token_login(request:Request,token:str,next:str="/client/reports",db:S
         CustomerAccessToken.is_active.is_(True)).first()
     if not item or item.expired_at<datetime.now():raise HTTPException(401,"客户登录链接不存在或已过期")
     customer=_customer(db,item.customer_id)
-    if not customer.is_active or customer.status != "active":
+    if not customer.is_active or customer.status not in {"active", "pending_activation"}:
         raise HTTPException(403, "客户账号已停用")
     if not customer.is_active:raise HTTPException(403,"客户门户已停用")
     request.session['customer_id']=customer.id;request.session['customer_authenticated']=True;request.session['customer_lead_id']=customer.lead_id
@@ -542,7 +629,9 @@ def admin_portals(request:Request,db:Session=Depends(get_db),user:User=Depends(r
 def admin_customers(request:Request,status:str='',db:Session=Depends(get_db),
                     user:User=Depends(require_roles('admin','super_admin'))):
     query=db.query(CustomerAccount)
-    if status:query=query.filter(CustomerAccount.status==status)
+    if status == 'unactivated':query=query.filter(CustomerAccount.password_hash=='')
+    elif status == 'active':query=query.filter(CustomerAccount.status=='active',CustomerAccount.password_hash!='')
+    elif status:query=query.filter(CustomerAccount.status==status)
     customers=query.order_by(CustomerAccount.created_at.desc()).all()
     stats={item.id:{
         'reports':db.query(Report).filter(Report.customer_id==item.id).count(),
@@ -568,8 +657,8 @@ def admin_customer_detail(request:Request,customer_id:int,db:Session=Depends(get
 @router.post('/admin/customers/{customer_id}/status')
 def admin_customer_status(customer_id:int,status:str=Form(...),db:Session=Depends(get_db),
                           user:User=Depends(require_roles('admin','super_admin'))):
-    if status not in {'active','disabled','locked'}:raise HTTPException(400,'账号状态无效')
-    customer=_customer(db,customer_id);customer.status=status;customer.is_active=status=='active'
+    if status not in {'pending_activation','active','disabled','locked'}:raise HTTPException(400,'账号状态无效')
+    customer=_customer(db,customer_id);customer.status=status;customer.is_active=status!='disabled'
     if status=='active':customer.failed_login_count=0;customer.locked_until=None
     track_event(db,'customer_account_status_changed',customer.assessment_id,customer.lead_id,
                 {'customer_id':customer.id,'status':status,'operator_user_id':user.id},commit=False)
@@ -582,6 +671,24 @@ def admin_customer_reset_password(request:Request,customer_id:int,db:Session=Dep
     track_event(db,'customer_password_reset_issued',customer.assessment_id,customer.lead_id,
                 {'customer_id':customer.id,'operator_user_id':user.id})
     return RedirectResponse(f'/admin/customers/{customer.id}?reset_link=/client/reset-password/{token.token}',303)
+
+@router.post('/admin/customers/{customer_id}/send-activation')
+def admin_customer_send_activation(request:Request,customer_id:int,db:Session=Depends(get_db),
+                                   user:User=Depends(require_roles('admin','super_admin'))):
+    customer=_customer(db,customer_id)
+    if customer.password_hash:
+        return RedirectResponse(f'/admin/customers/{customer.id}',303)
+    customer.status='pending_activation';customer.is_active=True
+    token=generate_login_token(db,customer,token_type='account_activation',days=1)
+    activation_path=f'/client/activate/{token.token}'
+    from services.notification_service import safe_create_notification
+    safe_create_notification(db,'customer_account_activation',{
+        'activation_url':f"{str(request.base_url).rstrip('/')}{activation_path}",
+    },recipient_customer_id=customer.id,related_type='customer_access_token',related_id=token.id)
+    track_event(db,'customer_account_activation_issued',customer.assessment_id,customer.lead_id,
+                {'customer_id':customer.id,'operator_user_id':user.id})
+    db.commit()
+    return RedirectResponse(f'/admin/customers/{customer.id}?activation_link={activation_path}',303)
 @router.get('/admin/client-portals/{customer_id}',response_class=HTMLResponse)
 def admin_portal_detail(request:Request,customer_id:int,db:Session=Depends(get_db),user:User=Depends(require_roles(*BACKEND))):
     customer=_customer(db,customer_id);lead=_customer_access(db,user,customer);ctx=_client_context(db,customer);ctx.update({'current_user':user,'documents':db.query(UploadedDocument).filter_by(lead_id=lead.id).all(),'tasks':db.query(CustomerTask).filter_by(customer_id=customer.id).all(),'messages':db.query(CustomerMessage).filter_by(customer_id=customer.id).order_by(CustomerMessage.created_at.desc()).all(),'confirmations':db.query(CustomerConfirmation).filter_by(customer_id=customer.id).all(),'events':db.query(Event).filter(Event.lead_id==lead.id,Event.event_type.like('client_%')).order_by(Event.created_at.desc()).limit(20).all()});return templates.TemplateResponse(request=request,name='admin_client_portal_detail.html',context=ctx)

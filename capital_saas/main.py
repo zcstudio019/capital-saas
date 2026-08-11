@@ -154,7 +154,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 401:
         if request.url.path.startswith("/admin"):
             target = quote(request.url.path, safe="/")
-            return RedirectResponse(url=f"/login?next={target}", status_code=303)
+            return RedirectResponse(url=f"/admin/login?next={target}", status_code=303)
         if request.url.path.startswith("/client"):
             target = quote(request.url.path, safe="/")
             return RedirectResponse(url=f"/client/login?next={target}", status_code=303)

@@ -33,7 +33,7 @@ def set_customer_password(db: Session, customer: CustomerAccount, password: str)
         raise ValueError("密码至少需要8位")
     customer.password_hash = hash_password(password)
     customer.password_changed_at = datetime.now()
-    if customer.status == "locked":
+    if customer.status in {"locked", "pending_activation"}:
         customer.status = "active"
     customer.failed_login_count = 0
     customer.locked_until = None

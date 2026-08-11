@@ -29,6 +29,7 @@ def get_login_redirect_path(user: User) -> str:
     return "/admin"
 
 
+@router.get("/admin/login", response_class=HTMLResponse)
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, next: str = "/admin"):
     if request.session.get("user_id"):
@@ -42,6 +43,7 @@ def login_page(request: Request, next: str = "/admin"):
     )
 
 
+@router.post("/admin/login", response_class=HTMLResponse)
 @router.post("/login", response_class=HTMLResponse)
 def login(
     request: Request,
@@ -75,7 +77,8 @@ def login(
             context={"next_url": next_url, "error": "客户请通过专属客户门户链接访问"},
             status_code=403,
         )
-    request.session.clear()
+    for key in ("user_id", "username", "role", "session_version"):
+        request.session.pop(key, None)
     request.session["user_id"] = user.id
     request.session["username"] = user.username
     request.session["role"] = user.role
@@ -87,5 +90,9 @@ def login(
 
 @router.get("/logout")
 def logout(request: Request):
-    request.session.clear()
-    return RedirectResponse(url="/login", status_code=303)
+    for key in ("user_id", "username", "role", "session_version"):
+        request.session.pop(key, None)
+    # 后台退出时清理匿名测评的临时访问授权；独立客户会话仍保留，
+    # 已登录客户可继续通过 customer_id 权限访问自己的报告。
+    request.session.pop("assessment_access_ids", None)
+    return RedirectResponse(url="/admin/login", status_code=303)

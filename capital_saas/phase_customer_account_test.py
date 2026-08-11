@@ -55,7 +55,7 @@ def run() -> None:
     with TestClient(app) as client_a:
         first_assessment = submit(client_a, "客户账号验收企业一期", phone_a)
         result = client_a.get(f"/result/{first_assessment}")
-        assert result.status_code == 200 and "保存到我的账号" in result.text
+        assert result.status_code == 200 and "激活我的账号" in result.text
         setup = client_a.get("/client/setup-account")
         assert setup.status_code == 200 and phone_a in setup.text
         created = client_a.post("/client/setup-account", data={

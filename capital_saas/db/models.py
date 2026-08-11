@@ -790,7 +790,7 @@ class Organization(Base):
     province: Mapped[str] = mapped_column(String(100), default="")
     address: Mapped[str] = mapped_column(String(300), default="")
     manager_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending_activation", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 

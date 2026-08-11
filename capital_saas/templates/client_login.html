@@ -3,17 +3,22 @@
 {% block content %}
 <section class="client-auth-shell">
   <div class="client-auth-card">
-    <p class="eyebrow">客户账号</p><h1>登录企业融资服务中心</h1>
-    <p>使用测评时填写的手机号登录，长期查看报告、订单和融资进度。</p>
+    <p class="client-auth-brand">沪上银</p>
+    <h1>客户登录</h1>
+    <p>登录后可长期查看您的企业报告、订单、资料、顾问预约和融资项目。</p>
+    {% if password_reset %}<div class="alert success">密码已重置，请使用新密码登录。</div>{% endif %}
     {% if error %}<div class="form-error is-visible">{{ error }}</div>{% endif %}
-    <form method="post" action="/client/login">
+    <form method="post" action="/client/login" data-loading-form>
       <input type="hidden" name="next_url" value="{{ next_url }}">
-      <label>手机号<input name="phone" value="{{ phone }}" inputmode="tel" autocomplete="tel" required placeholder="请输入手机号"></label>
-      <label>密码<input type="password" name="password" autocomplete="current-password" required placeholder="请输入登录密码"></label>
-      <label class="remember-row"><input type="checkbox" name="remember_me" value="1" checked><span>记住我，保持登录30天</span></label>
+      <label for="client-login-phone">手机号</label>
+      <input id="client-login-phone" name="phone" value="{{ phone }}" inputmode="tel" autocomplete="tel" required placeholder="请输入手机号">
+      <label for="client-login-password">登录密码</label>
+      <input id="client-login-password" type="password" name="password" autocomplete="current-password" required placeholder="请输入登录密码">
+      <label class="remember-row" for="client-login-remember"><input id="client-login-remember" type="checkbox" name="remember_me" value="1"><span>记住我</span></label>
       <button class="btn btn-primary client-auth-submit" type="submit">登录客户中心</button>
     </form>
-    <div class="client-auth-links"><a href="/client/forgot-password">忘记密码</a><a href="/assessment">还没有报告？先免费测评</a></div>
+    <div class="client-auth-links"><a href="/client/forgot-password">忘记密码</a><a href="/client/activate">还没有设置密码？创建/激活账号</a></div>
+    <a class="client-auth-home" href="/">返回首页</a>
   </div>
 </section>
 {% endblock %}

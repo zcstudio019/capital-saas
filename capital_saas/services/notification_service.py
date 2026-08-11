@@ -18,6 +18,7 @@ FORBIDDEN_WORDS=("包过","保证放款","绝对通过","无视征信","包装�
 CHANNELS={"in_app":InAppChannel(),"email":EmailChannel(),"sms":SmsChannel(),
           "wecom_webhook":WecomChannel(),"mock":MockChannel()}
 DEFAULT_TEMPLATES=[
+ ("customer_account_activation","客户账号激活","customer","sms","service","激活客户账号","请使用安全链接设置登录密码：{{activation_url}}。链接24小时内有效，请勿转发。"),
  ("customer_password_reset","客户密码重置","customer","sms","service","客户账号密码重置","请使用安全链接重置客户账号密码：{{reset_url}}。链接24小时内有效，请勿转发。"),
  ("free_report_ready_customer","免费报告已生成","customer","in_app","service","您的企业资本健康报告已生成","本次企业资本健康测评结果已经生成，可随时进入“我的报告”查看。"),
  ("capital_health_report_unlocked_customer","完整体检报告已解锁","customer","in_app","service","完整体检报告已解锁","{{company_name}}的企业资本健康体检报告已解锁，可进入“我的报告”长期查看。"),
