@@ -5,7 +5,7 @@ from urllib.parse import quote
 import uuid
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -27,6 +27,7 @@ from services.tag_service import ensure_default_tags
 from services.bank_product_service import ensure_default_bank_products
 from services.organization_service import ensure_default_organization
 from services.notification_service import ensure_default_notification_templates
+from services.customer_portal_service import backfill_customer_account_links
 from services.legal_service import ensure_default_legal_documents
 from utils.logger import logger
 
@@ -48,6 +49,7 @@ async def lifespan(_: FastAPI):
         ensure_default_organization(db, admin_user)
         ensure_default_notification_templates(db)
         ensure_default_legal_documents(db)
+        backfill_customer_account_links(db)
         admin_username = admin_user.username
     if settings.secret_key == "change-me-in-production":
         logger.warning("SECRET_KEY仍为默认值，生产上线前必须修改。")
@@ -147,13 +149,15 @@ app.include_router(promotion.router)
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
+    if request.url.path.startswith("/api/"):
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
     if exc.status_code == 401:
         if request.url.path.startswith("/admin"):
             target = quote(request.url.path, safe="/")
             return RedirectResponse(url=f"/login?next={target}", status_code=303)
         if request.url.path.startswith("/client"):
-            return templates.TemplateResponse(request=request,name="client_notice.html",
-                context={"customer":None,"title":"客户门户登录已失效","message":str(exc.detail)},status_code=401)
+            target = quote(request.url.path, safe="/")
+            return RedirectResponse(url=f"/client/login?next={target}", status_code=303)
         return templates.TemplateResponse(
             request=request,
             name="unauthorized.html",

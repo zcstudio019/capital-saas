@@ -341,6 +341,7 @@ def submit_advisor_booking(
         lead.next_follow_time = task.due_time
         lead.last_follow_note = "客户提交了1对1融资顾问预约。"
     booking = AdvisorBooking(
+        customer_id=report.customer_id,
         assessment_id=assessment.id,
         report_id=report.id,
         lead_id=lead.id if lead else None,
@@ -1277,7 +1278,7 @@ async def upload_lead_document(
     path.write_bytes(content)
     digest = hashlib.sha256(content).hexdigest()
     item = UploadedDocument(
-        lead_id=lead.id, assessment_id=lead.assessment_id,
+        customer_id=lead.customer_id, lead_id=lead.id, assessment_id=lead.assessment_id,
         file_name=Path(upload.filename or stored_name).name,
         file_path=str(path.relative_to(BASE_DIR)), file_type=suffix.lstrip("."),
         document_category=document_category, uploaded_by=user.id,

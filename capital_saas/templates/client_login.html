@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}客户登录｜沪上银{% endblock %}
+{% block content %}
+<section class="client-auth-shell">
+  <div class="client-auth-card">
+    <p class="eyebrow">客户账号</p><h1>登录企业融资服务中心</h1>
+    <p>使用测评时填写的手机号登录，长期查看报告、订单和融资进度。</p>
+    {% if error %}<div class="form-error is-visible">{{ error }}</div>{% endif %}
+    <form method="post" action="/client/login">
+      <input type="hidden" name="next_url" value="{{ next_url }}">
+      <label>手机号<input name="phone" value="{{ phone }}" inputmode="tel" autocomplete="tel" required placeholder="请输入手机号"></label>
+      <label>密码<input type="password" name="password" autocomplete="current-password" required placeholder="请输入登录密码"></label>
+      <label class="remember-row"><input type="checkbox" name="remember_me" value="1" checked><span>记住我，保持登录30天</span></label>
+      <button class="btn btn-primary client-auth-submit" type="submit">登录客户中心</button>
+    </form>
+    <div class="client-auth-links"><a href="/client/forgot-password">忘记密码</a><a href="/assessment">还没有报告？先免费测评</a></div>
+  </div>
+</section>
+{% endblock %}

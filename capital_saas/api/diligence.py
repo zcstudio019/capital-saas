@@ -142,7 +142,7 @@ async def upload_documents(request:Request,lead_id: int, document_category: str 
         duplicates += int(bool(duplicate))
         path = lead_dir / f"{uuid.uuid4().hex}{suffix}"
         path.write_bytes(content)
-        item = UploadedDocument(lead_id=lead.id, assessment_id=lead.assessment_id, file_name=name,
+        item = UploadedDocument(customer_id=lead.customer_id, lead_id=lead.id, assessment_id=lead.assessment_id, file_name=name,
             file_path=str(path.relative_to(BASE_DIR)), file_type=suffix.lstrip("."),
             document_category=classify_document(name, document_category), uploaded_by=user.id,
             file_size=len(content), file_hash=digest, note=note.strip())

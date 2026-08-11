@@ -45,6 +45,10 @@ def run() -> None:
         first_id = submit(client_a, payload("上海历史报告一号有限公司", "13800138001"))
         first_result = client_a.get(f"/result/{first_id}")
         assert first_result.status_code == 200 and "企业资本健康摘要" in first_result.text
+        setup = client_a.post("/client/setup-account", data={
+            "name": "张经理", "password": "History123!", "confirm_password": "History123!",
+        }, follow_redirects=False)
+        assert setup.status_code == 303 and setup.headers["location"] == "/client/reports"
         reports_page = client_a.get("/client/reports")
         assert reports_page.status_code == 200 and "上海历史报告一号有限公司" in reports_page.text
 
@@ -100,7 +104,8 @@ def run() -> None:
             stale = db.query(CustomerAccessToken).filter_by(token=token_value).one()
             stale.expired_at = datetime.now() - timedelta(minutes=1)
             db.commit()
-        assert client_a.get(f"/client/login-token/{token_value}").status_code == 401
+        expired = client_a.get(f"/client/login-token/{token_value}", follow_redirects=False)
+        assert expired.status_code == 303 and expired.headers["location"].startswith("/client/login")
         client_a.post("/my-reports/access", data={"phone": "13800138001"})
         with SessionLocal() as db:
             fresh = db.query(CustomerAccessToken).filter_by(customer_id=customer.id, is_active=True).one()

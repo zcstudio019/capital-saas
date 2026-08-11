@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from core.conversion_engine import result_conversion_copy
 from core.config import settings
 from db.database import get_db
+from db.models import CustomerAccount
 from services.ab_test_service import assign_variant
 from services.assessment_service import create_assessment, get_assessment
 from services.attribution_service import attribution_from_session, capture_attribution
@@ -461,8 +462,13 @@ async def submit_assessment(request: Request, db: Session = Depends(get_db)):
     }
     assessment = create_assessment(db, data)
     if assessment.report and assessment.report.customer_id:
-        request.session["customer_id"] = assessment.report.customer_id
-        request.session["customer_lead_id"] = assessment.lead.id if assessment.lead else None
+        account = assessment.report.customer_id
+        authenticated_customer_id = request.session.get("customer_id") if request.session.get("customer_authenticated") else None
+        if authenticated_customer_id == account:
+            request.session["customer_lead_id"] = assessment.lead.id if assessment.lead else None
+        else:
+            request.session["pending_customer_id"] = account
+            request.session["pending_assessment_id"] = assessment.id
     accessible = [int(item) for item in request.session.get("assessment_access_ids", []) if str(item).isdigit()]
     if assessment.id not in accessible:
         accessible.append(assessment.id)
@@ -492,6 +498,7 @@ def free_result(request: Request, assessment_id: int, db: Session = Depends(get_
         return RedirectResponse(url=f"/my-reports?next=/result/{assessment.id}", status_code=303)
     free = parse_customer_free_summary(assessment.report)
     health_report = ensure_capital_health_snapshot(db, assessment)
+    linked_customer = db.get(CustomerAccount, assessment.report.customer_id) if assessment.report.customer_id else None
     session_id = request.session.get("visitor_session_id") or request.session.get("session_id") or "anonymous"
     variant = assign_variant(
         db, session_id, assessment.id, assessment.lead.id if assessment.lead else None
@@ -507,6 +514,8 @@ def free_result(request: Request, assessment_id: int, db: Session = Depends(get_
         context={
             "assessment": assessment, "result": free, "health_report": health_report, "variant": variant,
             "customer": customer,
+            "linked_customer": linked_customer,
+            "customer_account_ready": bool(linked_customer and linked_customer.password_hash),
             "conversion_copy": result_conversion_copy(assessment.grade),
         },
     )

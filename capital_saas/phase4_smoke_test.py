@@ -122,9 +122,9 @@ def run():
         client.get("/logout")
         locked = client.get(f"/report/{assessment_id}", follow_redirects=False)
         assert locked.status_code == 303
-        locked_api = client.get(f"/api/report/{assessment_id}").json()
-        assert locked_api["is_unlocked"] is False
-        assert locked_api["full_report"] is None
+        locked_api = client.get(f"/api/report/{assessment_id}")
+        assert locked_api.status_code == 404
+        assert "full_report" not in locked_api.json()
 
         assert login(client, "admin", "admin123").status_code == 303
         mark_paid = client.post(
@@ -163,10 +163,9 @@ def run():
         assert client.get(f"/report/{assessment_id}").status_code == 200
         assert client.get(f"/report/{assessment_id}/print").status_code == 200
         assert client.get(f"/public/report/{public_token}").status_code == 200
-        unlocked_api = client.get(f"/api/report/{assessment_id}").json()
-        assert unlocked_api["is_unlocked"] is True
-        assert unlocked_api["full_report"]
-        assert "schema_version" not in unlocked_api["full_report"]
+        unlocked_api = client.get(f"/api/report/{assessment_id}")
+        assert unlocked_api.status_code == 404  # 退出后不得仅凭 assessment_id 读取付费报告
+        assert "full_report" not in unlocked_api.json()
 
         assert login(client, "sales_demo", "sales-pass-123").status_code == 303
         assert client.get("/admin/leads").status_code == 200

@@ -48,7 +48,7 @@ def create_project(db: Session, lead, user: User, project_name: str, target_amou
                    consulting_case_id: int | None = None, application_package_id: int | None = None,
                    priority: str = "high", expected_rate: float = 0,
                    expected_term: int = 12, expected_close_date=None) -> FinancingProject:
-    project = FinancingProject(lead_id=lead.id, assessment_id=lead.assessment_id,
+    project = FinancingProject(customer_id=lead.customer_id, lead_id=lead.id, assessment_id=lead.assessment_id,
         consulting_case_id=consulting_case_id, application_package_id=application_package_id,
         project_name=project_name, project_status="preparing", target_amount=target_amount,
         expected_rate=expected_rate, expected_term=expected_term,

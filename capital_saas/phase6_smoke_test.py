@@ -97,7 +97,10 @@ def run():
                     "section_title", "conclusion", "key_findings", "bank_view",
                     "boss_action", "next_steps", "risk_warning", "upsell_hint",
                 } <= set(section)
-            assert db.query(ReportVersion).filter(ReportVersion.report_id == report.id).count() == 1
+            initial_version_count = db.query(ReportVersion).filter(
+                ReportVersion.report_id == report.id
+            ).count()
+            assert initial_version_count >= 2  # 免费摘要快照 + 1999交付快照
             assert db.query(AIGenerationLog).filter(AIGenerationLog.report_id == report.id).count() == 10
             assert db.query(ConsultingCase).filter(
                 ConsultingCase.assessment_id == assessment_id
@@ -123,7 +126,7 @@ def run():
             versions = db.query(ReportVersion).filter(
                 ReportVersion.report_id == report_id
             ).order_by(ReportVersion.version_no).all()
-            assert len(versions) == 2
+            assert len(versions) == initial_version_count + 1
             old_version_id = versions[0].id
 
         switched = client.post(

@@ -16,12 +16,12 @@ from core.pricing_engine import PRODUCT_RANK, products
 from core.data_masking import mask_phone
 from core.capital_health_report import ensure_capital_health_snapshot, report_entitlements
 from db.database import get_db
-from db.models import (ConsultingCase, CustomerAccessToken, CustomerAccount,
+from db.models import (AdvisorBooking, ConsultingCase, CustomerAccessToken, CustomerAccount,
     CustomerConfirmation, CustomerMessage, CustomerTask, Event, FinancingProject,
     FundingApplication, Lead, NotificationJob, Order, ProjectTimelineEvent, Report, ReportVersion, UploadedDocument, User)
 from services.auth_service import require_roles
 from services.customer_portal_service import (advisor_context, complete_document_tasks,
-    customer_from_session, customer_owns_report, ensure_customer_account, ensure_document_tasks,
+    backfill_customer_account_links, customer_from_session, customer_owns_report, ensure_customer_account, ensure_document_tasks,
     generate_login_token, normalize_customer_phone, portal_completeness, reports_for_customer,
     require_customer, send_customer_message)
 from services.document_parse_service import classify_document, run_parse_task
@@ -33,6 +33,10 @@ from services.report_access_service import (
 )
 from services.report_service import generate_full_report, parse_customer_report, parse_report
 from services.settings_service import get_setting
+from services.customer_auth_service import (
+    CUSTOMER_REMEMBER_COOKIE, authenticate_customer, create_customer_session,
+    normalize_login_phone, revoke_customer_session, set_customer_password,
+)
 
 router=APIRouter();templates=Jinja2Templates(directory=str(BASE_DIR/"templates"))
 UPLOAD_DIR=BASE_DIR/"data"/"uploads"
@@ -68,22 +72,186 @@ def _capital_grade(score):
     value=float(score or 0)
     return 'A' if value>=80 else 'B+' if value>=70 else 'B' if value>=60 else 'C' if value>=50 else 'D'
 def _client_context(db,customer):
-    lead=_lead(db,customer.lead_id);orders=db.query(Order).filter(Order.assessment_id==customer.assessment_id).all()
-    project=db.query(FinancingProject).filter(FinancingProject.lead_id==lead.id).order_by(FinancingProject.id.desc()).first()
-    report=db.query(Report).filter(Report.assessment_id==customer.assessment_id).first()
+    lead=_lead(db,customer.lead_id);orders=db.query(Order).filter(Order.customer_id==customer.id).order_by(Order.created_at.desc()).all()
+    project=db.query(FinancingProject).filter(FinancingProject.customer_id==customer.id).order_by(FinancingProject.id.desc()).first()
+    report=db.query(Report).filter(Report.customer_id==customer.id).order_by(Report.created_at.desc()).first()
     completeness=portal_completeness(db,customer)
     return {"customer":customer,"lead":lead,"assessment":lead.assessment,"orders":orders,
         "product":_latest_product(orders),"project":project,"report_item":report,"completeness":completeness,
-        "advisor":advisor_context(db,lead.id),"project_status":CLIENT_PROJECT_STATUS}
+        "advisor":advisor_context(db,lead.id),"project_status":CLIENT_PROJECT_STATUS,
+        "report_count":db.query(Report).filter(Report.customer_id==customer.id).count(),
+        "order_count":db.query(Order).filter(Order.customer_id==customer.id).count(),
+        "booking_count":db.query(AdvisorBooking).filter(AdvisorBooking.customer_id==customer.id).count(),
+        "project_count":db.query(FinancingProject).filter(FinancingProject.customer_id==customer.id).count(),
+        "unread_count":db.query(CustomerMessage).filter(CustomerMessage.customer_id==customer.id,
+            CustomerMessage.status=='unread').count()}
+
+
+def _customer_login_response(request: Request, db: Session, customer: CustomerAccount,
+                             target: str = "/client/dashboard", remember_me: bool = False):
+    request.session["customer_id"] = customer.id
+    request.session["customer_authenticated"] = True
+    request.session["customer_lead_id"] = customer.lead_id
+    request.session.pop("pending_customer_id", None)
+    request.session.pop("pending_assessment_id", None)
+    response = RedirectResponse(target if target.startswith("/client/") else "/client/dashboard", 303)
+    token = create_customer_session(db, customer, remember_me)
+    response.set_cookie(
+        CUSTOMER_REMEMBER_COOKIE, token,
+        max_age=30 * 24 * 60 * 60 if remember_me else 12 * 60 * 60,
+        httponly=True, secure=settings.app_env == "production", samesite="lax", path="/",
+    )
+    return response
+
+
+@router.get("/client/login", response_class=HTMLResponse)
+def customer_login_page(request: Request, next: str = "/client/dashboard", db: Session = Depends(get_db)):
+    if customer_from_session(request, db):
+        return RedirectResponse("/client/dashboard", 303)
+    return templates.TemplateResponse(request=request, name="client_login.html", context={
+        "error": "", "phone": "", "next_url": next if next.startswith("/client/") else "/client/dashboard",
+    })
+
+
+@router.post("/client/login", response_class=HTMLResponse)
+def customer_login_submit(
+    request: Request,
+    phone: str = Form(...),
+    password: str = Form(...),
+    remember_me: str = Form(""),
+    next_url: str = Form("/client/dashboard"),
+    db: Session = Depends(get_db),
+):
+    customer = authenticate_customer(db, phone, password)
+    if not customer:
+        return templates.TemplateResponse(request=request, name="client_login.html", context={
+            "error": "手机号或密码不正确", "phone": phone,
+            "next_url": next_url if next_url.startswith("/client/") else "/client/dashboard",
+        }, status_code=400)
+    backfill_customer_account_links(db, customer)
+    track_event(db, "customer_password_login", customer.assessment_id, customer.lead_id,
+                {"customer_id": customer.id, "login_method": "password"})
+    return _customer_login_response(request, db, customer, next_url, bool(remember_me))
+
+
+@router.get("/client/setup-account", response_class=HTMLResponse)
+def customer_setup_page(request: Request, db: Session = Depends(get_db)):
+    customer = customer_from_session(request, db)
+    if not customer:
+        pending_id = request.session.get("pending_customer_id")
+        customer = db.get(CustomerAccount, int(pending_id)) if pending_id else None
+    if not customer:
+        return RedirectResponse("/client/login", 303)
+    if not customer.is_active or customer.status == "disabled":
+        raise HTTPException(403, "客户账号已停用")
+    if customer.password_hash:
+        return RedirectResponse("/client/account" if request.session.get("customer_authenticated") else "/client/login", 303)
+    return templates.TemplateResponse(request=request, name="client_setup_account.html", context={
+        "customer": customer, "error": "",
+    })
+
+
+@router.post("/client/setup-account", response_class=HTMLResponse)
+def customer_setup_submit(
+    request: Request,
+    name: str = Form(""),
+    password: str = Form(...),
+    confirm_password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    pending_id = request.session.get("pending_customer_id") or request.session.get("customer_id")
+    customer = db.get(CustomerAccount, int(pending_id)) if pending_id else None
+    if not customer:
+        return RedirectResponse("/client/login", 303)
+    error = ""
+    if len(password) < 8:
+        error = "密码至少需要8位"
+    elif password != confirm_password:
+        error = "两次输入的密码不一致"
+    elif customer.password_hash:
+        error = "该手机号已有账号，请直接登录"
+    if error:
+        return templates.TemplateResponse(request=request, name="client_setup_account.html", context={
+            "customer": customer, "error": error,
+        }, status_code=400)
+    customer.name = name.strip() or customer.name or customer.contact_name
+    set_customer_password(db, customer, password)
+    backfill_customer_account_links(db, customer)
+    db.commit()
+    track_event(db, "customer_account_password_set", customer.assessment_id, customer.lead_id,
+                {"customer_id": customer.id})
+    return _customer_login_response(request, db, customer, "/client/reports", True)
+
+
+@router.get("/client/forgot-password", response_class=HTMLResponse)
+def customer_forgot_page(request: Request):
+    return templates.TemplateResponse(request=request, name="client_forgot_password.html", context={"submitted": False})
+
+
+@router.post("/client/forgot-password", response_class=HTMLResponse)
+def customer_forgot_submit(request: Request, phone: str = Form(...), db: Session = Depends(get_db)):
+    normalized = normalize_login_phone(phone)
+    customer = db.query(CustomerAccount).filter(
+        CustomerAccount.login_phone == normalized,
+        CustomerAccount.is_active.is_(True),
+    ).first()
+    if customer:
+        token = generate_login_token(db, customer, token_type="password_reset", days=1)
+        from services.notification_service import safe_create_notification
+        safe_create_notification(db, "customer_password_reset", {
+            "reset_url": f"{str(request.base_url).rstrip('/')}/client/reset-password/{token.token}",
+        }, recipient_customer_id=customer.id, related_type="customer_access_token", related_id=token.id)
+        db.commit()
+    return templates.TemplateResponse(request=request, name="client_forgot_password.html", context={"submitted": True})
+
+
+@router.get("/client/reset-password/{token}", response_class=HTMLResponse)
+def customer_reset_page(request: Request, token: str, db: Session = Depends(get_db)):
+    item = db.query(CustomerAccessToken).filter(
+        CustomerAccessToken.token == token,
+        CustomerAccessToken.token_type == "password_reset",
+        CustomerAccessToken.is_active.is_(True),
+        CustomerAccessToken.expired_at > datetime.now(),
+    ).first()
+    if not item:
+        raise HTTPException(401, "密码重置链接不存在或已过期")
+    return templates.TemplateResponse(request=request, name="client_reset_password.html", context={"token": token, "error": ""})
+
+
+@router.post("/client/reset-password/{token}", response_class=HTMLResponse)
+def customer_reset_submit(request: Request, token: str, password: str = Form(...),
+                          confirm_password: str = Form(...), db: Session = Depends(get_db)):
+    item = db.query(CustomerAccessToken).filter(
+        CustomerAccessToken.token == token,
+        CustomerAccessToken.token_type == "password_reset",
+        CustomerAccessToken.is_active.is_(True),
+        CustomerAccessToken.expired_at > datetime.now(),
+    ).first()
+    if not item:
+        raise HTTPException(401, "密码重置链接不存在或已过期")
+    if len(password) < 8 or password != confirm_password:
+        error = "密码至少需要8位" if len(password) < 8 else "两次输入的密码不一致"
+        return templates.TemplateResponse(request=request, name="client_reset_password.html",
+            context={"token": token, "error": error}, status_code=400)
+    customer = _customer(db, item.customer_id)
+    set_customer_password(db, customer, password)
+    item.is_active = False
+    item.used_at = datetime.now()
+    db.commit()
+    return _customer_login_response(request, db, customer, "/client/dashboard", True)
 
 @router.get('/client/login-token/{token}')
-def client_login(request:Request,token:str,next:str="/client/reports",db:Session=Depends(get_db)):
+def client_token_login(request:Request,token:str,next:str="/client/reports",db:Session=Depends(get_db)):
     item=db.query(CustomerAccessToken).filter(CustomerAccessToken.token==token,
+        CustomerAccessToken.token_type.in_(["portal_login", "report_access"]),
         CustomerAccessToken.is_active.is_(True)).first()
     if not item or item.expired_at<datetime.now():raise HTTPException(401,"客户登录链接不存在或已过期")
     customer=_customer(db,item.customer_id)
+    if not customer.is_active or customer.status != "active":
+        raise HTTPException(403, "客户账号已停用")
     if not customer.is_active:raise HTTPException(403,"客户门户已停用")
-    request.session.clear();request.session['customer_id']=customer.id;request.session['customer_lead_id']=customer.lead_id
+    request.session['customer_id']=customer.id;request.session['customer_authenticated']=True;request.session['customer_lead_id']=customer.lead_id
+    request.session['token_login_notice']=True
     item.used_at=datetime.now();customer.last_login_at=datetime.now()
     track_event(db,'customer_logged_in',customer.assessment_id,customer.lead_id,{"customer_id":customer.id},commit=False)
     target = next if next.startswith("/client/") else "/client/reports"
@@ -115,7 +283,14 @@ def request_report_access(request:Request,phone:str=Form(...),next_url:str=Form(
     })
 
 @router.get('/client/logout')
-def client_logout(request:Request):request.session.clear();return RedirectResponse('/',303)
+def client_logout(request:Request,db:Session=Depends(get_db)):
+    revoke_customer_session(request,db)
+    for key in ('customer_id','customer_authenticated','customer_lead_id','token_login_notice',
+                'pending_customer_id','pending_assessment_id','assessment_id','report_public_token'):
+        request.session.pop(key,None)
+    request.session.pop('assessment_access_ids', None)
+    response=RedirectResponse('/client/login',303);response.delete_cookie(CUSTOMER_REMEMBER_COOKIE,path='/')
+    return response
 
 @router.get('/client/dashboard',response_class=HTMLResponse)
 def client_dashboard(request:Request,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
@@ -222,7 +397,7 @@ def client_bank_product_detail(request:Request,report_id:int,product_id:int,db:S
 
 @router.get('/client/documents',response_class=HTMLResponse)
 def client_documents(request:Request,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
-    ensure_document_tasks(db,customer);ctx=_client_context(db,customer);ctx['documents']=db.query(UploadedDocument).filter(UploadedDocument.lead_id==customer.lead_id,UploadedDocument.deleted_at.is_(None)).order_by(UploadedDocument.created_at.desc()).all()
+    ensure_document_tasks(db,customer);ctx=_client_context(db,customer);ctx['documents']=db.query(UploadedDocument).filter(UploadedDocument.customer_id==customer.id,UploadedDocument.deleted_at.is_(None)).order_by(UploadedDocument.created_at.desc()).all()
     ctx['max_mb']=int(get_setting(db,'upload_max_mb',str(settings.upload_max_mb)))
     return templates.TemplateResponse(request=request,name='client_documents.html',context=ctx)
 
@@ -270,12 +445,12 @@ def client_task_complete(task_id:int,db:Session=Depends(get_db),customer:Custome
 
 @router.get('/client/projects',response_class=HTMLResponse)
 def client_projects(request:Request,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
-    items=db.query(FinancingProject).filter(FinancingProject.lead_id==customer.lead_id).order_by(FinancingProject.updated_at.desc()).all()
+    items=db.query(FinancingProject).filter(FinancingProject.customer_id==customer.id).order_by(FinancingProject.updated_at.desc()).all()
     return templates.TemplateResponse(request=request,name='client_projects.html',context={'customer':customer,'projects':items,'status_map':CLIENT_PROJECT_STATUS})
 @router.get('/client/projects/{project_id}',response_class=HTMLResponse)
 def client_project(request:Request,project_id:int,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
     project=db.get(FinancingProject,project_id)
-    if not project or project.lead_id!=customer.lead_id:raise HTTPException(404,'项目不存在')
+    if not project or project.customer_id!=customer.id:raise HTTPException(404,'项目不存在')
     apps=db.query(FundingApplication).filter(FundingApplication.project_id==project.id).all();timeline=db.query(ProjectTimelineEvent).filter(ProjectTimelineEvent.project_id==project.id).order_by(ProjectTimelineEvent.created_at.desc()).limit(12).all()
     track_event(db,'client_project_viewed',customer.assessment_id,customer.lead_id,{'project_id':project.id})
     return templates.TemplateResponse(request=request,name='client_project_detail.html',context={'customer':customer,'project':project,'applications':apps,'timeline':timeline,'status_map':CLIENT_PROJECT_STATUS,'advisor':advisor_context(db,customer.lead_id)})
@@ -313,7 +488,38 @@ def confirmation_reject(request:Request,confirmation_id:int,db:Session=Depends(g
 
 @router.get('/client/orders',response_class=HTMLResponse)
 def client_orders(request:Request,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
-    items=db.query(Order).filter(Order.assessment_id==customer.assessment_id).order_by(Order.created_at.desc()).all();return templates.TemplateResponse(request=request,name='client_orders.html',context={'customer':customer,'orders':items})
+    items=db.query(Order).filter(Order.customer_id==customer.id).order_by(Order.created_at.desc()).all();return templates.TemplateResponse(request=request,name='client_orders.html',context={'customer':customer,'orders':items})
+
+@router.get('/client/advisor-bookings',response_class=HTMLResponse)
+def client_advisor_bookings(request:Request,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
+    items=db.query(AdvisorBooking).filter(AdvisorBooking.customer_id==customer.id).order_by(AdvisorBooking.created_at.desc()).all()
+    latest_report=db.query(Report).filter(Report.customer_id==customer.id).order_by(Report.created_at.desc()).first()
+    return templates.TemplateResponse(request=request,name='client_advisor_bookings.html',context={
+        'customer':customer,'bookings':items,'latest_report':latest_report})
+
+@router.get('/client/account',response_class=HTMLResponse)
+def client_account(request:Request,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
+    return templates.TemplateResponse(request=request,name='client_account.html',context={'customer':customer,'saved':False,'error':''})
+
+@router.post('/client/account',response_class=HTMLResponse)
+def client_account_update(request:Request,name:str=Form(''),wechat_id:str=Form(''),email:str=Form(''),
+                          db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
+    customer.name=name.strip();customer.contact_name=customer.name or customer.contact_name
+    customer.wechat_id=wechat_id.strip();customer.email=email.strip();db.commit()
+    return templates.TemplateResponse(request=request,name='client_account.html',context={'customer':customer,'saved':True,'error':''})
+
+@router.post('/client/account/password',response_class=HTMLResponse)
+def client_account_password(request:Request,current_password:str=Form(...),password:str=Form(...),
+                            confirm_password:str=Form(...),db:Session=Depends(get_db),
+                            customer:CustomerAccount=Depends(require_customer)):
+    from services.auth_service import verify_password
+    error=''
+    if not verify_password(current_password,customer.password_hash):error='当前密码不正确'
+    elif len(password)<8:error='新密码至少需要8位'
+    elif password!=confirm_password:error='两次输入的新密码不一致'
+    if error:return templates.TemplateResponse(request=request,name='client_account.html',context={'customer':customer,'saved':False,'error':error},status_code=400)
+    set_customer_password(db,customer,password);db.commit()
+    return templates.TemplateResponse(request=request,name='client_account.html',context={'customer':customer,'saved':True,'error':''})
 @router.get('/client/upgrade',response_class=HTMLResponse)
 def client_upgrade(request:Request,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
     track_event(db,'client_upgrade_viewed',customer.assessment_id,customer.lead_id,{'customer_id':customer.id});return templates.TemplateResponse(request=request,name='client_upgrade.html',context={'customer':customer,'products':products})
@@ -331,6 +537,51 @@ def admin_portals(request:Request,db:Session=Depends(get_db),user:User=Depends(r
         else:q=q.filter(Lead.owner_org_id.in_(scope.allowed_org_ids or [-1]))
     customers=q.order_by(CustomerAccount.created_at.desc()).all();stats={c.id:{'tasks':db.query(CustomerTask).filter_by(customer_id=c.id,status='pending').count(),'messages':db.query(CustomerMessage).filter_by(customer_id=c.id,status='unread').count(),'documents':db.query(UploadedDocument).filter_by(lead_id=c.lead_id).count()} for c in customers};role=get_access_scope(db,user).role;phones={c.id:(c.phone if role=='super_admin' or db.get(Lead,c.lead_id).owner_user_id==user.id else mask_phone(c.phone)) for c in customers}
     return templates.TemplateResponse(request=request,name='admin_client_portals.html',context={'customers':customers,'stats':stats,'phones':phones,'current_user':user})
+
+@router.get('/admin/customers',response_class=HTMLResponse)
+def admin_customers(request:Request,status:str='',db:Session=Depends(get_db),
+                    user:User=Depends(require_roles('admin','super_admin'))):
+    query=db.query(CustomerAccount)
+    if status:query=query.filter(CustomerAccount.status==status)
+    customers=query.order_by(CustomerAccount.created_at.desc()).all()
+    stats={item.id:{
+        'reports':db.query(Report).filter(Report.customer_id==item.id).count(),
+        'orders':db.query(Order).filter(Order.customer_id==item.id).count(),
+        'documents':db.query(UploadedDocument).filter(UploadedDocument.customer_id==item.id).count(),
+    } for item in customers}
+    phones={item.id:mask_phone(item.login_phone or item.phone) for item in customers}
+    return templates.TemplateResponse(request=request,name='admin_customers.html',context={
+        'customers':customers,'stats':stats,'phones':phones,'status_filter':status,'current_user':user})
+
+@router.get('/admin/customers/{customer_id}',response_class=HTMLResponse)
+def admin_customer_detail(request:Request,customer_id:int,db:Session=Depends(get_db),
+                          user:User=Depends(require_roles('admin','super_admin'))):
+    customer=_customer(db,customer_id);backfill_customer_account_links(db,customer)
+    return templates.TemplateResponse(request=request,name='admin_customer_detail.html',context={
+        'customer':customer,'reports':db.query(Report).filter(Report.customer_id==customer.id).order_by(Report.created_at.desc()).all(),
+        'orders':db.query(Order).filter(Order.customer_id==customer.id).order_by(Order.created_at.desc()).all(),
+        'documents':db.query(UploadedDocument).filter(UploadedDocument.customer_id==customer.id).order_by(UploadedDocument.created_at.desc()).all(),
+        'bookings':db.query(AdvisorBooking).filter(AdvisorBooking.customer_id==customer.id).order_by(AdvisorBooking.created_at.desc()).all(),
+        'projects':db.query(FinancingProject).filter(FinancingProject.customer_id==customer.id).order_by(FinancingProject.created_at.desc()).all(),
+        'current_user':user})
+
+@router.post('/admin/customers/{customer_id}/status')
+def admin_customer_status(customer_id:int,status:str=Form(...),db:Session=Depends(get_db),
+                          user:User=Depends(require_roles('admin','super_admin'))):
+    if status not in {'active','disabled','locked'}:raise HTTPException(400,'账号状态无效')
+    customer=_customer(db,customer_id);customer.status=status;customer.is_active=status=='active'
+    if status=='active':customer.failed_login_count=0;customer.locked_until=None
+    track_event(db,'customer_account_status_changed',customer.assessment_id,customer.lead_id,
+                {'customer_id':customer.id,'status':status,'operator_user_id':user.id},commit=False)
+    db.commit();return RedirectResponse(f'/admin/customers/{customer.id}',303)
+
+@router.post('/admin/customers/{customer_id}/reset-password')
+def admin_customer_reset_password(request:Request,customer_id:int,db:Session=Depends(get_db),
+                                  user:User=Depends(require_roles('admin','super_admin'))):
+    customer=_customer(db,customer_id);token=generate_login_token(db,customer,token_type='password_reset',days=1)
+    track_event(db,'customer_password_reset_issued',customer.assessment_id,customer.lead_id,
+                {'customer_id':customer.id,'operator_user_id':user.id})
+    return RedirectResponse(f'/admin/customers/{customer.id}?reset_link=/client/reset-password/{token.token}',303)
 @router.get('/admin/client-portals/{customer_id}',response_class=HTMLResponse)
 def admin_portal_detail(request:Request,customer_id:int,db:Session=Depends(get_db),user:User=Depends(require_roles(*BACKEND))):
     customer=_customer(db,customer_id);lead=_customer_access(db,user,customer);ctx=_client_context(db,customer);ctx.update({'current_user':user,'documents':db.query(UploadedDocument).filter_by(lead_id=lead.id).all(),'tasks':db.query(CustomerTask).filter_by(customer_id=customer.id).all(),'messages':db.query(CustomerMessage).filter_by(customer_id=customer.id).order_by(CustomerMessage.created_at.desc()).all(),'confirmations':db.query(CustomerConfirmation).filter_by(customer_id=customer.id).all(),'events':db.query(Event).filter(Event.lead_id==lead.id,Event.event_type.like('client_%')).order_by(Event.created_at.desc()).limit(20).all()});return templates.TemplateResponse(request=request,name='admin_client_portal_detail.html',context=ctx)

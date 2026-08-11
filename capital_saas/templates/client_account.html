@@ -1,0 +1,18 @@
+{% extends "client_base.html" %}{% block title %}账号设置{% endblock %}{% block content %}
+<section class="client-hero"><div><span>客户账号</span><h1>账号设置</h1><p>手机号是客户账号的长期登录凭证。</p></div></section>
+{% if saved %}<div class="alert success">账号信息已保存。</div>{% endif %}{% if error %}<div class="alert danger">{{ error }}</div>{% endif %}
+<div class="client-grid">
+  <section class="client-card"><h2>基本资料</h2><form method="post" action="/client/account" class="stack-form">
+    <label>登录手机号<input value="{{ customer.login_phone or customer.phone }}" disabled></label>
+    <label>姓名<input name="name" value="{{ customer.name or customer.contact_name }}"></label>
+    <label>微信号<input name="wechat_id" value="{{ customer.wechat_id }}"></label>
+    <label>邮箱<input type="email" name="email" value="{{ customer.email }}"></label>
+    <button class="btn btn-primary">保存资料</button>
+  </form></section>
+  <section class="client-card"><h2>修改密码</h2><form method="post" action="/client/account/password" class="stack-form">
+    <label>当前密码<input type="password" name="current_password" autocomplete="current-password" required></label>
+    <label>新密码<input type="password" name="password" minlength="8" autocomplete="new-password" required></label>
+    <label>确认新密码<input type="password" name="confirm_password" minlength="8" autocomplete="new-password" required></label>
+    <button class="btn">修改密码</button>
+  </form></section>
+</div>{% endblock %}

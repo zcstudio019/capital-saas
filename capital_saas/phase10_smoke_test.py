@@ -54,7 +54,7 @@ def run():
   assert c.get(f'/client/messages/{message_id}').status_code==200
   assert c.post(f'/client/confirmations/{confirmation_id}/confirm',follow_redirects=False).status_code==303
   project_page=c.get(f'/client/projects/{project_id}');assert project_page.status_code==200 and '已提交申请' in project_page.text
-  c.get('/client/logout');assert c.get('/client/dashboard').status_code==401
+  c.get('/client/logout');logged_out=c.get('/client/dashboard',follow_redirects=False);assert logged_out.status_code==303 and logged_out.headers['location'].startswith('/client/login')
   with SessionLocal() as db:
    assert db.get(CustomerMessage,message_id).status=='read'
    assert db.get(CustomerConfirmation,confirmation_id).status=='confirmed'

@@ -1,0 +1,5 @@
+{% extends "client_base.html" %}{% block title %}顾问预约{% endblock %}{% block content %}
+<section class="client-hero"><div><span>专业顾问服务</span><h1>顾问预约</h1><p>查看顾问预约提交和受理进度。</p></div>{% if latest_report %}<a class="btn btn-gold" href="/advisor/book/{{ latest_report.id }}">预约融资顾问</a>{% endif %}</section>
+<section class="client-card"><div class="table-card"><table><thead><tr><th>企业</th><th>服务类型</th><th>提交时间</th><th>当前状态</th><th>期望时间</th></tr></thead><tbody>
+{% for item in bookings %}<tr><td>{{ item.company_name }}</td><td>{{ item.service_type|safe_display_label }}</td><td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ item.booking_status|status_label }}</td><td>{{ item.preferred_time or '待沟通确认' }}</td></tr>{% else %}<tr><td colspan="5" class="empty">暂无顾问预约</td></tr>{% endfor %}
+</tbody></table></div></section>{% endblock %}

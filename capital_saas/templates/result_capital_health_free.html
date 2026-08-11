@@ -85,8 +85,16 @@
     </section>
 
     <section class="free-report-save">
-      <div><h2>本次报告已保存到客户报告中心</h2><p>以后重新打开网站，可通过“我的报告”找回；重新测评不会覆盖本次记录。</p></div>
-      <div class="free-report-actions"><a class="report-button" href="/client/reports">保存并查看我的报告</a><a class="report-link-button" href="/my-reports">查看历史报告</a></div>
+      {% if customer and request.session.get('customer_authenticated') %}
+        <div><h2>本报告已保存到“我的报告”</h2><p>以后使用手机号和密码登录，即可长期查看历史报告、订单和融资进度。</p></div>
+        <div class="free-report-actions"><a class="report-button" href="/client/reports">查看我的报告</a></div>
+      {% elif customer_account_ready|default(false) %}
+        <div><h2>本次报告已保存到您的账号</h2><p>该手机号已有客户账号，请登录后查看本次报告和全部历史记录。</p></div>
+        <div class="free-report-actions"><a class="report-button" href="/client/login?next=/client/reports">登录并查看我的报告</a></div>
+      {% else %}
+        <div><h2>保存这份报告</h2><p>免费创建客户账号，今后可随时查看历史报告、订单、资料和融资进度。</p></div>
+        <div class="free-report-actions"><a class="report-button" href="/client/setup-account">保存到我的账号</a></div>
+      {% endif %}
     </section>
 
     <div class="trust-list"><span>✓ 基于客户提供信息和已核验资料</span><span>✓ 不构成融资承诺</span><span>✓ 历史报告长期保留</span><span>✓ 超过90天仍可查看并提示复测</span></div>

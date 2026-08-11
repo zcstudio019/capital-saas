@@ -6,6 +6,7 @@ from utils.logger import logger
 
 SQLITE_COLUMNS = {
     "assessments": {
+        "customer_id": "INTEGER",
         "contact_name": "VARCHAR(100) NOT NULL DEFAULT ''",
         "phone": "VARCHAR(30) NOT NULL DEFAULT ''",
         "wechat_id": "VARCHAR(100) NOT NULL DEFAULT ''",
@@ -56,6 +57,7 @@ SQLITE_COLUMNS = {
         "deleted_at":"DATETIME","deleted_by":"INTEGER","delete_reason":"TEXT NOT NULL DEFAULT ''",
     },
     "leads": {
+        "customer_id": "INTEGER",
         "contact_name": "VARCHAR(100) NOT NULL DEFAULT ''",
         "phone": "VARCHAR(30) NOT NULL DEFAULT ''",
         "wechat_id": "VARCHAR(100) NOT NULL DEFAULT ''",
@@ -152,6 +154,7 @@ SQLITE_COLUMNS = {
         "show_consultant_contact": "BOOLEAN NOT NULL DEFAULT 0",
     },
     "advisor_bookings": {
+        "customer_id": "INTEGER",
         "city": "VARCHAR(100) NOT NULL DEFAULT ''",
         "service_type": "VARCHAR(80) NOT NULL DEFAULT 'high_ticket_consulting'",
         "urgency": "VARCHAR(30) NOT NULL DEFAULT 'normal'",
@@ -160,11 +163,21 @@ SQLITE_COLUMNS = {
         "consultant_user_id": "INTEGER",
     },
     "financing_projects": {
+        "customer_id": "INTEGER",
         "org_id": "INTEGER", "owner_user_id": "INTEGER", "owner_org_id": "INTEGER",
         "consultant_user_id": "INTEGER",
         "deleted_at":"DATETIME","deleted_by":"INTEGER","delete_reason":"TEXT NOT NULL DEFAULT ''",
     },
-    "customer_accounts":{"deleted_at":"DATETIME","deleted_by":"INTEGER","delete_reason":"TEXT NOT NULL DEFAULT ''"},
+    "customer_accounts":{
+        "name":"VARCHAR(100) NOT NULL DEFAULT ''",
+        "password_hash":"VARCHAR(300) NOT NULL DEFAULT ''",
+        "status":"VARCHAR(20) NOT NULL DEFAULT 'active'",
+        "client_login_method":"VARCHAR(20) NOT NULL DEFAULT 'password'",
+        "failed_login_count":"INTEGER NOT NULL DEFAULT 0",
+        "locked_until":"DATETIME",
+        "password_changed_at":"DATETIME",
+        "deleted_at":"DATETIME","deleted_by":"INTEGER","delete_reason":"TEXT NOT NULL DEFAULT ''"
+    },
     "internal_notifications": {
         "action_url": "VARCHAR(300) NOT NULL DEFAULT ''",
     },

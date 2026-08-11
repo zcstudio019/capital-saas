@@ -10,6 +10,7 @@ class Assessment(Base):
     __tablename__ = "assessments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customer_accounts.id"), nullable=True, index=True)
     company_name: Mapped[str] = mapped_column(String(200))
     contact_name: Mapped[str] = mapped_column(String(100), default="")
     phone: Mapped[str] = mapped_column(String(30), default="")
@@ -177,6 +178,7 @@ class Lead(Base):
     __tablename__ = "leads"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customer_accounts.id"), nullable=True, index=True)
     assessment_id: Mapped[int] = mapped_column(
         ForeignKey("assessments.id"), unique=True, index=True
     )
@@ -254,6 +256,7 @@ class AdvisorBooking(Base):
     __tablename__ = "advisor_bookings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customer_accounts.id"), nullable=True, index=True)
     assessment_id: Mapped[int] = mapped_column(ForeignKey("assessments.id"), index=True)
     report_id: Mapped[int | None] = mapped_column(ForeignKey("reports.id"), nullable=True, index=True)
     lead_id: Mapped[int | None] = mapped_column(ForeignKey("leads.id"), nullable=True, index=True)
@@ -621,6 +624,7 @@ class FinancingProject(Base):
     __tablename__ = "financing_projects"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customer_accounts.id"), nullable=True, index=True)
     lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"), index=True)
     assessment_id: Mapped[int] = mapped_column(ForeignKey("assessments.id"), index=True)
     consulting_case_id: Mapped[int | None] = mapped_column(ForeignKey("consulting_cases.id"), nullable=True)
@@ -867,13 +871,20 @@ class CustomerAccount(Base):
     lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"), unique=True, index=True)
     assessment_id: Mapped[int] = mapped_column(ForeignKey("assessments.id"), index=True)
     company_name: Mapped[str] = mapped_column(String(200))
+    name: Mapped[str] = mapped_column(String(100), default="")
     contact_name: Mapped[str] = mapped_column(String(100), default="")
     phone: Mapped[str] = mapped_column(String(50), default="")
+    password_hash: Mapped[str] = mapped_column(String(300), default="")
     wechat_id: Mapped[str] = mapped_column(String(100), default="")
     email: Mapped[str] = mapped_column(String(150), default="")
-    login_phone: Mapped[str] = mapped_column(String(50), default="", index=True)
+    login_phone: Mapped[str] = mapped_column(String(50), default="", unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    client_login_method: Mapped[str] = mapped_column(String(20), default="password")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -891,6 +902,18 @@ class CustomerAccessToken(Base):
     expired_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class CustomerSession(Base):
+    __tablename__ = "customer_sessions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customer_accounts.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    remember_me: Mapped[bool] = mapped_column(Boolean, default=False)
+    expired_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
 
