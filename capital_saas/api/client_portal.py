@@ -39,6 +39,13 @@ from services.customer_auth_service import (
     normalize_login_phone, revoke_customer_session, set_customer_password,
 )
 from services.audit_service import write_audit_log
+from services.customer_account_cleanup_service import (
+    cleanup_preview,
+    customer_dependency_counts,
+    permanently_delete_customer_account,
+    restore_customer_account,
+    soft_delete_customer_account,
+)
 from utils.rate_limiter import allow_rate_action
 
 router=APIRouter();templates=Jinja2Templates(directory=str(BASE_DIR/"templates"))
@@ -234,21 +241,35 @@ def customer_register_submit(
     existing = db.query(CustomerAccount).filter(CustomerAccount.login_phone == normalized).first()
     if not existing:
         # 兼容历史数据中带 +86、空格或短横线的手机号，避免重复创建客户身份。
-        for candidate in db.query(CustomerAccount).filter(CustomerAccount.deleted_at.is_(None)).all():
+        for candidate in db.query(CustomerAccount).all():
             if _registration_phone(candidate.login_phone or candidate.phone) == normalized:
                 existing = candidate
                 break
-    if existing and (not existing.is_active or existing.status == "disabled"):
+    restored_deleted_account = bool(existing and existing.deleted_at)
+    if restored_deleted_account:
+        customer = existing
+        customer.deleted_at = None
+        customer.deleted_by = None
+        customer.delete_reason = ""
+        customer.status = "active"
+        customer.is_active = True
+        customer.name = contact_name.strip() or customer.name
+        customer.contact_name = customer.name
+        customer.wechat_id = wechat_id.strip() or customer.wechat_id
+        customer.city = city.strip() or customer.city
+        customer.company_name = company_name.strip() or customer.company_name
+        customer.registration_method = "password"
+    elif existing and (not existing.is_active or existing.status == "disabled"):
         return templates.TemplateResponse(request=request, name="client_register.html", context=_registration_context(
             phone=normalized, next_url=next_url, values=values,
             error="该账号已停用，请联系服务人员处理。",
         ), status_code=403)
-    if existing and existing.password_hash:
+    elif existing and existing.password_hash:
         return templates.TemplateResponse(request=request, name="client_register.html", context=_registration_context(
             phone=normalized, next_url=next_url, values=values, existing_account=True,
             error="该手机号已注册，请直接登录。",
         ), status_code=409)
-    if existing and not existing.password_hash:
+    elif existing and not existing.password_hash:
         pending_id = request.session.get("pending_customer_id")
         if not pending_id or int(pending_id) != existing.id:
             return templates.TemplateResponse(request=request, name="client_register.html", context=_registration_context(
@@ -260,7 +281,7 @@ def customer_register_submit(
         customer.wechat_id = wechat_id.strip() or customer.wechat_id
         customer.city = city.strip() or customer.city
         customer.company_name = company_name.strip() or customer.company_name
-    else:
+    elif not existing:
         customer = CustomerAccount(
             lead_id=None, assessment_id=None, company_name=company_name.strip(),
             name=contact_name.strip(), contact_name=contact_name.strip(),
@@ -291,11 +312,13 @@ def customer_register_submit(
         "customer_id": customer.id,
         "registration_source": customer.registration_source,
         "registration_method": customer.registration_method,
+        "restored_deleted_account": restored_deleted_account,
     }, commit=False)
     write_audit_log(
         db, "customer_registered", "customer_account", customer.id,
         customer_id=customer.id, actor_type="customer", request=request,
-        after={"registration_source": customer.registration_source, "legal_accepted": True},
+        after={"registration_source": customer.registration_source, "legal_accepted": True,
+               "restored_deleted_account": restored_deleted_account},
     )
     db.commit()
     return _customer_login_response(request, db, customer, next_url, True)
@@ -795,9 +818,12 @@ def admin_portals(request:Request,db:Session=Depends(get_db),user:User=Depends(r
 def admin_customers(request:Request,status:str='',db:Session=Depends(get_db),
                     user:User=Depends(require_roles('admin','super_admin'))):
     query=db.query(CustomerAccount)
-    if status == 'unactivated':query=query.filter(CustomerAccount.password_hash=='')
-    elif status == 'active':query=query.filter(CustomerAccount.status=='active',CustomerAccount.password_hash!='')
-    elif status:query=query.filter(CustomerAccount.status==status)
+    if status == 'deleted':query=query.filter(CustomerAccount.deleted_at.isnot(None))
+    else:
+        query=query.filter(CustomerAccount.deleted_at.is_(None))
+        if status == 'unactivated':query=query.filter(CustomerAccount.password_hash=='')
+        elif status == 'active':query=query.filter(CustomerAccount.status=='active',CustomerAccount.password_hash!='')
+        elif status:query=query.filter(CustomerAccount.status==status)
     customers=query.order_by(CustomerAccount.created_at.desc()).all()
     stats={item.id:{
         'reports':db.query(Report).filter(Report.customer_id==item.id).count(),
@@ -808,23 +834,120 @@ def admin_customers(request:Request,status:str='',db:Session=Depends(get_db),
     return templates.TemplateResponse(request=request,name='admin_customers.html',context={
         'customers':customers,'stats':stats,'phones':phones,'status_filter':status,'current_user':user})
 
+
+@router.get('/admin/customers/cleanup',response_class=HTMLResponse)
+def admin_customer_cleanup_page(request:Request,db:Session=Depends(get_db),
+                                user:User=Depends(require_roles('admin','super_admin'))):
+    preview=cleanup_preview(db)
+    return templates.TemplateResponse(request=request,name='admin_customer_cleanup.html',context={
+        'preview':preview,'current_user':user,
+    })
+
+
+@router.post('/admin/customers/cleanup')
+def admin_customer_cleanup_execute(
+    request:Request,
+    cleanup_scope:str=Form(...),
+    confirmation:str=Form(...),
+    delete_reason:str=Form(...),
+    db:Session=Depends(get_db),
+    user:User=Depends(require_roles('admin','super_admin')),
+):
+    if confirmation.strip()!='CONFIRM CLEANUP':
+        raise HTTPException(400,'请输入 CONFIRM CLEANUP 确认清理')
+    if cleanup_scope not in {'without_business','all'}:
+        raise HTTPException(400,'清理范围无效')
+    reason=delete_reason.strip()
+    if not reason:raise HTTPException(400,'请填写清理原因')
+    preview=cleanup_preview(db);cleaned=0
+    for row in preview['items']:
+        if cleanup_scope=='without_business' and row['counts']['business_total']:
+            continue
+        if soft_delete_customer_account(
+            db,row['customer'],user,reason,request,action='customer_account_bulk_deleted'
+        ):
+            cleaned+=1
+    write_audit_log(
+        db,'customer_accounts_bulk_cleaned','customer_account',None,user_id=user.id,
+        before={'eligible_accounts':preview['totals']['accounts']},
+        after={'cleaned_accounts':cleaned,'scope':cleanup_scope,'reason':reason},
+        request=request,risk_level='high',
+    )
+    db.commit()
+    return RedirectResponse(f'/admin/customers/cleanup?cleaned={cleaned}',303)
+
 @router.get('/admin/customers/{customer_id}',response_class=HTMLResponse)
 def admin_customer_detail(request:Request,customer_id:int,db:Session=Depends(get_db),
                           user:User=Depends(require_roles('admin','super_admin'))):
-    customer=_customer(db,customer_id);backfill_customer_account_links(db,customer)
+    customer=_customer(db,customer_id)
+    if not customer.deleted_at:backfill_customer_account_links(db,customer)
+    dependency_counts=customer_dependency_counts(db,customer)
     return templates.TemplateResponse(request=request,name='admin_customer_detail.html',context={
         'customer':customer,'reports':db.query(Report).filter(Report.customer_id==customer.id).order_by(Report.created_at.desc()).all(),
         'orders':db.query(Order).filter(Order.customer_id==customer.id).order_by(Order.created_at.desc()).all(),
         'documents':db.query(UploadedDocument).filter(UploadedDocument.customer_id==customer.id).order_by(UploadedDocument.created_at.desc()).all(),
         'bookings':db.query(AdvisorBooking).filter(AdvisorBooking.customer_id==customer.id).order_by(AdvisorBooking.created_at.desc()).all(),
         'projects':db.query(FinancingProject).filter(FinancingProject.customer_id==customer.id).order_by(FinancingProject.created_at.desc()).all(),
+        'dependency_counts':dependency_counts,
         'current_user':user})
+
+
+@router.get('/admin/customers/{customer_id}/delete',response_class=HTMLResponse)
+def admin_customer_delete_page(request:Request,customer_id:int,db:Session=Depends(get_db),
+                               user:User=Depends(require_roles('admin','super_admin'))):
+    customer=_customer(db,customer_id);counts=customer_dependency_counts(db,customer)
+    return templates.TemplateResponse(request=request,name='admin_customer_delete.html',context={
+        'customer':customer,'counts':counts,'current_user':user,
+    })
+
+
+@router.post('/admin/customers/{customer_id}/delete')
+def admin_customer_delete(
+    request:Request,customer_id:int,confirmation:str=Form(...),delete_reason:str=Form(...),
+    db:Session=Depends(get_db),user:User=Depends(require_roles('admin','super_admin')),
+):
+    if confirmation.strip()!='DELETE':raise HTTPException(400,'请输入 DELETE 确认删除')
+    if not delete_reason.strip():raise HTTPException(400,'请填写删除原因')
+    customer=_customer(db,customer_id)
+    soft_delete_customer_account(db,customer,user,delete_reason.strip(),request)
+    db.commit()
+    return RedirectResponse('/admin/customers',303)
+
+
+@router.post('/admin/customers/{customer_id}/restore')
+def admin_customer_restore(
+    request:Request,customer_id:int,restore_reason:str=Form('管理员恢复账号'),
+    db:Session=Depends(get_db),user:User=Depends(require_roles('admin','super_admin')),
+):
+    customer=_customer(db,customer_id)
+    restore_customer_account(db,customer,user,restore_reason.strip() or '管理员恢复账号',request)
+    db.commit()
+    return RedirectResponse(f'/admin/customers/{customer.id}',303)
+
+
+@router.post('/admin/customers/{customer_id}/permanent-delete')
+def admin_customer_permanent_delete(
+    request:Request,customer_id:int,confirmation:str=Form(...),delete_reason:str=Form(...),
+    db:Session=Depends(get_db),user:User=Depends(require_roles('super_admin')),
+):
+    if confirmation.strip()!='PERMANENT DELETE':
+        raise HTTPException(400,'请输入 PERMANENT DELETE 确认永久删除')
+    if not delete_reason.strip():raise HTTPException(400,'请填写永久删除原因')
+    customer=_customer(db,customer_id)
+    try:
+        permanently_delete_customer_account(db,customer,user,delete_reason.strip(),request)
+    except ValueError as exc:
+        raise HTTPException(409,str(exc)) from exc
+    db.commit()
+    return RedirectResponse('/admin/customers?status=deleted',303)
 
 @router.post('/admin/customers/{customer_id}/status')
 def admin_customer_status(customer_id:int,status:str=Form(...),db:Session=Depends(get_db),
                           user:User=Depends(require_roles('admin','super_admin'))):
     if status not in {'pending_activation','active','disabled','locked'}:raise HTTPException(400,'账号状态无效')
-    customer=_customer(db,customer_id);customer.status=status;customer.is_active=status!='disabled'
+    customer=_customer(db,customer_id)
+    if customer.deleted_at:raise HTTPException(409,'已删除账号请使用恢复账号操作')
+    customer.status=status;customer.is_active=status!='disabled'
     if status=='active':customer.failed_login_count=0;customer.locked_until=None
     track_event(db,'customer_account_status_changed',customer.assessment_id,customer.lead_id,
                 {'customer_id':customer.id,'status':status,'operator_user_id':user.id},commit=False)
@@ -833,7 +956,9 @@ def admin_customer_status(customer_id:int,status:str=Form(...),db:Session=Depend
 @router.post('/admin/customers/{customer_id}/reset-password')
 def admin_customer_reset_password(request:Request,customer_id:int,db:Session=Depends(get_db),
                                   user:User=Depends(require_roles('admin','super_admin'))):
-    customer=_customer(db,customer_id);token=generate_login_token(db,customer,token_type='password_reset',days=1)
+    customer=_customer(db,customer_id)
+    if customer.deleted_at:raise HTTPException(409,'已删除账号不能生成密码重置入口')
+    token=generate_login_token(db,customer,token_type='password_reset',days=1)
     track_event(db,'customer_password_reset_issued',customer.assessment_id,customer.lead_id,
                 {'customer_id':customer.id,'operator_user_id':user.id})
     return RedirectResponse(f'/admin/customers/{customer.id}?reset_link=/client/reset-password/{token.token}',303)
@@ -842,6 +967,7 @@ def admin_customer_reset_password(request:Request,customer_id:int,db:Session=Dep
 def admin_customer_send_activation(request:Request,customer_id:int,db:Session=Depends(get_db),
                                    user:User=Depends(require_roles('admin','super_admin'))):
     customer=_customer(db,customer_id)
+    if customer.deleted_at:raise HTTPException(409,'已删除账号不能生成激活入口')
     if customer.password_hash:
         return RedirectResponse(f'/admin/customers/{customer.id}',303)
     customer.status='pending_activation';customer.is_active=True

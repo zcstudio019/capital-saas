@@ -84,6 +84,8 @@ def backfill_customer_account_links(db: Session, customer: CustomerAccount | Non
     if customer is None:
         primary_by_phone: dict[str, CustomerAccount] = {}
         for account in customers:
+            if account.deleted_at:
+                continue
             if not account.is_active or account.status == "disabled":
                 if not str(account.login_phone or "").startswith("merged-account-"):
                     account.login_phone = f"merged-account-{account.id}"
@@ -131,6 +133,7 @@ def backfill_customer_account_links(db: Session, customer: CustomerAccount | Non
             normalize_customer_phone(item.login_phone or item.phone): item
             for item in customers
             if item.is_active and item.status != "disabled"
+            and item.deleted_at is None
             and normalize_customer_phone(item.login_phone or item.phone)
         }
         for assessment in assessments:
@@ -168,7 +171,7 @@ def backfill_customer_account_links(db: Session, customer: CustomerAccount | Non
                 primary_by_phone.setdefault(normalized, account)
             bind_customer_records(db, account, lead)
     for account in customers:
-        if not account.is_active or account.status == "disabled":
+        if account.deleted_at or not account.is_active or account.status == "disabled":
             continue
         if not account.password_hash and account.status == "active":
             account.status = "pending_activation"
@@ -257,7 +260,7 @@ def generate_login_token(db: Session, customer: CustomerAccount,
 def customer_from_session(request: Request, db: Session) -> CustomerAccount | None:
     customer_id = request.session.get("customer_id")
     customer = db.get(CustomerAccount, int(customer_id)) if customer_id else None
-    if customer and customer.is_active:
+    if customer and not customer.deleted_at and customer.is_active:
         if customer.status == "active":
             return customer
         if customer.status == "pending_activation" and request.session.get("token_login_notice"):

@@ -21,6 +21,7 @@ def normalize_login_phone(value: str | None) -> str:
 def customer_can_login(customer: CustomerAccount | None) -> bool:
     return bool(
         customer
+        and not customer.deleted_at
         and customer.is_active
         and customer.status == "active"
         and customer.password_hash
@@ -48,7 +49,7 @@ def set_customer_password(db: Session, customer: CustomerAccount, password: str)
 def authenticate_customer(db: Session, phone: str, password: str) -> CustomerAccount | None:
     normalized = normalize_login_phone(phone)
     customer = db.query(CustomerAccount).filter(CustomerAccount.login_phone == normalized).first()
-    if not customer or not customer.password_hash:
+    if not customer or customer.deleted_at or not customer.password_hash:
         return None
     if customer.status == "disabled" or not customer.is_active:
         return None

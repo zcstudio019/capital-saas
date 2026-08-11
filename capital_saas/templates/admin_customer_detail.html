@@ -1,14 +1,40 @@
-{% extends "base.html" %}{% block title %}客户账号｜{{ customer.company_name }}{% endblock %}{% block content %}
+{% extends "base.html" %}
+{% block title %}客户账号 · {{ customer.company_name }}{% endblock %}
+{% block content %}
 {% set source_labels={'self_registration':'自主注册','free_assessment_auto':'免费测评自动创建','historical_data':'历史数据','admin_import':'管理员导入'} %}
-<section class="admin-shell container"><div class="admin-top"><div><div class="eyebrow">客户账号 #{{ customer.id }}</div><h1>{{ customer.company_name or customer.name or '尚未关联企业' }}</h1></div><a class="btn" href="/admin/customers">返回客户账号</a></div>
-{% if request.query_params.get('reset_link') %}<div class="alert success">密码重置入口已生成：<a href="{{ request.query_params.get('reset_link') }}">打开重置页面</a></div>{% endif %}
-{% if request.query_params.get('activation_link') %}<div class="alert success">账号激活入口已生成：<a href="{{ request.query_params.get('activation_link') }}">打开激活页面</a></div>{% endif %}
-<section class="card detail-card"><div class="detail-grid"><div><span>客户姓名</span><strong>{{ customer.name or customer.contact_name }}</strong></div><div><span>手机号</span><strong>{{ customer.login_phone or customer.phone }}</strong></div><div><span>微信号</span><strong>{{ customer.wechat_id or '—' }}</strong></div><div><span>所在城市</span><strong>{{ customer.city or '—' }}</strong></div><div><span>注册来源</span><strong>{{ source_labels.get(customer.registration_source,customer.registration_source or '历史数据') }}</strong></div><div><span>注册时间</span><strong>{{ customer.created_at.strftime('%Y-%m-%d %H:%M') }}</strong></div><div><span>最近登录</span><strong>{{ customer.last_login_at.strftime('%Y-%m-%d %H:%M') if customer.last_login_at else '尚未登录' }}</strong></div><div><span>账号状态</span><strong>{% if not customer.password_hash %}未设置密码{% elif customer.status=='active' %}正常{% elif customer.status=='disabled' %}已禁用{% else %}已锁定{% endif %}</strong></div></div>
-<div class="form-actions">
-{% if not customer.password_hash %}<form method="post" action="/admin/customers/{{ customer.id }}/send-activation"><button class="btn btn-primary">发送激活入口</button></form>{% else %}<form method="post" action="/admin/customers/{{ customer.id }}/reset-password"><button class="btn">重置密码入口</button></form>{% endif %}
-<form method="post" action="/admin/customers/{{ customer.id }}/status"><input type="hidden" name="status" value="{{ 'disabled' if customer.status not in ['disabled'] else ('active' if customer.password_hash else 'pending_activation') }}"><button class="btn">{{ '禁用账号' if customer.status!='disabled' else '恢复账号' }}</button></form>
-{% if customer.status=='locked' %}<form method="post" action="/admin/customers/{{ customer.id }}/status"><input type="hidden" name="status" value="active"><button class="btn">重置登录状态</button></form>{% endif %}
-</div></section>
-<section class="card detail-card"><h2>报告历史</h2>{% for item in reports %}<a class="client-row" href="/admin/reports/{{ item.id }}/preview"><b>{{ item.assessment.company_name }} · {{ item.assessment.score }}分</b><span>{{ item.created_at.strftime('%Y-%m-%d') }}</span></a>{% else %}<p class="empty">暂无报告</p>{% endfor %}</section>
-<div class="client-grid"><section class="card detail-card"><h2>订单</h2>{% for item in orders %}<p>{{ item.product_name }} · {{ item.status|order_status_label }}</p>{% else %}<p class="empty">暂无订单</p>{% endfor %}</section><section class="card detail-card"><h2>资料</h2><p>共 {{ documents|length }} 份</p></section><section class="card detail-card"><h2>顾问预约</h2><p>共 {{ bookings|length }} 次</p></section><section class="card detail-card"><h2>融资项目</h2><p>共 {{ projects|length }} 个</p></section></div>
-</section>{% endblock %}
+<section class="admin-shell container">
+  <div class="admin-top"><div><div class="eyebrow">客户账号 #{{ customer.id }}</div><h1>{{ customer.company_name or customer.name or '尚未关联企业' }}</h1></div><a class="btn" href="/admin/customers{{ '?status=deleted' if customer.deleted_at else '' }}">返回客户账号</a></div>
+  {% if request.query_params.get('reset_link') %}<div class="alert success">密码重置入口已生成：<a href="{{ request.query_params.get('reset_link') }}">打开重置页面</a></div>{% endif %}
+  {% if request.query_params.get('activation_link') %}<div class="alert success">账号激活入口已生成：<a href="{{ request.query_params.get('activation_link') }}">打开激活页面</a></div>{% endif %}
+  {% if customer.deleted_at %}<div class="alert warning">该登录账号已于 {{ customer.deleted_at.strftime('%Y-%m-%d %H:%M') }} 删除。历史报告、订单和业务数据仍完整保留。删除原因：{{ customer.delete_reason or '未填写' }}</div>{% endif %}
+
+  <section class="card detail-card">
+    <div class="detail-grid">
+      <div><span>客户姓名</span><strong>{{ customer.name or customer.contact_name or '未填写' }}</strong></div>
+      <div><span>手机号</span><strong>{{ customer.login_phone or customer.phone }}</strong></div>
+      <div><span>微信号</span><strong>{{ customer.wechat_id or '—' }}</strong></div>
+      <div><span>所在城市</span><strong>{{ customer.city or '—' }}</strong></div>
+      <div><span>注册来源</span><strong>{{ source_labels.get(customer.registration_source,customer.registration_source or '历史数据') }}</strong></div>
+      <div><span>注册时间</span><strong>{{ customer.created_at.strftime('%Y-%m-%d %H:%M') }}</strong></div>
+      <div><span>最近登录</span><strong>{{ customer.last_login_at.strftime('%Y-%m-%d %H:%M') if customer.last_login_at else '尚未登录' }}</strong></div>
+      <div><span>账号状态</span><strong>{% if customer.deleted_at %}已删除{% elif not customer.password_hash %}未设置密码{% elif customer.status=='active' %}正常{% elif customer.status=='disabled' %}已禁用{% else %}已锁定{% endif %}</strong></div>
+    </div>
+    <div class="form-actions">
+      {% if customer.deleted_at %}
+      <form method="post" action="/admin/customers/{{ customer.id }}/restore"><label>恢复原因<input name="restore_reason" value="管理员恢复账号"></label><button class="btn btn-primary">恢复账号</button></form>
+      {% else %}
+        {% if not customer.password_hash %}<form method="post" action="/admin/customers/{{ customer.id }}/send-activation"><button class="btn btn-primary">发送激活入口</button></form>{% else %}<form method="post" action="/admin/customers/{{ customer.id }}/reset-password"><button class="btn">重置密码入口</button></form>{% endif %}
+        <form method="post" action="/admin/customers/{{ customer.id }}/status"><input type="hidden" name="status" value="{{ 'disabled' if customer.status!='disabled' else ('active' if customer.password_hash else 'pending_activation') }}"><button class="btn">{{ '禁用账号' if customer.status!='disabled' else '恢复账号' }}</button></form>
+        <a class="btn danger-button" href="/admin/customers/{{ customer.id }}/delete">删除账号</a>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if customer.deleted_at and current_user.role=='super_admin' and dependency_counts.business_total==0 %}
+  <section class="card danger-zone"><h2>永久删除空账号</h2><p>该账号没有任何业务记录。此操作不可恢复，仅清理登录身份、会话和通知偏好。</p><form method="post" action="/admin/customers/{{ customer.id }}/permanent-delete"><label>删除原因<input name="delete_reason" required></label><label>输入 PERMANENT DELETE<input name="confirmation" required autocomplete="off"></label><button class="btn danger-button">永久删除</button></form></section>
+  {% endif %}
+
+  <section class="card detail-card"><h2>报告历史</h2>{% for item in reports %}<a class="client-row" href="/admin/reports/{{ item.id }}/preview"><b>{{ item.assessment.company_name }} · {{ item.assessment.score }}分</b><span>{{ item.created_at.strftime('%Y-%m-%d') }}</span></a>{% else %}<p class="empty">暂无报告</p>{% endfor %}</section>
+  <div class="client-grid"><section class="card detail-card"><h2>订单</h2>{% for item in orders %}<p>{{ item.product_name }} · {{ item.status|order_status_label }}</p>{% else %}<p class="empty">暂无订单</p>{% endfor %}</section><section class="card detail-card"><h2>资料</h2><p>共 {{ documents|length }} 份</p></section><section class="card detail-card"><h2>顾问预约</h2><p>共 {{ bookings|length }} 次</p></section><section class="card detail-card"><h2>融资项目</h2><p>共 {{ projects|length }} 个</p></section></div>
+</section>
+{% endblock %}

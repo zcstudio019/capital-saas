@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}清理历史未激活账号{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top"><div><div class="eyebrow">安全批量清理</div><h1>清理历史未激活账号</h1><p>仅扫描“历史数据 + 未设置密码 + 尚未登录”的账号，不会删除报告、订单或其他业务记录。</p></div><a class="btn" href="/admin/customers">返回客户账号</a></div>
+  {% if request.query_params.get('cleaned') %}<div class="alert success">批量软删除已完成，共处理 {{ request.query_params.get('cleaned') }} 个登录账号。</div>{% endif %}
+  <div class="metric-grid">
+    <div class="card metric-card"><span>符合条件账号</span><strong>{{ preview.totals.accounts }}</strong></div>
+    <div class="card metric-card"><span>有报告账号</span><strong>{{ preview.totals.with_reports }}</strong></div>
+    <div class="card metric-card"><span>有订单账号</span><strong>{{ preview.totals.with_orders }}</strong></div>
+    <div class="card metric-card"><span>无任何业务数据</span><strong>{{ preview.totals.without_business }}</strong></div>
+  </div>
+  <div class="card table-card"><table><thead><tr><th>客户</th><th>手机号</th><th>企业</th><th>报告</th><th>订单</th><th>测评</th><th>资料</th><th>预约</th><th>项目</th><th>处理分类</th></tr></thead><tbody>{% for row in preview['items'] %}<tr><td>{{ row.customer.name or row.customer.contact_name or '未填写' }}</td><td>{{ row.customer.login_phone or row.customer.phone }}</td><td>{{ row.customer.company_name or '—' }}</td><td>{{ row.counts.reports }}</td><td>{{ row.counts.orders }}</td><td>{{ row.counts.assessments }}</td><td>{{ row.counts.documents }}</td><td>{{ row.counts.bookings }}</td><td>{{ row.counts.projects }}</td><td>{{ '仅登录身份' if row.counts.business_total else '空账号' }}</td></tr>{% else %}<tr><td colspan="10" class="empty">没有符合清理条件的历史账号</td></tr>{% endfor %}</tbody></table></div>
+  {% if preview.totals.accounts %}
+  <div class="client-grid cleanup-actions">
+    <section class="card"><h2>仅清理空账号</h2><p>只软删除没有任何业务记录的历史账号。</p><form method="post" action="/admin/customers/cleanup" class="stack-form"><input type="hidden" name="cleanup_scope" value="without_business"><label>清理原因<input name="delete_reason" value="批量清理历史空账号" required></label><label>输入 CONFIRM CLEANUP<input name="confirmation" required autocomplete="off"></label><button class="btn danger-button">批量软删除空账号</button></form></section>
+    <section class="card danger-zone"><h2>清理全部历史未激活账号</h2><p>有报告、订单或测评的账号也只删除登录身份，所有业务数据继续保留。</p><form method="post" action="/admin/customers/cleanup" class="stack-form"><input type="hidden" name="cleanup_scope" value="all"><label>清理原因<input name="delete_reason" value="批量清理历史未激活登录身份" required></label><label>输入 CONFIRM CLEANUP<input name="confirmation" required autocomplete="off"></label><button class="btn danger-button">批量软删除全部预览账号</button></form></section>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
