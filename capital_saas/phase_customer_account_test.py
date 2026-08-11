@@ -112,7 +112,8 @@ def run() -> None:
             assert project.customer_id == customer_a_id
 
         dashboard = client_a.get("/client/dashboard")
-        assert dashboard.status_code == 200 and all(text in dashboard.text for text in ["我的报告", "我的订单", "顾问预约", "融资项目", "未读通知"])
+        assert dashboard.status_code == 200 and all(text in dashboard.text for text in ["我的报告", "我的订单", "顾问预约", "未读通知"])
+        assert "融资项目" not in dashboard.text
         assert client_a.get("/client/advisor-bookings").status_code == 200
         assert client_a.get("/client/account").status_code == 200
 

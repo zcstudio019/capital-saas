@@ -1,15 +1,22 @@
-{% extends 'client_base.html' %}{% block title %}客户中心｜{{ customer.company_name }}{% endblock %}{% block content %}
-<section class="client-hero"><div><span>企业融资服务中心</span><h1>{{ customer.company_name or customer.name or '客户中心' }}</h1><p>{{ customer.name or customer.contact_name }}，欢迎回来。报告、订单、资料和融资项目均归集在本账号下。</p></div><a class="btn btn-gold" href="/assessment">{{ '重新测评' if report_count else '开始免费测评' }}</a></section>
-<section class="client-kpis">
-  <div><span>我的报告</span><strong>{{ report_count }}</strong></div><div><span>我的订单</span><strong>{{ order_count }}</strong></div>
-  <div><span>待完成资料</span><strong>{{ tasks|length }}</strong></div><div><span>顾问预约</span><strong>{{ booking_count }}</strong></div>
-  <div><span>融资项目</span><strong>{{ project_count }}</strong></div><div><span>未读通知</span><strong>{{ unread_count }}</strong></div>
+{% extends 'client_base.html' %}
+{% block title %}客户中心｜{{ customer.company_name or customer.name }}{% endblock %}
+{% block content %}
+<section class="client-hero">
+  <div><span>企业融资服务中心</span><h1>{{ customer.company_name or customer.name or '客户中心' }}</h1><p>{{ customer.name or customer.contact_name }}，欢迎回来。<br>您的报告、订单、资料和顾问服务记录都已归集在本账号中。</p></div>
+  <a class="btn btn-gold" href="/assessment">{{ '重新测评' if report_count else '开始免费测评' }}</a>
+</section>
+<section class="client-kpis client-kpis-five">
+  <div><span>我的报告</span><strong>{{ report_count }}</strong></div>
+  <div><span>我的订单</span><strong>{{ order_count }}</strong></div>
+  <div><span>待完成资料</span><strong>{{ tasks|length }}</strong></div>
+  <div><span>顾问预约</span><strong>{{ booking_count }}</strong></div>
+  <div><span>未读通知</span><strong>{{ unread_count }}</strong></div>
 </section>
 <div class="client-grid">
   <section class="client-card"><h2>最近一份报告</h2>{% if report_item %}<h3>{{ report_item.assessment.company_name }}</h3><p>{{ report_item.assessment.score }}分 / {{ report_item.assessment.grade }}级</p><a class="btn" href="/client/reports/{{ report_item.id }}">查看报告</a>{% else %}<p class="empty">暂无报告</p><a class="btn" href="/assessment">开始免费测评</a>{% endif %}</section>
   <section class="client-card"><h2>当前订单</h2>{% for order in orders[:3] %}<a class="client-row" href="/client/orders"><b>{{ order.product_name }}</b><span>{{ order.status|order_status_label }}</span></a>{% else %}<p class="empty">暂无订单</p>{% endfor %}</section>
   <section class="client-card"><h2>待完成资料</h2>{% for task in tasks %}<a class="client-row" href="/client/documents"><b>{{ task.task_title }}</b><span>{{ task.priority|task_priority_label }}</span></a>{% else %}<p class="empty">暂无待办资料</p>{% endfor %}</section>
-  <section class="client-card"><h2>融资项目进度</h2>{% if project %}<h3>{{ project.project_name }}</h3><p>{{ project.project_status|project_status_label }}</p><a href="/client/projects/{{ project.id }}">查看项目</a>{% else %}<p class="empty">暂未建立融资项目</p>{% endif %}</section>
   <section class="client-card"><h2>顾问服务</h2><h3>{{ advisor.name }}</h3><p>{{ advisor.organization }}</p><a href="/client/advisor-bookings">查看顾问预约</a></section>
   <section class="client-card"><h2>最新通知</h2>{% for message in messages %}<a class="client-row" href="/client/messages/{{ message.id }}"><b>{{ message.title }}</b><span>{{ '未读' if message.status=='unread' else '已读' }}</span></a>{% else %}<p class="empty">暂无通知</p>{% endfor %}</section>
-</div>{% endblock %}
+</div>
+{% endblock %}

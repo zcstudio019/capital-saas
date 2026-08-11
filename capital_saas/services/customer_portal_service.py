@@ -262,11 +262,25 @@ def customer_from_session(request: Request, db: Session) -> CustomerAccount | No
     customer = db.get(CustomerAccount, int(customer_id)) if customer_id else None
     if customer and not customer.deleted_at and customer.is_active:
         if customer.status == "active":
+            request.state.customer_unread_count = db.query(CustomerMessage).filter(
+                CustomerMessage.customer_id == customer.id,
+                CustomerMessage.status == "unread",
+            ).count()
             return customer
         if customer.status == "pending_activation" and request.session.get("token_login_notice"):
+            request.state.customer_unread_count = db.query(CustomerMessage).filter(
+                CustomerMessage.customer_id == customer.id,
+                CustomerMessage.status == "unread",
+            ).count()
             return customer
     from services.customer_auth_service import customer_from_remember_cookie
-    return customer_from_remember_cookie(request, db)
+    customer = customer_from_remember_cookie(request, db)
+    if customer:
+        request.state.customer_unread_count = db.query(CustomerMessage).filter(
+            CustomerMessage.customer_id == customer.id,
+            CustomerMessage.status == "unread",
+        ).count()
+    return customer
 
 
 def require_customer(request: Request, db: Session = Depends(get_db)) -> CustomerAccount:

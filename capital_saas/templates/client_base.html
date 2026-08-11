@@ -4,56 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}企业融资服务中心{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/style.css?v=20260811-client-navigation">
+  {% block extra_head %}{% endblock %}
 </head>
 <body class="client-body">
-  {% set admin_entry_url = '/admin' if request.session.get('user_id') else '/admin/login' %}
-  <header class="client-header" data-responsive-header>
-    <div class="client-header-inner">
-      <a class="client-brand" href="/client/dashboard">
-        <strong>沪上银</strong>
-        <span>企业融资服务中心</span>
-      </a>
-      <nav class="desktop-nav client-desktop-nav" aria-label="客户中心导航">
-        <a href="/client/dashboard">首页</a>
-        <a href="/client/reports">我的报告</a>
-        <a href="/client/orders">我的订单</a>
-        <a href="/client/documents">我的资料</a>
-        <a href="/client/advisor-bookings">顾问预约</a>
-        <a href="/client/projects">融资项目</a>
-        <a href="/client/messages">通知</a>
-        <a href="/client/account">账号设置</a>
-        <a href="/client/logout">退出登录</a>
-        <a class="admin-entry-link" href="{{ admin_entry_url }}">管理后台</a>
-      </nav>
-      <button class="mobile-menu-toggle client-nav-toggle" type="button" aria-expanded="false"
-              aria-controls="mobile-client-navigation" data-nav-toggle>
-        <span class="sr-only">打开客户中心菜单</span>
-        <span class="menu-toggle-icon" aria-hidden="true">☰</span>
-      </button>
-    </div>
-    <nav id="mobile-client-navigation" class="mobile-nav client-mobile-nav"
-         data-nav-menu aria-label="手机客户中心导航">
-      <div class="mobile-nav-inner">
-        <a href="/client/reports">我的报告</a>
-        <a href="/client/dashboard">客户中心</a>
-        <a href="/client/orders">我的订单</a>
-        <a href="/client/documents">我的资料</a>
-        <a href="/client/advisor-bookings">顾问预约</a>
-        <a href="/client/messages">通知</a>
-        <a href="/client/logout">退出登录</a>
-        <div class="mobile-nav-employee">
-          <span>员工入口</span>
-          <a href="{{ admin_entry_url }}">管理后台</a>
-        </div>
-      </div>
-    </nav>
-  </header>
+  {% include "components/client_header.html" %}
   {% if request.session.get('token_login_notice') %}
     <div class="client-session-notice">您正在通过临时访问链接查看。为长期访问报告，建议使用手机号和密码登录。</div>
   {% endif %}
   <main class="client-main">{% block content %}{% endblock %}</main>
   <footer class="client-footer">本平台信息仅用于企业融资规划与服务协同，实际审批结果以金融机构为准。</footer>
-  <script src="/static/js/main.js?v=20260811-navigation-identity"></script>
+  <script src="/static/js/main.js?v=20260811-client-navigation"></script>
+  {% block extra_scripts %}{% endblock %}
 </body>
 </html>

@@ -528,6 +528,154 @@ th.sticky-action { z-index: 3; background: #f5f7f9; }
 .stack-form input, .stack-form textarea { width: 100%; box-sizing: border-box; }
 .stack-form textarea { min-height: 96px; resize: vertical; }
 .cleanup-actions { margin-top: 24px; align-items: start; }
+
+/* Customer center navigation: isolated from public and staff navigation. */
+.client-site-header {
+  position: sticky;
+  z-index: 60;
+  top: 0;
+  min-height: 72px;
+  background: #0d2340;
+  color: #fff;
+}
+.client-site-header .client-header-inner {
+  width: min(1180px, calc(100% - 48px));
+  height: 72px;
+  min-height: 72px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.client-site-header .client-brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: inherit;
+  text-decoration: none;
+}
+.client-site-header .client-logo {
+  color: #efd18a;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+.client-site-header .client-divider {
+  width: 1px;
+  height: 26px;
+  background: rgba(255,255,255,.24);
+}
+.client-site-header .client-subtitle {
+  color: rgba(255,255,255,.72);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.client-site-header .client-desktop-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-left: auto;
+}
+.client-site-header .client-desktop-nav a {
+  display: inline-flex;
+  align-items: center;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.client-site-header .client-desktop-nav a:hover { color: #efd18a; }
+.client-mobile-toggle {
+  display: none !important;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  border: 1px solid rgba(255,255,255,.3);
+  border-radius: 9px;
+  background: transparent;
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.client-mobile-nav { display: none !important; }
+.client-mobile-nav-inner { display: flex; flex-direction: column; }
+.client-notification-link { position: relative; }
+.notification-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: #e53935;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+}
+.client-kpis-five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+@media (max-width: 1100px) and (min-width: 769px) {
+  .client-site-header .client-desktop-nav { gap: 13px; }
+  .client-site-header .client-desktop-nav a { font-size: 13px; }
+  .client-site-header .client-subtitle { display: none; }
+  .client-site-header .client-divider { display: none; }
+  .client-kpis-five { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 768px) {
+  .client-site-header { min-height: 64px; }
+  .client-site-header .client-header-inner {
+    width: calc(100% - 32px);
+    height: 64px;
+    min-height: 64px;
+    gap: 12px;
+  }
+  .client-site-header .client-subtitle,
+  .client-site-header .client-divider,
+  .client-site-header .client-desktop-nav { display: none !important; }
+  .client-site-header .client-logo { font-size: 21px; }
+  .client-site-header .client-mobile-toggle { display: inline-flex !important; }
+  .client-site-header .client-mobile-nav {
+    display: none !important;
+    width: 100%;
+    padding: 0 16px 14px;
+    border-top: 1px solid rgba(255,255,255,.12);
+    background: #0d2340;
+  }
+  .client-site-header .client-mobile-nav.is-open { display: block !important; }
+  .client-mobile-nav-inner { padding-top: 7px; }
+  .client-mobile-nav-inner a {
+    display: flex;
+    min-height: 48px;
+    align-items: center;
+    padding: 11px 4px;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+    color: #eef3f8;
+    font-size: 15px;
+  }
+  .client-kpis-five { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 769px) {
+  .client-site-header .client-desktop-nav { display: flex !important; }
+  .client-site-header .client-mobile-toggle,
+  .client-site-header .client-mobile-nav { display: none !important; }
+}
+
+@media print {
+  .client-site-header { display: none !important; }
+}
 .action-row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
 .action-row form { display:flex; gap:8px; margin:0; }
 .btn-danger { color:#fff; background:var(--danger); }

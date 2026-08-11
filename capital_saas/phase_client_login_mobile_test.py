@@ -82,8 +82,9 @@ def run() -> None:
 
         dashboard = client.get("/client/dashboard")
         assert dashboard.status_code == 200
-        for text in ["我的报告", "我的订单", "待完成资料", "顾问预约", "融资项目", "未读通知"]:
+        for text in ["我的报告", "我的订单", "待完成资料", "顾问预约", "未读通知"]:
             assert text in dashboard.text
+        assert "融资项目" not in dashboard.text
         history = client.get("/client/reports")
         assert history.status_code == 200 and "移动端客户登录验收企业" in history.text
 

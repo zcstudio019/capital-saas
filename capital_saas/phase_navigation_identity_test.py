@@ -99,7 +99,7 @@ def run() -> None:
     css = (ROOT / "static/css/style.css").read_text(encoding="utf-8")
     js = (ROOT / "static/js/main.js").read_text(encoding="utf-8")
     public_header = (ROOT / "templates/components/public_header.html").read_text(encoding="utf-8")
-    client_header = (ROOT / "templates/client_base.html").read_text(encoding="utf-8")
+    client_header = (ROOT / "templates/components/client_header.html").read_text(encoding="utf-8")
 
     assert "@media(max-width:768px)" in css
     assert "@media(min-width:769px)" in css
@@ -107,7 +107,8 @@ def run() -> None:
     assert ".public-mobile-toggle" in css and "display:inline-flex!important" in css
     assert ".public-mobile-nav.is-open" in css
     assert all(label in public_header for label in ["免费测评", "产品服务", "客户登录", "管理后台"])
-    assert all(label in client_header for label in ["我的报告", "客户中心", "管理后台"])
+    assert all(label in client_header for label in ["首页", "我的报告", "我的订单", "我的资料", "顾问预约", "通知", "账号设置", "退出登录"])
+    assert all(label not in client_header for label in ["融资项目", "管理后台", "员工入口"])
     assert 'class="public-desktop-nav"' in public_header
     assert 'class="public-mobile-nav"' in public_header
     assert "nav-open" in js and "header.contains(event.target)" in js
