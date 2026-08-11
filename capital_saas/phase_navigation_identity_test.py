@@ -48,11 +48,11 @@ def run() -> None:
     with TestClient(app) as client:
         public = client.get("/")
         assert public.status_code == 200
-        assert 'class="desktop-nav"' in public.text
+        assert 'class="public-desktop-nav"' in public.text
         assert 'href="/client/login">客户登录</a>' in public.text
         assert 'href="/admin/login">管理后台</a>' in public.text
-        assert 'class="mobile-menu-toggle"' in public.text
-        assert 'id="mobile-public-navigation"' in public.text
+        assert 'class="public-mobile-toggle"' in public.text
+        assert 'id="public-mobile-navigation"' in public.text
 
         submitted = client.post(
             "/assessment/submit", data=assessment_payload(phone), follow_redirects=False,
@@ -103,13 +103,13 @@ def run() -> None:
 
     assert "@media(max-width:768px)" in css
     assert "@media(min-width:769px)" in css
-    assert ".public-header .desktop-nav" in css and "display:none!important" in css
-    assert ".public-header .mobile-menu-toggle" in css and "display:inline-flex!important" in css
-    assert ".mobile-nav.is-open" in css
+    assert ".public-desktop-nav" in css and "display:none!important" in css
+    assert ".public-mobile-toggle" in css and "display:inline-flex!important" in css
+    assert ".public-mobile-nav.is-open" in css
     assert all(label in public_header for label in ["免费测评", "产品服务", "客户登录", "管理后台"])
     assert all(label in client_header for label in ["我的报告", "客户中心", "管理后台"])
-    assert 'class="desktop-nav"' in public_header
-    assert 'class="mobile-nav"' in public_header
+    assert 'class="public-desktop-nav"' in public_header
+    assert 'class="public-mobile-nav"' in public_header
     assert "nav-open" in js and "header.contains(event.target)" in js
     assert 'event.key === "Escape"' in js and "window.innerWidth > 768" in js
     print("NAVIGATION_IDENTITY_OK")
