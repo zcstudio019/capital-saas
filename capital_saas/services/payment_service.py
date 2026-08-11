@@ -42,8 +42,12 @@ def create_order(
         )
         if existing:
             return existing
-    customer = (db.query(CustomerAccount).filter(CustomerAccount.lead_id == assessment.lead.id).first()
-                if assessment.lead else None)
+    customer = db.get(CustomerAccount, assessment.report.customer_id) if assessment.report and assessment.report.customer_id else None
+    if not customer and assessment.lead:
+        from services.customer_portal_service import ensure_customer_account
+        customer = ensure_customer_account(db, assessment.lead, commit=False)
+        if assessment.report:
+            assessment.report.customer_id = customer.id
     order = Order(
         assessment_id=assessment.id,
         product_code=product_code,
@@ -121,6 +125,13 @@ def mark_order_paid(
         safe_create_notification(db,"upgrade_recommend_customer",{"company_name":assessment.company_name},
             recipient_customer_id=order.customer_id,scheduled_at=datetime.now()+timedelta(hours=hours),
             related_type="order_upgrade",related_id=order.id)
+    if order.customer_id and order.product_code == "980_capital_health_report":
+        from services.notification_service import safe_create_notification
+        safe_create_notification(db,"capital_health_report_unlocked_customer",{
+            "company_name":assessment.company_name,
+            "action_url":f"/client/reports/{assessment.report.id}" if assessment.report else "/client/reports",
+        },recipient_customer_id=order.customer_id,related_type="report",
+            related_id=assessment.report.id if assessment.report else None)
     db.flush()
     track_event(
         db,

@@ -6,22 +6,89 @@ from sqlalchemy.orm import Session
 
 from core.document_completeness_engine import check_document_completeness
 from db.database import get_db
-from db.models import (ConsultingCase, CustomerAccessToken, CustomerAccount,
-    CustomerMessage, CustomerTask, FinancingProject, Lead, UploadedDocument)
+from db.models import (Assessment, ConsultingCase, CustomerAccessToken, CustomerAccount,
+    CustomerMessage, CustomerTask, FinancingProject, Lead, Report, UploadedDocument)
 from services.event_service import track_event
+
+
+def normalize_customer_phone(value: str | None) -> str:
+    """Return a stable phone identity without changing the submitted lead value."""
+    return "".join(ch for ch in str(value or "").strip() if ch.isdigit() or ch == "+")
 
 
 def ensure_customer_account(db: Session, lead: Lead, commit: bool = True) -> CustomerAccount:
     customer = db.query(CustomerAccount).filter(CustomerAccount.lead_id == lead.id).first()
+    normalized_phone = normalize_customer_phone(lead.phone)
+    if not customer and normalized_phone:
+        candidates = db.query(CustomerAccount).filter(
+            CustomerAccount.is_active.is_(True)
+        ).order_by(CustomerAccount.created_at.asc()).all()
+        customer = next(
+            (item for item in candidates if normalize_customer_phone(item.login_phone or item.phone) == normalized_phone),
+            None,
+        )
     if not customer:
         customer = CustomerAccount(lead_id=lead.id, assessment_id=lead.assessment_id,
             company_name=lead.company_name, contact_name=lead.contact_name, phone=lead.phone,
-            wechat_id=lead.wechat_id, login_phone=lead.phone, is_active=True)
+            wechat_id=lead.wechat_id, login_phone=normalized_phone or lead.phone, is_active=True)
         db.add(customer); db.flush()
         track_event(db, "customer_portal_created", lead.assessment_id, lead.id,
                     {"customer_id": customer.id}, commit=False)
+    else:
+        if not customer.login_phone and normalized_phone:
+            customer.login_phone = normalized_phone
+        if lead.wechat_id and not customer.wechat_id:
+            customer.wechat_id = lead.wechat_id
+        track_event(db, "assessment_linked_to_customer", lead.assessment_id, lead.id,
+                    {"customer_id": customer.id}, commit=False)
     if commit: db.commit(); db.refresh(customer)
     return customer
+
+
+def bind_report_to_customer(db: Session, report: Report, customer: CustomerAccount) -> Report:
+    if report.customer_id != customer.id:
+        report.customer_id = customer.id
+    return report
+
+
+def customer_owns_report(db: Session, customer: CustomerAccount, report: Report) -> bool:
+    """Authorize by direct ownership, with one-time legacy adoption by verified identity."""
+    if report.customer_id == customer.id:
+        return True
+    assessment = report.assessment or db.get(Assessment, report.assessment_id)
+    if not assessment:
+        return False
+    same_phone = bool(
+        normalize_customer_phone(customer.login_phone or customer.phone)
+        and normalize_customer_phone(customer.login_phone or customer.phone)
+        == normalize_customer_phone(assessment.phone)
+    )
+    same_wechat = bool(customer.wechat_id and assessment.wechat_id and customer.wechat_id == assessment.wechat_id)
+    if same_phone or same_wechat:
+        report.customer_id = customer.id
+        db.flush()
+        return True
+    return False
+
+
+def reports_for_customer(db: Session, customer: CustomerAccount) -> list[Report]:
+    """Return every historical report and adopt compatible legacy rows."""
+    direct = db.query(Report).filter(Report.customer_id == customer.id).all()
+    reports = {item.id: item for item in direct}
+    identity_phone = normalize_customer_phone(customer.login_phone or customer.phone)
+    legacy = db.query(Report).join(Assessment, Report.assessment_id == Assessment.id).all()
+    changed = False
+    for report in legacy:
+        assessment = report.assessment
+        phone_match = bool(identity_phone and identity_phone == normalize_customer_phone(assessment.phone))
+        wechat_match = bool(customer.wechat_id and assessment.wechat_id == customer.wechat_id)
+        if phone_match or wechat_match:
+            report.customer_id = customer.id
+            reports[report.id] = report
+            changed = True
+    if changed:
+        db.commit()
+    return sorted(reports.values(), key=lambda item: (item.created_at, item.id), reverse=True)
 
 
 def generate_login_token(db: Session, customer: CustomerAccount,

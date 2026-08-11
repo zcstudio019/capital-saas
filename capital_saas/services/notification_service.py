@@ -18,6 +18,9 @@ FORBIDDEN_WORDS=("包过","保证放款","绝对通过","无视征信","包装�
 CHANNELS={"in_app":InAppChannel(),"email":EmailChannel(),"sms":SmsChannel(),
           "wecom_webhook":WecomChannel(),"mock":MockChannel()}
 DEFAULT_TEMPLATES=[
+ ("free_report_ready_customer","免费报告已生成","customer","in_app","service","您的企业资本健康报告已生成","本次企业资本健康测评结果已经生成，可随时进入“我的报告”查看。"),
+ ("capital_health_report_unlocked_customer","完整体检报告已解锁","customer","in_app","service","完整体检报告已解锁","{{company_name}}的企业资本健康体检报告已解锁，可进入“我的报告”长期查看。"),
+ ("customer_portal_access_link","客户门户登录链接","customer","sms","service","我的报告访问链接","请使用专属链接查看历史报告：{{access_url}}。链接7天内有效，请勿转发。"),
  ("report_approved_customer","报告已审核通过","customer","in_app","service","您的融资诊断报告已可查看","{{company_name}}的融资诊断报告已完成审核，请登录客户门户查看。"),
  ("structure_plan_approved_customer","融资结构优化方案复核完成","customer","in_app","service","融资结构优化方案已完成","您的企业融资结构优化方案已完成专业复核，现在可以查看。"),
  ("document_missing_customer","资料补充提醒","customer","in_app","service","融资资料需要补充","当前尚缺：{{missing_documents}}。请登录客户门户上传，顾问将在收到后核验。"),

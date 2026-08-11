@@ -104,6 +104,7 @@ SQLITE_COLUMNS = {
         "customer_id": "INTEGER",
     },
     "reports": {
+        "customer_id": "INTEGER",
         "public_token": "VARCHAR(100)",
         "token_expired_at": "DATETIME",
         "review_status": "VARCHAR(30) NOT NULL DEFAULT 'draft'",
@@ -112,6 +113,9 @@ SQLITE_COLUMNS = {
         "review_note": "TEXT NOT NULL DEFAULT ''",
         "current_version_id": "INTEGER",
         "deleted_at":"DATETIME","deleted_by":"INTEGER","delete_reason":"TEXT NOT NULL DEFAULT ''",
+    },
+    "report_versions": {
+        "access_level": "VARCHAR(40) NOT NULL DEFAULT 'free'",
     },
     "events": {
         "source_channel": "VARCHAR(100) NOT NULL DEFAULT ''",

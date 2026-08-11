@@ -9,7 +9,7 @@
 
   <form class="card filter-bar" method="get">
     <label>企业名称<input name="company_keyword" value="{{ filters.company_keyword }}" placeholder="搜索企业名称"></label>
-    <label>生成状态<select name="generation_status"><option value="">全部</option>{% for item in ["generated", "pending"] %}<option value="{{ item }}" {{ "selected" if filters.generation_status == item else "" }}>{{ item|report_generation_status_label }}</option>{% endfor %}</select></label>
+    <label>生成状态<select name="generation_status"><option value="">全部</option>{% for item in ["generated", "draft", "generation_failed"] %}<option value="{{ item }}" {{ "selected" if filters.generation_status == item else "" }}>{{ item|report_generation_status_label }}</option>{% endfor %}</select></label>
     <label>审核状态<select name="review_status">
       <option value="">全部</option>
       {% for value, label in [("pending_review", "待审核"), ("approved", "已通过"), ("rejected", "已驳回"), ("reviewing", "审核中")] %}
@@ -25,7 +25,7 @@
     <thead><tr><th>ID</th><th>企业</th><th>产品层级</th><th>评分</th><th>生成状态</th><th>审核状态</th><th>创建时间</th><th>操作</th></tr></thead>
     <tbody>
     {% for item in reports %}
-      {% set generation_code = "generated" if item.full_report_json else "pending" %}
+      {% set generation_code = generation_statuses.get(item.id, "draft") %}
       {% set can_review = item.id in reviewable_report_ids %}
       <tr data-report-id="{{ item.id }}">
         <td>#{{ item.id }}</td><td>{{ item.assessment.company_name|display_company_name }}</td><td>{{ report_products.get(item.assessment_id, "free_assessment")|product_label }}</td><td>{{ item.assessment.score }} / {{ item.assessment.grade }}级</td>
@@ -33,6 +33,7 @@
         <td><span class="badge {{ "paid" if item.review_status == "approved" else "pending" if item.review_status in ["pending_review", "reviewing"] else "" }}">{{ item.review_status|report_review_status_label }}</span></td>
         <td>{{ item.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
         <td class="table-action">
+          {% if item.id in previewable_report_ids %}<a class="btn-mini btn-primary" href="/admin/reports/{{ item.id }}/preview">{{ "预览" if item.review_status in ["pending_review", "reviewing"] else "查看" }}</a>{% endif %}
           {% if item.review_status == "pending_review" and can_review %}<a class="btn-mini btn-primary" href="/admin/reports/{{ item.id }}/review">立即审核</a>
           {% elif item.review_status == "reviewing" and can_review %}<a class="btn-mini" href="/admin/reports/{{ item.id }}/review">继续审核</a>{% endif %}
           <a href="/admin/reports/{{ item.id }}">详情</a>

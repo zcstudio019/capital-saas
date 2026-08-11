@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 
 from core.bank_product_matcher import match_bank_products
 from core.access_scope import effective_role, get_access_scope
-from core.capital_health_report import ensure_capital_health_snapshot
 from core.pricing_engine import PRODUCT_RANK
 from core.config import BASE_DIR, settings
 from core.document_checklist_engine import generate_document_checklist
@@ -36,6 +35,12 @@ from services.notification_service import (
     safe_create_notification,
 )
 from services.report_service import generate_full_report
+from services.admin_report_preview_service import (
+    assert_admin_report_preview_access,
+    build_admin_report_preview_context,
+    ensure_report_version_compat,
+    infer_version_access_level,
+)
 from services.settings_service import get_setting
 from services.document_parse_service import run_parse_task
 from utils.logger import logger
@@ -624,7 +629,10 @@ def report_review_page(
 ):
     report = _report_or_404(db, report_id)
     review_case = _assert_report_review_access(db, report, user)
-    generate_full_report(db, report.assessment)
+    current_version = ensure_report_version_compat(db, report)
+    if current_version is None:
+        generate_full_report(db, report.assessment)
+        current_version = ensure_report_version_compat(db, report)
     if report.review_status == "pending_review":
         report.review_status = "reviewing"
         report.reviewed_by = user.id
@@ -637,12 +645,10 @@ def report_review_page(
             commit=False,
         )
         db.commit()
-    health_report = ensure_capital_health_snapshot(db, report.assessment)
-    try:
-        report_payload = json.loads(report.full_report_json or "{}")
-    except (TypeError, ValueError):
-        report_payload = {}
-    current_version = db.get(ReportVersion, report.current_version_id) if report.current_version_id else None
+    preview_context = build_admin_report_preview_context(db, report, user)
+    health_report = preview_context["health_report"]
+    report_payload = preview_context["report"]
+    current_version = preview_context["preview_version"]
     paid_orders = db.query(Order).filter(
         Order.assessment_id == report.assessment_id,
         Order.status == "paid",
@@ -699,9 +705,11 @@ def report_versions(
     request: Request,
     report_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "viewer")),
+    user: User = Depends(require_roles("admin", "super_admin", "consultant_manager", "consultant", "sales")),
 ):
     report = _report_or_404(db, report_id)
+    assert_admin_report_preview_access(db, report, user)
+    ensure_report_version_compat(db, report)
     versions = db.query(ReportVersion).filter(
         ReportVersion.report_id == report.id
     ).order_by(ReportVersion.version_no.desc()).all()
@@ -711,7 +719,15 @@ def report_versions(
             metadata = json.loads(version.report_json).get("report_meta", {})
         except (TypeError, ValueError):
             metadata = {}
-        version_views.append({"version": version, "metadata": metadata})
+        try:
+            version_payload = json.loads(version.report_json or "{}")
+        except (TypeError, ValueError):
+            version_payload = {}
+        version_views.append({
+            "version": version,
+            "metadata": metadata,
+            "access_level": infer_version_access_level(db, report, version, version_payload),
+        })
     return templates.TemplateResponse(
         request=request, name="admin_report_versions.html",
         context={"report_item": report, "versions": versions, "version_views": version_views, "current_user": user},
@@ -724,22 +740,19 @@ def report_version_detail(
     report_id: int,
     version_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "sales", "viewer")),
+    user: User = Depends(require_roles("admin", "super_admin", "consultant_manager", "consultant", "sales")),
 ):
     report = _report_or_404(db, report_id)
+    assert_admin_report_preview_access(db, report, user)
     version = db.query(ReportVersion).filter(
         ReportVersion.id == version_id, ReportVersion.report_id == report.id
     ).first()
     if not version:
         raise HTTPException(status_code=404, detail="报告版本不存在")
-    version_payload = json.loads(version.report_json)
-    return templates.TemplateResponse(
-        request=request, name="admin_report_version_detail.html",
-        context={
-            "report_item": report, "version": version,
-            "report": version_payload, "version_meta": version_payload.get("report_meta", {}), "current_user": user,
-        },
-    )
+    context = build_admin_report_preview_context(db, report, user, version.id)
+    context.update({"request": request, "current_user": user})
+    template_name = "result_free.html" if context["access_level"] == "free" else "report_full.html"
+    return templates.TemplateResponse(request=request, name=template_name, context=context)
 
 
 @router.post("/admin/reports/{report_id}/versions/{version_id}/set-current")
@@ -747,9 +760,10 @@ def set_current_version(
     report_id: int,
     version_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin")),
+    user: User = Depends(require_roles("admin", "super_admin")),
 ):
     report = _report_or_404(db, report_id)
+    assert_admin_report_preview_access(db, report, user)
     version = db.query(ReportVersion).filter(
         ReportVersion.id == version_id, ReportVersion.report_id == report.id
     ).first()
@@ -822,8 +836,10 @@ def approve_report(
         })
         current_version.report_json = json.dumps(version_content, ensure_ascii=False)
     from db.models import CustomerAccount
-    customer = db.query(CustomerAccount).filter(CustomerAccount.assessment_id == report.assessment_id,
-        CustomerAccount.is_active.is_(True)).first()
+    customer = db.get(CustomerAccount, report.customer_id) if report.customer_id else None
+    if not customer:
+        customer = db.query(CustomerAccount).filter(CustomerAccount.assessment_id == report.assessment_id,
+            CustomerAccount.is_active.is_(True)).first()
     paid_orders = db.query(Order).filter(
         Order.assessment_id == report.assessment_id,
         Order.status == "paid",

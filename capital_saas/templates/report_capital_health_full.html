@@ -6,11 +6,12 @@
   <link rel="stylesheet" href="/static/css/capital_health_report.css">
 </head>
 <body class="capital-report-page">
+  {% set backend_report_id = report_item.id if report_item is defined and report_item else assessment.report.id %}
   <div class="report-toolbar">
-    {% if backend_view %}<a href="/admin/reports">返回报告管理</a>
+    {% if backend_view %}<a href="/admin/reports/{{ backend_report_id }}">返回报告详情</a>
     {% elif client_view %}<a href="/client/reports">返回客户中心</a>
     {% else %}<a href="/">返回客户中心</a>{% endif %}
-    <a target="_blank" href="/report/{{ assessment.id }}/print">打印报告</a>
+    <a target="_blank" href="{% if backend_view %}/admin/reports/{{ backend_report_id }}/print{% if preview_version is defined and current_version is defined and preview_version and current_version and preview_version.id != current_version.id %}?version_id={{ preview_version.id }}{% endif %}{% else %}/report/{{ assessment.id }}/print{% endif %}">打印报告</a>
     <span class="toolbar-note">在打印窗口选择“另存为 PDF”即可下载</span>
     {% if backend_view %}
       <form method="post" action="/admin/reports/{{ assessment.report.id }}/regenerate"><button type="submit">重新生成报告</button></form>

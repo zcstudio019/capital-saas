@@ -16,7 +16,7 @@
   <header class="site-header"><div class="container nav">
     <a class="brand" href="/"><span>{{ request.state.company_name }}</span><small>{{ request.state.site_name }}</small></a>
     <nav>
-      <a href="/assessment">免费测评</a><a href="/products">产品服务</a>
+      <a href="/assessment">免费测评</a><a href="/products">产品服务</a><a href="{{ '/client/reports' if request.session.get('customer_id') else '/my-reports' }}">我的报告</a>
       {% if request.session.get('user_id') %}
         <a href="{{ '/sales/workbench' if request.session.get('role') == 'sales' else '/admin' }}">管理后台</a>
         {% if request.session.get('role') in ['admin', 'super_admin', 'city_manager', 'sales_manager', 'sales'] %}<a href="/admin/products">产品管理</a>{% endif %}

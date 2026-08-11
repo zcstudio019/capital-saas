@@ -1,4 +1,5 @@
 import hashlib
+import json
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -13,14 +14,15 @@ from core.access_scope import get_access_scope
 from core.config import BASE_DIR, settings
 from core.pricing_engine import PRODUCT_RANK, products
 from core.data_masking import mask_phone
-from core.capital_health_report import ensure_capital_health_snapshot
+from core.capital_health_report import ensure_capital_health_snapshot, report_entitlements
 from db.database import get_db
 from db.models import (ConsultingCase, CustomerAccessToken, CustomerAccount,
     CustomerConfirmation, CustomerMessage, CustomerTask, Event, FinancingProject,
-    FundingApplication, Lead, Order, ProjectTimelineEvent, Report, ReportVersion, UploadedDocument, User)
+    FundingApplication, Lead, NotificationJob, Order, ProjectTimelineEvent, Report, ReportVersion, UploadedDocument, User)
 from services.auth_service import require_roles
 from services.customer_portal_service import (advisor_context, complete_document_tasks,
-    ensure_customer_account, ensure_document_tasks, generate_login_token, portal_completeness,
+    customer_from_session, customer_owns_report, ensure_customer_account, ensure_document_tasks,
+    generate_login_token, normalize_customer_phone, portal_completeness, reports_for_customer,
     require_customer, send_customer_message)
 from services.document_parse_service import classify_document, run_parse_task
 from services.event_service import track_event
@@ -62,6 +64,9 @@ def _customer_access(db,user,customer):
 def _latest_product(orders):
     paid=[x for x in orders if x.status=="paid"]
     return max((x.product_code for x in paid),key=lambda x:PRODUCT_RANK.get(x,0),default="未购买")
+def _capital_grade(score):
+    value=float(score or 0)
+    return 'A' if value>=80 else 'B+' if value>=70 else 'B' if value>=60 else 'C' if value>=50 else 'D'
 def _client_context(db,customer):
     lead=_lead(db,customer.lead_id);orders=db.query(Order).filter(Order.assessment_id==customer.assessment_id).all()
     project=db.query(FinancingProject).filter(FinancingProject.lead_id==lead.id).order_by(FinancingProject.id.desc()).first()
@@ -72,7 +77,7 @@ def _client_context(db,customer):
         "advisor":advisor_context(db,lead.id),"project_status":CLIENT_PROJECT_STATUS}
 
 @router.get('/client/login-token/{token}')
-def client_login(request:Request,token:str,db:Session=Depends(get_db)):
+def client_login(request:Request,token:str,next:str="/client/reports",db:Session=Depends(get_db)):
     item=db.query(CustomerAccessToken).filter(CustomerAccessToken.token==token,
         CustomerAccessToken.is_active.is_(True)).first()
     if not item or item.expired_at<datetime.now():raise HTTPException(401,"客户登录链接不存在或已过期")
@@ -81,7 +86,33 @@ def client_login(request:Request,token:str,db:Session=Depends(get_db)):
     request.session.clear();request.session['customer_id']=customer.id;request.session['customer_lead_id']=customer.lead_id
     item.used_at=datetime.now();customer.last_login_at=datetime.now()
     track_event(db,'customer_logged_in',customer.assessment_id,customer.lead_id,{"customer_id":customer.id},commit=False)
-    db.commit();return RedirectResponse('/client/dashboard',303)
+    target = next if next.startswith("/client/") else "/client/reports"
+    db.commit();return RedirectResponse(target,303)
+
+@router.get('/my-reports',response_class=HTMLResponse)
+def my_reports_entry(request:Request,next:str="/client/reports",db:Session=Depends(get_db)):
+    customer=customer_from_session(request,db)
+    if customer:return RedirectResponse('/client/reports',303)
+    return templates.TemplateResponse(request=request,name='client_report_access.html',context={
+        'next_url':next if next.startswith('/') else '/client/reports','submitted':False,
+    })
+
+@router.post('/my-reports/access',response_class=HTMLResponse)
+def request_report_access(request:Request,phone:str=Form(...),next_url:str=Form('/client/reports'),db:Session=Depends(get_db)):
+    normalized=normalize_customer_phone(phone)
+    candidates=db.query(CustomerAccount).filter(CustomerAccount.is_active.is_(True)).all()
+    customer=next((item for item in candidates if normalize_customer_phone(item.login_phone or item.phone)==normalized),None)
+    if customer and normalized:
+        token=generate_login_token(db,customer,days=7)
+        access_path=f"/client/login-token/{token.token}?next=/client/reports"
+        from services.notification_service import safe_create_notification
+        safe_create_notification(db,'customer_portal_access_link',{
+            'access_url':f"{str(request.base_url).rstrip('/')}{access_path}",
+        },recipient_customer_id=customer.id,related_type='customer_access_token',related_id=token.id)
+        db.commit()
+    return templates.TemplateResponse(request=request,name='client_report_access.html',context={
+        'next_url':next_url if next_url.startswith('/') else '/client/reports','submitted':True,
+    })
 
 @router.get('/client/logout')
 def client_logout(request:Request):request.session.clear();return RedirectResponse('/',303)
@@ -100,32 +131,79 @@ def client_dashboard(request:Request,db:Session=Depends(get_db),customer:Custome
 
 @router.get('/client/reports',response_class=HTMLResponse)
 def client_reports(request:Request,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
-    reports=db.query(Report).filter(Report.assessment_id==customer.assessment_id).all()
-    orders=db.query(Order).filter(Order.assessment_id==customer.assessment_id,Order.status=='paid').all()
-    return templates.TemplateResponse(request=request,name='client_reports.html',context={'customer':customer,'reports':reports,'unlocked':bool(orders)})
+    report_items=reports_for_customer(db,customer)
+    rows=[]
+    for report in report_items:
+        assessment=report.assessment
+        orders=db.query(Order).filter(Order.assessment_id==assessment.id,Order.status=='paid').all()
+        highest=max((item.product_code for item in orders),key=lambda code:PRODUCT_RANK.get(code,0),default='free_assessment')
+        if PRODUCT_RANK.get(highest,0)>=PRODUCT_RANK.get('1999_structure_plan',0):
+            report_name='企业融资结构优化方案';level='融资结构优化方案'
+        elif highest=='980_capital_health_report':
+            report_name='企业资本健康体检报告';level='完整体检报告'
+        elif highest=='699_bank_match':
+            report_name='银行产品专项匹配报告';level='历史专项报告'
+        elif highest=='299_report':
+            report_name='企业资本健康简版报告';level='历史简版报告'
+        else:
+            report_name='企业资本健康摘要';level='免费摘要'
+        review_label='已完成'
+        if PRODUCT_RANK.get(highest,0)>=PRODUCT_RANK.get('1999_structure_plan',0) and report.review_status in {'pending_review','draft'}:review_label='待复核'
+        elif report.review_status=='rejected':review_label='已驳回'
+        expired=datetime.now()>report.created_at+timedelta(days=int(get_setting(db,'capital_health_report_validity_days','90')))
+        if expired:review_label='已过有效期'
+        rows.append({
+            'report':report,'assessment':assessment,'report_name':report_name,'level_label':level,
+            'review_label':review_label,'expired':expired,'highest_product':highest,
+            'display_grade':_capital_grade(assessment.score),
+            'version_count':max(1,db.query(ReportVersion).filter(ReportVersion.report_id==report.id).count()),
+        })
+    return templates.TemplateResponse(request=request,name='client_reports.html',context={'customer':customer,'report_rows':rows})
 
 def _client_report(db,customer,report_id):
     report=db.get(Report,report_id)
-    if not report or report.assessment_id!=customer.assessment_id:raise HTTPException(404,"报告不存在")
+    if not report or not customer_owns_report(db,customer,report):raise HTTPException(404,"报告不存在")
+    db.commit()
     return report
+@router.get('/client/reports/{report_id}/versions',response_class=HTMLResponse)
+def client_report_versions(request:Request,report_id:int,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
+    report=_client_report(db,customer,report_id)
+    ensure_capital_health_snapshot(db,report.assessment)
+    versions=db.query(ReportVersion).filter(ReportVersion.report_id==report.id).order_by(ReportVersion.version_no.desc()).all()
+    rows=[]
+    for version in versions:
+        try:content=json.loads(version.report_json or '{}')
+        except (TypeError,ValueError):content={}
+        meta=content.get('report_meta') or {}
+        approved=version.access_level=='free' or meta.get('review_status')=='approved' or (version.id==report.current_version_id and report.review_status=='approved')
+        if not approved:continue
+        rows.append({'version':version,'meta':meta,'is_current':version.id==report.current_version_id})
+    return templates.TemplateResponse(request=request,name='client_report_versions.html',context={'customer':customer,'report_item':report,'versions':rows})
 @router.get('/client/reports/{report_id}',response_class=HTMLResponse)
 def client_report(request:Request,report_id:int,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
-    report=_client_report(db,customer,report_id);paid=db.query(Order).filter(Order.assessment_id==customer.assessment_id,Order.status=='paid').first()
-    if not paid:return templates.TemplateResponse(request=request,name='client_notice.html',context={'customer':customer,'title':'报告尚未解锁','message':'该报告尚未解锁。'})
-    if report.review_status!='approved':
+    report=_client_report(db,customer,report_id)
+    paid_orders=db.query(Order).filter(Order.assessment_id==report.assessment_id,Order.status=='paid').all()
+    entitlements=report_entitlements(db,report.assessment_id)
+    if not paid_orders:
+        health_report=ensure_capital_health_snapshot(db,report.assessment)
+        return templates.TemplateResponse(request=request,name='result_free.html',context={
+            'customer':customer,'assessment':report.assessment,'result':{},'health_report':health_report,
+            'variant':'portal','conversion_copy':{},'client_view':True,
+        })
+    if entitlements['structure_unlocked'] and report.review_status!='approved':
         version=db.get(ReportVersion,report.current_version_id) if report.current_version_id else None
         return templates.TemplateResponse(request=request,name='client_report_pending.html',context={
             'customer':customer,'report_item':report,
             'submitted_at':version.created_at if version else report.created_at,
         })
     generate_full_report(db, report.assessment)
-    full=parse_customer_report(report);health_report=ensure_capital_health_snapshot(db,report.assessment);track_event(db,'client_report_viewed',customer.assessment_id,customer.lead_id,{'report_id':report.id});set_pilot_stage(db,db.get(Lead,customer.lead_id),'report_viewed',commit=True)
+    full=parse_customer_report(report);health_report=ensure_capital_health_snapshot(db,report.assessment);track_event(db,'client_report_viewed',report.assessment_id,report.assessment.lead.id if report.assessment.lead else customer.lead_id,{'report_id':report.id});set_pilot_stage(db,report.assessment.lead,'report_viewed',commit=True)
     access_context=build_report_access_context(db,report.assessment,full,base_path=f'/client/reports/{report.id}')
     return templates.TemplateResponse(request=request,name='client_report.html',context={'customer':customer,'assessment':report.assessment,'report':full,'health_report':health_report,'print_mode':False,**access_context})
 @router.get('/client/reports/{report_id}/print',response_class=HTMLResponse)
 def client_report_print(request:Request,report_id:int,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
     report=_client_report(db,customer,report_id)
-    if report.review_status!='approved' or not db.query(Order).filter(Order.assessment_id==customer.assessment_id,Order.status=='paid').first():raise HTTPException(403,"报告尚不可打印")
+    if report.review_status!='approved' or not db.query(Order).filter(Order.assessment_id==report.assessment_id,Order.status=='paid').first():raise HTTPException(403,"报告尚不可打印")
     generate_full_report(db, report.assessment)
     full=parse_customer_report(report);health_report=ensure_capital_health_snapshot(db,report.assessment);access_context=build_report_access_context(db,report.assessment,full,base_path=f'/client/reports/{report.id}')
     return templates.TemplateResponse(request=request,name='client_report.html',context={'customer':customer,'assessment':report.assessment,'report':full,'health_report':health_report,'print_mode':True,**access_context})
@@ -133,7 +211,7 @@ def client_report_print(request:Request,report_id:int,db:Session=Depends(get_db)
 @router.get('/client/reports/{report_id}/bank-products/{product_id}',response_class=HTMLResponse)
 def client_bank_product_detail(request:Request,report_id:int,product_id:int,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
     report=_client_report(db,customer,report_id)
-    paid=db.query(Order).filter(Order.assessment_id==customer.assessment_id,Order.status=='paid').first()
+    paid=db.query(Order).filter(Order.assessment_id==report.assessment_id,Order.status=='paid').first()
     if not paid:return templates.TemplateResponse(request=request,name='client_notice.html',context={'customer':customer,'title':'报告尚未解锁','message':'该报告尚未解锁。'})
     if report.review_status!='approved':return templates.TemplateResponse(request=request,name='client_notice.html',context={'customer':customer,'title':'报告审核中','message':'报告正在生成/审核中，请稍后查看。'})
     generate_full_report(db, report.assessment)
@@ -204,7 +282,15 @@ def client_project(request:Request,project_id:int,db:Session=Depends(get_db),cus
 
 @router.get('/client/messages',response_class=HTMLResponse)
 def client_messages(request:Request,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
-    items=db.query(CustomerMessage).filter(CustomerMessage.customer_id==customer.id,CustomerMessage.status!='archived').order_by(CustomerMessage.created_at.desc()).all();return templates.TemplateResponse(request=request,name='client_messages.html',context={'customer':customer,'messages':items})
+    items=db.query(CustomerMessage).filter(CustomerMessage.customer_id==customer.id,CustomerMessage.status!='archived').order_by(CustomerMessage.created_at.desc()).all()
+    jobs=db.query(NotificationJob).filter(NotificationJob.recipient_customer_id==customer.id,NotificationJob.channel=='in_app').order_by(NotificationJob.created_at.desc()).limit(100).all()
+    notices=[]
+    for job in jobs:
+        try:payload=json.loads(job.payload_json or '{}')
+        except (TypeError,ValueError):payload={}
+        action_url=payload.get('action_url') or (f'/client/reports/{job.related_id}' if job.related_type=='report' and job.related_id else '')
+        notices.append({'title':job.title,'content':job.content,'created_at':job.created_at,'action_url':action_url})
+    return templates.TemplateResponse(request=request,name='client_messages.html',context={'customer':customer,'messages':items,'notices':notices})
 @router.get('/client/messages/{message_id}',response_class=HTMLResponse)
 def client_message(request:Request,message_id:int,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
     item=db.get(CustomerMessage,message_id)

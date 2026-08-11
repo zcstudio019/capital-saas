@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>企业资本健康摘要｜{{ assessment.company_name }}</title>
+  <link rel="stylesheet" href="/static/css/capital_health_report.css">
+  <style>
+    @page { size: A4; margin: 16mm 14mm 18mm; }
+    .free-print-document { max-width: 190mm; margin: 0 auto; background: #fff; color: #15243a; }
+    .free-print-head { border-top: 8px solid #0d2748; padding: 18mm 0 10mm; border-bottom: 1px solid #dce3eb; }
+    .free-print-head h1 { font-size: 30px; margin: 8px 0; color: #0d2748; }
+    .free-print-score { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 10mm 0; }
+    .free-print-score div, .free-print-card { border: 1px solid #dce3eb; border-radius: 8px; padding: 12px; }
+    .free-print-score span { display: block; color: #6d7a8d; font-size: 12px; }
+    .free-print-score strong { display: block; margin-top: 5px; font-size: 20px; }
+    .free-print-dimensions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .free-print-card h3 { margin: 0 0 6px; color: #0d2748; }
+    .free-print-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8mm; }
+    .free-print-footer { margin-top: 12mm; padding-top: 5mm; border-top: 1px solid #dce3eb; color: #6d7a8d; font-size: 11px; }
+    .no-print { margin: 12px auto; max-width: 190mm; }
+    @media print { .no-print { display: none !important; } .free-print-card { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <div class="no-print"><button onclick="window.print()">打印 / 保存为PDF</button></div>
+  <main class="free-print-document">
+    <header class="free-print-head">
+      <p>沪上银 · 企业资本健康管理中心</p>
+      <h1>企业资本健康摘要</h1>
+      <strong>{{ assessment.company_name }}</strong>
+    </header>
+    <section class="free-print-score">
+      <div><span>综合评分</span><strong>{{ health_report.score }} / 100</strong></div>
+      <div><span>综合评级</span><strong>{{ health_report.grade }}</strong></div>
+      <div><span>风险等级</span><strong>{{ health_report.risk_level }}</strong></div>
+      <div><span>融资建议</span><strong>{{ health_report.financing_advice }}</strong></div>
+    </section>
+    <section>
+      <h2>八维评分</h2>
+      <div class="free-print-dimensions">
+        {% for dimension in health_report.dimensions %}
+        <article class="free-print-card">
+          <h3>{{ dimension.dimension_name }}　{{ "%.1f"|format(dimension.raw_score) }} / 5</h3>
+          <strong>{{ dimension.status_light }}</strong>
+          <p>{{ dimension.free_explanation or dimension.status_description }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="free-print-columns">
+      <article class="free-print-card"><h3>主要优势</h3><ol>{% for item in health_report.free_value.advantages %}<li>{{ item }}</li>{% endfor %}</ol></article>
+      <article class="free-print-card"><h3>核心风险</h3><ol>{% for item in health_report.free_value.risks %}<li>{{ item }}</li>{% endfor %}</ol></article>
+      <article class="free-print-card"><h3>基础建议</h3><ol>{% for item in health_report.free_value.suggestions %}<li>{{ item }}</li>{% endfor %}</ol></article>
+    </section>
+    <section class="free-print-card" style="margin-top:8mm">
+      <h2>融资路径初判</h2>
+      <p><strong>{{ health_report.free_value.financing_path.path }}</strong></p>
+      <p>{{ health_report.free_value.financing_path.next_focus }}</p>
+    </section>
+    <footer class="free-print-footer">本摘要基于客户当前提交信息生成，仅作融资准备参考，不构成融资承诺。</footer>
+  </main>
+</body>
+</html>

@@ -3,44 +3,93 @@
 {% block extra_head %}<link rel="stylesheet" href="/static/css/capital_health_report.css">{% endblock %}
 {% block content %}
 <div class="capital-free-page">
-  <div class="free-health-shell">
-    <header class="free-brand"><span>沪上银企业资本健康测评</span><span>免费结果</span></header>
-    <section class="free-hero">
+  <main class="free-health-shell">
+    {% if admin_preview %}
+    <nav class="report-toolbar admin-free-preview-toolbar" aria-label="后台报告操作">
+      <a href="/admin/reports/{{ report_item.id }}">返回报告详情</a>
+      <a href="/admin/reports/{{ report_item.id }}/versions">历史版本</a>
+      <a target="_blank" href="/admin/reports/{{ report_item.id }}/print{% if preview_version and current_version and preview_version.id != current_version.id %}?version_id={{ preview_version.id }}{% endif %}">打印报告</a>
+      <span class="toolbar-note">后台内部预览，不受客户付费权限限制</span>
+    </nav>
+    {% endif %}
+    <header class="free-brand"><span>沪上银企业资本健康测评</span><a href="/my-reports">我的报告</a></header>
+
+    <section class="free-hero" aria-labelledby="free-report-title">
       <div>
-        <p>企业资本健康摘要</p><h1>{{ assessment.company_name }}</h1>
-        <p>{{ health_report.financing_advice }}</p>
+        <p class="free-kicker">企业资本健康摘要</p>
+        <h1 id="free-report-title">{{ assessment.company_name }}</h1>
+        <p class="free-advice">{{ health_report.financing_advice }}</p>
         <div class="free-metrics">
+          <article class="metric-card"><span>综合评分</span><strong>{{ health_report.score }}<small>/100</small></strong></article>
           <article class="metric-card"><span>综合评级</span><strong>{{ health_report.grade }}</strong></article>
           <article class="metric-card"><span>风险等级</span><strong>{{ health_report.risk_level }}</strong></article>
-          <article class="metric-card"><span>融资路径</span><strong style="font-size:20px">{{ health_report.financing_capacity.path }}</strong></article>
         </div>
       </div>
-      <div class="score-ring"><div><strong>{{ health_report.score }}</strong><span>企业资本健康度 / 100</span></div></div>
+      <div class="score-ring" aria-label="企业资本健康度 {{ health_report.score }} 分"><div><strong>{{ health_report.score }}</strong><span>企业资本健康度 / 100</span></div></div>
     </section>
-    <section class="free-panel">
-      <h2>八维评分预览</h2>
-      {% for dimension in health_report.dimensions %}
-      <div class="dimension-row"><strong>{{ dimension.dimension_name }}</strong><div class="dimension-track"><i style="width:{{ (dimension.raw_score * 20)|round|int }}%"></i></div><span class="dimension-score">{{ "%.1f"|format(dimension.raw_score) }}/5</span>
-      <div class="dimension-meta"><span>{{ dimension.status_description }}</span><span class="light-tag light-{{ 'green' if dimension.status_light == '绿灯' else 'yellow' if dimension.status_light == '黄灯' else 'orange' if dimension.status_light == '橙灯' else 'red' }}">{{ dimension.status_light }}</span></div></div>
-      {% endfor %}
-    </section>
-    <section class="free-panel">
-      <h2>核心发现（前三个核心风险预览）</h2>
-      <div class="finding-grid">
-        <article class="finding-card"><strong>一项优势</strong><p>{{ health_report.executive_summary[0].content }}</p></article>
-        {% for risk in health_report.top_risks[:2] %}<article class="finding-card"><strong>核心风险 {{ loop.index }}</strong><p>{{ risk.warning_item }}：{{ risk.description }}</p></article>{% endfor %}
+
+    <section class="free-panel" id="dimension-preview">
+      <div class="free-section-head"><div><span>八维健康画像</span><h2>八维评分完整展示</h2></div><p>免费展示维度结论；检查明细和评分依据在完整报告中查看。</p></div>
+      <div class="free-dimension-grid">
+        {% for dimension in health_report.dimensions %}
+        <article class="free-dimension-card">
+          <div class="free-dimension-title"><h3>{{ dimension.dimension_name }}</h3><strong>{{ "%.1f"|format(dimension.raw_score) }} / 5</strong></div>
+          <div class="dimension-track" aria-hidden="true"><i style="width:{{ (dimension.raw_score * 20)|round|int }}%"></i></div>
+          <div class="dimension-meta"><span>权重 {{ dimension.weight }}%</span><span class="light-tag light-{{ 'green' if dimension.status_light == '绿灯' else 'yellow' if dimension.status_light == '黄灯' else 'orange' if dimension.status_light == '橙灯' else 'red' }}">{{ dimension.status_light }}</span></div>
+          <p>{{ dimension.free_explanation or dimension.status_description }}</p>
+        </article>
+        {% endfor %}
       </div>
-      <p><strong>初步优化建议：</strong>{{ health_report.initial_suggestion }}</p>
     </section>
-    <section class="free-panel">
-      <h2>完整报告包含</h2>
-      <div class="locked-preview"><div>🔒 完整八维分项检查</div><div>🔒 风险红旗清单</div><div>🔒 融资能力评估</div><div>🔒 真实银行产品匹配</div><div>🔒 分阶段行动计划</div></div>
+
+    <section class="free-panel free-value-section">
+      <div class="free-section-head"><div><span>3 + 3 + 3</span><h2>本次测评的核心发现</h2></div><p>以下结论由本次填报数据动态生成。</p></div>
+      <div class="free-three-columns">
+        <article class="free-value-card advantage"><h3>3个主要优势</h3><ol>{% for item in health_report.free_value.advantages %}<li>{{ item }}</li>{% endfor %}</ol></article>
+        <article class="free-value-card risk"><h3>3个核心风险</h3><p class="card-caption">前三个核心风险</p><ol>{% for item in health_report.free_value.risks %}<li>{{ item }}</li>{% endfor %}</ol></article>
+        <article class="free-value-card suggestion"><h3>3条基础建议</h3><p class="card-caption">初步优化建议</p><ol>{% for item in health_report.free_value.suggestions %}<li>{{ item }}</li>{% endfor %}</ol></article>
+      </div>
     </section>
-    <section class="free-unlock">
-      <div><h2>完整企业资本健康体检报告已生成</h2><p>解锁八维完整体检、风险异常项清单、详细评分依据和基础融资路径建议。</p><ul><li>八维完整体检</li><li>风险异常项清单</li><li>详细评分依据</li><li>基础融资路径建议</li></ul></div>
-      <div><div class="free-price">¥{{ health_report.prices.report }}</div><a class="report-button" href="/checkout/{{ assessment.id }}?product=980_capital_health_report&upgrade=1">解锁完整体检报告</a></div>
+
+    <section class="free-panel financing-path-card">
+      <div class="free-section-head"><div><span>方向判断</span><h2>融资路径初判</h2></div></div>
+      <div class="path-summary">
+        <div><span>当前路径</span><strong>{{ health_report.free_value.financing_path.path }}</strong></div>
+        <div><span>核心原因</span><ul>{% for reason in health_report.free_value.financing_path.reasons %}<li>{{ reason }}</li>{% endfor %}</ul></div>
+        <div><span>下一阶段重点</span><p>{{ health_report.free_value.financing_path.next_focus }}</p></div>
+      </div>
     </section>
-    <div class="trust-list"><span>✓ 基于客户提供信息和已核验资料</span><span>✓ 不构成融资承诺</span><span>✓ 支付后可长期查看</span><span>✓ 报告有效期90天</span></div>
-  </div>
+
+    <section class="free-panel financing-range-card">
+      <div><span>初步融资空间参考</span>
+        {% if health_report.free_value.financing_range %}
+          <h2>{{ health_report.free_value.financing_range.display }}</h2><p>{{ health_report.free_value.financing_range.disclaimer }}</p>
+        {% else %}
+          <h2>待补充资料后评估</h2><p>当前信息不足以形成可靠额度区间，系统不会用无依据数字代替征信、流水和财务核验。</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="free-panel paid-preview-section">
+      <div class="free-section-head"><div><span>正式诊断交付</span><h2>完整企业资本健康体检报告已生成</h2></div><strong class="preview-price">¥{{ health_report.prices.report }}</strong></div>
+      <div class="locked-preview" aria-label="980元报告解锁内容">
+        <div>八维完整检查明细</div><div>各项评分依据</div><div>风险红旗清单</div><div>异常项分析</div><div>融资能力完整评估</div><div>基础优化建议</div>
+      </div>
+      <a class="report-button" href="/checkout/{{ assessment.id }}?product=980_capital_health_report&upgrade=1">解锁完整体检报告</a>
+    </section>
+
+    <section class="free-panel structure-preview-section">
+      <div class="free-section-head"><div><span>执行方案升级</span><h2>融资结构优化方案</h2></div><div class="structure-price"><small>累计</small><strong>¥{{ health_report.prices.structure_original or 1999 }}</strong>{% if health_report.prices.structure_deduction %}<span>已抵扣 ¥{{ health_report.prices.structure_deduction }}，升级应付 ¥{{ health_report.prices.structure }}</span>{% endif %}</div></div>
+      <div class="locked-preview structure-items"><div>个性化指标改善方案</div><div>真实银行产品匹配</div><div>申请顺序</div><div>融资资料准备清单</div><div>30/90/180天行动计划</div><div>6个月融资落地节奏</div></div>
+      <p class="safe-note">本层仅展示权益目录，不展示银行产品结果、资料清单和行动方案正文。</p>
+    </section>
+
+    <section class="free-report-save">
+      <div><h2>本次报告已保存到客户报告中心</h2><p>以后重新打开网站，可通过“我的报告”找回；重新测评不会覆盖本次记录。</p></div>
+      <div class="free-report-actions"><a class="report-button" href="/client/reports">保存并查看我的报告</a><a class="report-link-button" href="/my-reports">查看历史报告</a></div>
+    </section>
+
+    <div class="trust-list"><span>✓ 基于客户提供信息和已核验资料</span><span>✓ 不构成融资承诺</span><span>✓ 历史报告长期保留</span><span>✓ 超过90天仍可查看并提示复测</span></div>
+  </main>
 </div>
 {% endblock %}

@@ -1,16 +1,18 @@
 import json
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
 from core.lead_scoring_engine import calculate_lead_score
 from core.sales_script_engine import generate_sales_script
 from core.scoring_engine import calculate_score
-from db.models import Assessment, ChannelPartner, Lead, Organization, PromotionQRCode, Report, User
+from core.capital_health_report import build_capital_health_report
+from db.models import Assessment, ChannelPartner, Lead, Organization, PromotionQRCode, Report, ReportVersion, User
 from services.attribution_service import ATTRIBUTION_FIELDS
 from services.event_service import track_event
 from services.follow_task_service import create_default_tasks
 from services.customer_portal_service import ensure_customer_account
-from services.notification_service import notify_new_lead, notify_qr_lead_created
+from services.notification_service import notify_new_lead, notify_qr_lead_created, safe_create_notification
 from services.pilot_service import bind_by_invite_code, set_pilot_stage
 
 
@@ -66,13 +68,15 @@ def create_assessment(db: Session, form_data: dict) -> Assessment:
         funding_need=assessment.funding_need,
         risk_point=score.core_risk,
     )
-    db.add(
-        Report(
-            assessment_id=assessment.id,
-            free_summary_json=json.dumps(free_summary, ensure_ascii=False),
-            is_unlocked=False,
-        )
+    report = Report(
+        assessment=assessment,
+        free_summary_json=json.dumps(free_summary, ensure_ascii=False),
+        is_unlocked=False,
+        review_status="approved",
+        review_note="免费摘要生成后立即可见，无需人工审核。",
     )
+    db.add(report)
+    db.flush()
     lead = Lead(
             assessment_id=assessment.id,
             company_name=assessment.company_name,
@@ -95,7 +99,36 @@ def create_assessment(db: Session, form_data: dict) -> Assessment:
         )
     db.add(lead)
     db.flush()
-    ensure_customer_account(db, lead, commit=False)
+    customer = ensure_customer_account(db, lead, commit=False)
+    report.customer_id = customer.id
+    free_snapshot = build_capital_health_report(db, assessment, include_extended=False)
+    free_snapshot["access_level"] = "free"
+    free_snapshot["snapshot_created_at"] = datetime.now().isoformat(timespec="seconds")
+    report.full_report_json = json.dumps({
+        "capital_health_snapshot": free_snapshot,
+        "report_meta": {
+            "access_level": "free",
+            "created_at": report.created_at.isoformat(),
+            "created_by": "system",
+            "review_status": "approved",
+            "change_summary": "首次生成企业资本健康摘要",
+        },
+    }, ensure_ascii=False)
+    version = ReportVersion(
+        report_id=report.id,
+        assessment_id=assessment.id,
+        version_no=1,
+        product_code="free_assessment",
+        access_level="free",
+        generator_mode="scoring_engine",
+        quality_score=100,
+        report_json=json.dumps({"capital_health_snapshot": free_snapshot}, ensure_ascii=False),
+        html_content="",
+        created_by="system",
+    )
+    db.add(version)
+    db.flush()
+    report.current_version_id = version.id
     if pilot_invite_code:
         bind_by_invite_code(db, lead, pilot_invite_code, commit=False)
     set_pilot_stage(db, lead, "assessed", commit=False)
@@ -131,6 +164,17 @@ def create_assessment(db: Session, form_data: dict) -> Assessment:
         notify_qr_lead_created(db, lead, commit=False)
     else:
         notify_new_lead(db, lead, commit=False)
+    safe_create_notification(
+        db,
+        "free_report_ready_customer",
+        {
+            "company_name": assessment.company_name,
+            "action_url": f"/client/reports/{report.id}",
+        },
+        recipient_customer_id=customer.id,
+        related_type="report",
+        related_id=report.id,
+    )
     db.commit()
     db.refresh(assessment)
     return assessment

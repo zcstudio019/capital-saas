@@ -25,6 +25,7 @@ from services.report_service import (
     parse_customer_report,
     parse_report,
 )
+from services.customer_portal_service import customer_from_session, customer_owns_report
 from services.settings_service import get_bool_setting
 from utils.logger import logger
 
@@ -39,7 +40,30 @@ def _admin_override(request: Request, db: Session) -> bool:
 
 
 def _report_access_allowed(request: Request, db: Session, assessment_id: int) -> bool:
-    return has_paid_order(db, assessment_id) or _admin_override(request, db)
+    if _admin_override(request, db):
+        return True
+    report = db.query(Report).filter(Report.assessment_id == assessment_id).first()
+    if not report or not has_paid_order(db, assessment_id):
+        return False
+    customer = customer_from_session(request, db)
+    if customer and customer_owns_report(db, customer, report):
+        db.commit()
+        return True
+    return assessment_id in {
+        int(item) for item in request.session.get("assessment_access_ids", []) if str(item).isdigit()
+    }
+
+
+def _summary_access_allowed(request: Request, db: Session, report: Report) -> bool:
+    if _admin_override(request, db):
+        return True
+    customer = customer_from_session(request, db)
+    if customer and customer_owns_report(db, customer, report):
+        db.commit()
+        return True
+    return report.assessment_id in {
+        int(item) for item in request.session.get("assessment_access_ids", []) if str(item).isdigit()
+    }
 
 
 def _review_blocks_customer(request: Request, db: Session, report: Report) -> bool:
@@ -235,6 +259,8 @@ def public_report(request: Request, public_token: str, db: Session = Depends(get
 def report_api(request: Request, assessment_id: int, db: Session = Depends(get_db)):
     report = db.query(Report).filter(Report.assessment_id == assessment_id).first()
     if not report:
+        raise HTTPException(status_code=404, detail="报告不存在")
+    if not _summary_access_allowed(request, db, report):
         raise HTTPException(status_code=404, detail="报告不存在")
     free = parse_customer_free_summary(report)
     full = parse_customer_report(report)

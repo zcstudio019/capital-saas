@@ -2,32 +2,72 @@
 {% block title %}报告详情｜{{ assessment.company_name }}{% endblock %}
 {% block content %}
 <section class="admin-shell container">
-  <div class="admin-top"><div><div class="eyebrow">报告 #{{ report_item.id }}</div><h1>{{ assessment.company_name }}</h1></div><div class="admin-links"><a href="/admin/reports/{{ report_item.id }}/versions">历史版本</a><a class="btn" href="/admin/reports">返回报告</a></div></div>
+  <div class="admin-top">
+    <div><div class="eyebrow">报告 #{{ report_item.id }}</div><h1>{{ assessment.company_name }}</h1></div>
+    <div class="admin-links">
+      {% if can_preview %}<a class="btn btn-primary" href="/admin/reports/{{ report_item.id }}/preview">{{ "查看免费报告" if access_level == "free" else "查看完整体检报告" if access_level == "capital_health_report" else "查看融资结构优化方案" }}</a>{% endif %}
+      {% if can_review %}<a href="/admin/reports/{{ report_item.id }}/review">进入审核</a>{% endif %}
+      <a href="/admin/reports/{{ report_item.id }}/versions">历史版本</a>
+      {% if current_version and can_preview %}<a href="/admin/reports/{{ report_item.id }}/print" target="_blank">打印报告</a>{% endif %}
+      <a class="btn" href="/admin/reports">返回报告列表</a>
+    </div>
+  </div>
+
   <section class="card detail-card"><div class="detail-data">
     <div><span>联系人</span><strong>{{ assessment.contact_name }}</strong></div>
     <div><span>企业评分</span><strong>{{ assessment.score }} / {{ assessment.grade }}级</strong></div>
     <div><span>线索等级</span><strong>{{ (lead.lead_grade if lead else '')|lead_grade_label }}</strong></div>
-    <div><span>交付状态</span><strong>{{ report_item.review_status|zh }}</strong></div>
-    <div><span>当前版本</span><strong>V{{ versions[0].version_no if versions else '-' }}</strong></div>
-    <div><span>质量评分</span><strong>{{ report.quality.quality_score if report and report.quality else '-' }}</strong></div>
-    <div><span>已购产品</span><strong>{% for order in paid_orders %}{{ order.product_name }}{% if not loop.last %}、{% endif %}{% else %}-{% endfor %}</strong></div>
-    <div><span>打印报告</span><strong>{% if report %}<a href="/report/{{ assessment.id }}/print" target="_blank">打开打印版</a>{% else %}-{% endif %}</strong></div>
+    <div><span>生成状态</span><strong>{{ generation_status|report_generation_status_label }}</strong></div>
+    <div><span>审核状态</span><strong>{{ report_item.review_status|report_review_status_label }}</strong></div>
+    <div><span>当前版本</span><strong>{{ "V" ~ current_version.version_no if current_version else "尚无版本" }}</strong></div>
+    <div><span>质量评分</span><strong>{{ current_version.quality_score if current_version else '-' }}</strong></div>
+    <div><span>已购产品</span><strong>{% for order in paid_orders %}{{ order.product_name }}{% if not loop.last %}、{% endif %}{% else %}免费测评{% endfor %}</strong></div>
   </div></section>
+
+  <section class="card detail-card">
+    <div class="task-section-head"><h2>报告内容</h2><span>{{ generation_status|report_generation_status_label }}</span></div>
+    {% if current_version %}
+      <div class="detail-grid">
+        <div><span>报告类型</span><strong>{{ "企业资本健康摘要" if access_level == "free" else "企业资本健康体检报告" if access_level == "capital_health_report" else "融资结构优化方案" }}</strong></div>
+        <div><span>版本</span><strong>V{{ current_version.version_no }}</strong></div>
+        <div><span>生成时间</span><strong>{{ current_version.created_at.strftime('%Y-%m-%d %H:%M') }}</strong></div>
+        <div><span>当前状态</span><strong>{{ report_item.review_status|report_review_status_label }}</strong></div>
+      </div>
+      <div class="form-actions">
+        {% if can_preview %}<a class="btn btn-primary" href="/admin/reports/{{ report_item.id }}/preview">查看报告</a><a class="btn" href="/admin/reports/{{ report_item.id }}/print" target="_blank">打印</a>{% endif %}
+        <a class="btn" href="/admin/reports/{{ report_item.id }}/versions">查看历史版本</a>
+      </div>
+      {% set candidate_versions = versions|rejectattr("id", "equalto", current_version.id)|list %}
+      {% if candidate_versions %}
+      <div class="safe-note">
+        <strong>系统候选与历史版本：</strong>
+        {% for version in candidate_versions %}
+          <a href="/admin/reports/{{ report_item.id }}/preview?version_id={{ version.id }}">
+            预览V{{ version.version_no }}（{{ "免费摘要" if version_access_levels.get(version.id) == "free" else "980完整体检" if version_access_levels.get(version.id) == "capital_health_report" else "1999结构优化方案" }}）
+          </a>{% if not loop.last %}　{% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% else %}
+      <p class="empty">报告正文尚未生成</p>
+      {% if can_review %}<form method="post" action="/admin/reports/{{ report_item.id }}/regenerate"><button class="btn btn-primary">立即生成报告</button></form>{% endif %}
+    {% endif %}
+  </section>
 
   {% if can_review %}
   <section class="card detail-card"><div class="task-section-head"><h2>人工审核</h2><span>{{ report_item.review_status|report_review_status_label }}</span></div>
-    <p>请进入专属审核页面核验银行产品、额度口径、行动计划、资料清单和质量检查结果。</p>
+    <p>审核页面包含八维评分、风险项、银行产品、融资额度、资料清单、行动计划、质量检查和完整正文预览。</p>
     <a class="btn btn-primary" href="/admin/reports/{{ report_item.id }}/review">{{ "立即审核" if report_item.review_status == "pending_review" else "进入审核页面" }}</a>
     {% if report_item.review_note %}<p>审核备注：{{ report_item.review_note }}</p>{% endif %}
   </section>
   {% endif %}
 
   <section class="card detail-card"><h2>公开报告链接</h2>
+    <p class="safe-note">公开链接仅用于客户或外部临时分享，不影响后台内部预览。</p>
     {% if report_item.public_token and report_item.token_expired_at %}<p><a href="{{ site_base_url }}/public/report/{{ report_item.public_token }}" target="_blank">{{ site_base_url }}/public/report/{{ report_item.public_token }}</a></p><p>有效期至：{{ report_item.token_expired_at.strftime('%Y-%m-%d %H:%M') }}</p>{% else %}<p>尚未生成公开链接。</p>{% endif %}
-    {% if current_user.role == 'admin' and paid_orders and report_item.review_status == 'approved' %}<form method="post" action="/admin/reports/{{ report_item.id }}/generate-token"><button class="btn btn-primary">{{ '重新生成7天链接' if report_item.public_token else '生成7天公开链接' }}</button></form>{% elif report_item.review_status != 'approved' %}<p class="safe-note">审核通过后才可生成客户公开链接。</p>{% endif %}
+    {% if current_user.role == 'admin' and paid_orders and report_item.review_status == 'approved' %}<form method="post" action="/admin/reports/{{ report_item.id }}/generate-token"><button class="btn btn-primary">{{ '重新生成7天链接' if report_item.public_token else '生成7天公开链接' }}</button></form>{% endif %}
   </section>
 
-  {% if report %}<section class="card detail-card"><h2>报告预览</h2><div class="report-preview">{% for chapter in report.chapters %}<h3>{{ loop.index }}. {{ chapter.title }}</h3><p>{{ chapter.conclusion }}</p>{% endfor %}</div></section>{% endif %}
-  <section class="card detail-card"><h2>AI生成日志</h2><div class="table-card"><table><thead><tr><th>章节</th><th>模式/模型</th><th>Prompt</th><th>状态</th><th>质量</th><th>时间</th></tr></thead><tbody>{% for log in ai_logs %}<tr><td>{{ log.section_name|safe_display_label }}</td><td>{{ log.ai_mode|data_source_label }} / {{ log.model_name|safe_display_label }}</td><td>{{ log.prompt_name|safe_display_label }}</td><td>{{ log.status|status_label }}{% if log.error_message %}<small>{{ log.error_message }}</small>{% endif %}</td><td>{{ log.quality_score }}</td><td>{{ log.created_at.strftime('%m-%d %H:%M') }}</td></tr>{% else %}<tr><td colspan="6" class="empty">暂无生成日志</td></tr>{% endfor %}</tbody></table></div></section>
+  <section class="card detail-card"><h2>AI生成日志</h2><div class="table-card"><table><thead><tr><th>章节</th><th>模式/模型</th><th>Prompt</th><th>状态</th><th>质量</th><th>时间</th></tr></thead><tbody>{% for log in ai_logs %}<tr><td>{{ log.section_name|safe_display_label }}</td><td>{{ log.ai_mode|data_source_label }} / {{ log.model_name|safe_display_label }}</td><td>{{ log.prompt_name|safe_display_label }}</td><td>{{ log.status|status_label }}</td><td>{{ log.quality_score }}</td><td>{{ log.created_at.strftime('%m-%d %H:%M') }}</td></tr>{% else %}<tr><td colspan="6" class="empty">暂无生成日志</td></tr>{% endfor %}</tbody></table></div></section>
 </section>
 {% endblock %}

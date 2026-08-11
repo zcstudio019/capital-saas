@@ -15,7 +15,8 @@ from services.attribution_service import attribution_from_session, capture_attri
 from services.event_service import track_event
 from services.report_service import parse_customer_free_summary
 from utils.report_display_mapper import display_value
-from core.capital_health_report import build_capital_health_report
+from core.capital_health_report import ensure_capital_health_snapshot
+from services.customer_portal_service import customer_from_session, customer_owns_report
 from services.tag_service import auto_tag_lead
 from utils.input_normalizer import (
     InputNormalizationError,
@@ -459,6 +460,13 @@ async def submit_assessment(request: Request, db: Session = Depends(get_db)):
         **attribution_from_session(request),
     }
     assessment = create_assessment(db, data)
+    if assessment.report and assessment.report.customer_id:
+        request.session["customer_id"] = assessment.report.customer_id
+        request.session["customer_lead_id"] = assessment.lead.id if assessment.lead else None
+    accessible = [int(item) for item in request.session.get("assessment_access_ids", []) if str(item).isdigit()]
+    if assessment.id not in accessible:
+        accessible.append(assessment.id)
+    request.session["assessment_access_ids"] = accessible[-20:]
     auto_tag_lead(db, assessment.lead, commit=True)
     if request.headers.get("x-assessment-ajax") == "1":
         return JSONResponse(
@@ -472,8 +480,18 @@ def free_result(request: Request, assessment_id: int, db: Session = Depends(get_
     assessment = get_assessment(db, assessment_id)
     if not assessment or not assessment.report:
         raise HTTPException(status_code=404, detail="测评不存在")
+    customer = customer_from_session(request, db)
+    session_assessments = {
+        int(item) for item in request.session.get("assessment_access_ids", []) if str(item).isdigit()
+    }
+    authorized = bool(request.session.get("user_id")) or assessment.id in session_assessments
+    if customer and customer_owns_report(db, customer, assessment.report):
+        authorized = True
+        db.commit()
+    if not authorized:
+        return RedirectResponse(url=f"/my-reports?next=/result/{assessment.id}", status_code=303)
     free = parse_customer_free_summary(assessment.report)
-    health_report = build_capital_health_report(db, assessment, include_extended=False)
+    health_report = ensure_capital_health_snapshot(db, assessment)
     session_id = request.session.get("visitor_session_id") or request.session.get("session_id") or "anonymous"
     variant = assign_variant(
         db, session_id, assessment.id, assessment.lead.id if assessment.lead else None
@@ -488,6 +506,7 @@ def free_result(request: Request, assessment_id: int, db: Session = Depends(get_
         request=request, name="result_free.html",
         context={
             "assessment": assessment, "result": free, "health_report": health_report, "variant": variant,
+            "customer": customer,
             "conversion_copy": result_conversion_copy(assessment.grade),
         },
     )

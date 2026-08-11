@@ -44,6 +44,14 @@ from services.payment_service import cancel_order, mark_order_paid, refund_order
 from services.report_service import generate_full_report, parse_report
 from services.settings_service import SETTING_DEFINITIONS, save_settings, settings_dict
 from services.consulting_service import ensure_consulting_case
+from services.customer_portal_service import reports_for_customer
+from services.admin_report_preview_service import (
+    assert_admin_report_preview_access,
+    build_admin_report_preview_context,
+    ensure_report_version_compat,
+    infer_version_access_level,
+    report_generation_status,
+)
 from utils.logger import logger
 from utils.display_labels import is_demo_or_test_record
 from utils.pagination import paginate_query
@@ -391,6 +399,8 @@ def lead_detail(
         sales_script = {}
     orders = db.query(Order).filter(Order.assessment_id == lead.assessment_id).order_by(Order.created_at.desc()).all()
     reports = db.query(Report).filter(Report.assessment_id == lead.assessment_id).order_by(Report.created_at.desc()).all()
+    customer_account = db.get(CustomerAccount, reports[0].customer_id) if reports and reports[0].customer_id else db.query(CustomerAccount).filter(CustomerAccount.lead_id==lead.id).first()
+    report_history = reports_for_customer(db, customer_account) if customer_account else reports
     advisor_bookings = db.query(AdvisorBooking).filter(
         or_(AdvisorBooking.lead_id == lead.id, AdvisorBooking.assessment_id == lead.assessment_id)
     ).order_by(AdvisorBooking.created_at.desc()).all()
@@ -418,6 +428,7 @@ def lead_detail(
             "product_labels": recommended_product_labels,
             "orders": orders,
             "reports": reports,
+            "report_history": report_history,
             "advisor_bookings": advisor_bookings,
             "documents": documents,
             "projects": projects,
@@ -434,7 +445,7 @@ def lead_detail(
             "follow_log_rows": [_format_follow_log(log) for log in raw_follow_logs],
             "sales_users": db.query(User).filter(User.role == "sales", User.is_active.is_(True)).all(),
             "organizations": db.query(Organization).filter(Organization.status=="active").all(),
-            "customer_account": db.query(CustomerAccount).filter(CustomerAccount.lead_id==lead.id).first(),
+            "customer_account": customer_account,
             "customer_tasks": db.query(CustomerTask).filter(CustomerTask.lead_id==lead.id).order_by(CustomerTask.created_at.desc()).all(),
             "pilot_batches": db.query(PilotBatch).filter(PilotBatch.batch_status.in_(["planning","running","paused"])).order_by(PilotBatch.id.desc()).all(),
             "pilot_sop": pilot_sop_recommendation(lead.pilot_stage, lead.lead_grade, orders[-1].product_code if orders else ""),
@@ -799,9 +810,11 @@ def reports(
     if company_keyword:
         query = query.filter(Assessment.company_name.ilike(f"%{company_keyword.strip()}%"))
     if generation_status == "generated":
-        query = query.filter(Report.full_report_json.isnot(None))
-    elif generation_status == "pending":
-        query = query.filter(Report.full_report_json.is_(None))
+        query = query.filter(or_(Report.full_report_json.isnot(None), Report.free_summary_json.isnot(None), Report.html_content.isnot(None)))
+    elif generation_status == "draft":
+        query = query.filter(Report.full_report_json.is_(None), Report.free_summary_json.is_(None), Report.html_content.is_(None))
+    elif generation_status == "generation_failed":
+        query = query.filter(Report.review_status == "quality_failed")
     if review_status:
         query = query.filter(Report.review_status == review_status)
     if grade:
@@ -811,6 +824,7 @@ def reports(
     total_pages = max((total_count + page_size - 1) // page_size, 1)
     page = min(page, total_pages)
     report_items = query.order_by(Report.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    generation_statuses = {item.id: report_generation_status(item) for item in report_items}
     assessment_ids = [item.assessment_id for item in report_items]
     paid_orders = db.query(Order).filter(
         Order.assessment_id.in_(assessment_ids or [-1]),
@@ -827,12 +841,18 @@ def reports(
     cases_by_report = {item.report_id: item for item in cases}
     review_role = effective_role(user)
     reviewable_report_ids = set()
+    previewable_report_ids = set()
     for item in report_items:
         case = cases_by_report.get(item.id)
         if review_role in {"super_admin", "consultant_manager"}:
             reviewable_report_ids.add(item.id)
         elif review_role == "consultant" and case and (case.consultant_user_id == user.id or case.consultant_id == user.id):
             reviewable_report_ids.add(item.id)
+        try:
+            assert_admin_report_preview_access(db, item, user)
+            previewable_report_ids.add(item.id)
+        except HTTPException:
+            pass
 
     pagination_params = {"page_size": page_size}
     for key, value in {
@@ -856,6 +876,8 @@ def reports(
             "reports": report_items,
             "report_products": report_products,
             "reviewable_report_ids": reviewable_report_ids,
+            "previewable_report_ids": previewable_report_ids,
+            "generation_statuses": generation_statuses,
             "pending_review_count": pending_review_count,
             "filters": {
                 "company_keyword": company_keyword,
@@ -894,10 +916,13 @@ def report_detail(
     paid_orders = db.query(Order).filter(
         Order.assessment_id == report.assessment_id, Order.status == "paid"
     ).all()
+    current_version = ensure_report_version_compat(db, report)
     full = None
-    if paid_orders or user.role == "admin":
-        generate_full_report(db, report.assessment)
-        _, full = parse_report(report)
+    if current_version:
+        try:
+            full = json.loads(current_version.report_json or "{}")
+        except (TypeError, ValueError):
+            full = {}
     review_case = db.query(ConsultingCase).filter(
         or_(ConsultingCase.report_id == report.id, ConsultingCase.assessment_id == report.assessment_id)
     ).order_by(ConsultingCase.created_at.desc()).first()
@@ -907,6 +932,23 @@ def report_detail(
         and review_case
         and (review_case.consultant_user_id == user.id or review_case.consultant_id == user.id)
     )
+    try:
+        preview_mode = assert_admin_report_preview_access(db, report, user)
+        can_preview = True
+    except HTTPException:
+        preview_mode = ""
+        can_preview = False
+    versions = db.query(ReportVersion).filter(
+        ReportVersion.report_id == report.id
+    ).order_by(ReportVersion.version_no.desc()).all()
+    access_level = infer_version_access_level(db, report, current_version, full or {}) if current_version else "free"
+    version_access_levels = {}
+    for version in versions:
+        try:
+            version_payload = json.loads(version.report_json or "{}")
+        except (TypeError, ValueError):
+            version_payload = {}
+        version_access_levels[version.id] = infer_version_access_level(db, report, version, version_payload)
     return templates.TemplateResponse(
         request=request,
         name="admin_report_detail.html",
@@ -918,15 +960,53 @@ def report_detail(
             "report": full,
             "current_user": user,
             "can_review": can_review,
+            "can_preview": can_preview,
+            "preview_mode": preview_mode,
+            "access_level": access_level,
+            "generation_status": report_generation_status(report),
+            "current_version": current_version,
             "site_base_url": settings.site_base_url.rstrip("/"),
-            "versions": db.query(ReportVersion).filter(
-                ReportVersion.report_id == report.id
-            ).order_by(ReportVersion.version_no.desc()).all(),
+            "versions": versions,
+            "version_access_levels": version_access_levels,
             "ai_logs": db.query(AIGenerationLog).filter(
                 AIGenerationLog.report_id == report.id
             ).order_by(AIGenerationLog.created_at.desc()).limit(50).all(),
         },
     )
+
+
+@router.get("/admin/reports/{report_id}/preview", response_class=HTMLResponse)
+def admin_report_preview(
+    request: Request,
+    report_id: int,
+    version_id: int = 0,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "super_admin", "consultant_manager", "consultant", "sales")),
+):
+    report = db.get(Report, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="报告不存在")
+    context = build_admin_report_preview_context(db, report, user, version_id or None)
+    context.update({"request": request, "current_user": user})
+    template_name = "result_free.html" if context["access_level"] == "free" else "report_full.html"
+    return templates.TemplateResponse(request=request, name=template_name, context=context)
+
+
+@router.get("/admin/reports/{report_id}/print", response_class=HTMLResponse)
+def admin_report_print(
+    request: Request,
+    report_id: int,
+    version_id: int = 0,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "super_admin", "consultant_manager", "consultant", "sales")),
+):
+    report = db.get(Report, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="报告不存在")
+    context = build_admin_report_preview_context(db, report, user, version_id or None)
+    context.update({"request": request, "current_user": user, "print_mode": True})
+    template_name = "admin_report_free_print.html" if context["access_level"] == "free" else "report_print.html"
+    return templates.TemplateResponse(request=request, name=template_name, context=context)
 
 
 @router.post("/admin/reports/{report_id}/generate-token")

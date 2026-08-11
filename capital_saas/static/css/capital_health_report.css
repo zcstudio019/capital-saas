@@ -237,6 +237,7 @@ a { color: inherit; }
 .capital-free-page { background: #f3f6f9; color: var(--report-text); }
 .free-health-shell { max-width: 1080px; margin: 0 auto; padding: 28px 20px 70px; }
 .free-brand { display: flex; justify-content: space-between; padding: 10px 0 26px; color: var(--report-navy); font-weight: 700; }
+.free-brand a { padding-bottom: 2px; border-bottom: 1px solid var(--report-gold); }
 .free-hero { display: grid; grid-template-columns: 1fr 240px; gap: 38px; padding: 44px; background: var(--report-navy); color: #fff; }
 .free-hero h1 { margin: 5px 0 12px; font-size: 35px; }
 .free-hero p { color: #d9e3ee; }
@@ -244,8 +245,50 @@ a { color: inherit; }
 .score-ring strong { display: block; font-size: 54px; line-height: 1; }
 .score-ring span { font-size: 13px; color: #e3ebf4; }
 .free-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 18px 0; }
+.free-metrics .metric-card { min-height: 96px; padding: 16px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); }
+.free-metrics .metric-card span { display: block; color: #cbd7e5; font-size: 12px; }
+.free-metrics .metric-card strong { display: block; margin-top: 6px; color: #fff; font-size: 27px; }
+.free-metrics .metric-card small { margin-left: 3px; font-size: 12px; font-weight: 400; }
 .free-panel { margin-top: 18px; padding: 28px; background: #fff; border: 1px solid var(--report-border); }
 .free-panel h2 { margin-top: 0; color: var(--report-navy); }
+.free-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 28px; margin-bottom: 22px; }
+.free-section-head span { color: var(--report-gold); font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+.free-section-head h2 { margin: 4px 0 0; }
+.free-section-head > p { max-width: 440px; color: var(--report-muted); font-size: 13px; text-align: right; }
+.free-dimension-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+.free-dimension-card { padding: 18px; border: 1px solid var(--report-border); background: #fbfcfd; }
+.free-dimension-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.free-dimension-title h3 { margin: 0; color: var(--report-navy); font-size: 16px; }
+.free-dimension-title strong { white-space: nowrap; color: var(--report-navy); }
+.free-dimension-card .dimension-track { margin: 13px 0 9px; }
+.free-dimension-card p { min-height: 44px; margin: 13px 0 0; color: var(--report-muted); font-size: 13px; }
+.free-three-columns { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; }
+.free-value-card { padding: 21px; border-top: 3px solid var(--report-gold); background: #f7f9fb; }
+.free-value-card.advantage { border-color: var(--report-green); background: var(--report-green-bg); }
+.free-value-card.risk { border-color: var(--report-red); background: var(--report-red-bg); }
+.free-value-card.suggestion { border-color: var(--report-gold); background: #fff9ed; }
+.free-value-card h3 { margin: 0 0 14px; color: var(--report-navy); }
+.free-value-card ol { margin: 0; padding-left: 21px; }
+.free-value-card li { margin: 9px 0; }
+.path-summary { display: grid; grid-template-columns: .8fr 1fr 1.2fr; gap: 14px; }
+.path-summary > div { padding: 18px; border-left: 3px solid var(--report-gold); background: #f7f9fb; }
+.path-summary span,.financing-range-card span { display: block; margin-bottom: 7px; color: var(--report-muted); font-size: 12px; }
+.path-summary strong { color: var(--report-navy); font-size: 21px; }
+.path-summary ul,.path-summary p { margin: 0; padding-left: 18px; }
+.financing-range-card { border-left: 4px solid var(--report-navy); }
+.financing-range-card h2 { margin-bottom: 8px; font-size: 28px; }
+.financing-range-card p { margin: 0; color: var(--report-muted); }
+.paid-preview-section { border-top: 4px solid var(--report-gold); }
+.structure-preview-section { border-top: 4px solid var(--report-navy); }
+.preview-price,.structure-price strong { color: var(--report-navy); font-size: 32px; }
+.structure-price { text-align: right; }
+.structure-price small,.structure-price span { display: block; color: var(--report-muted); letter-spacing: 0; }
+.paid-preview-section .report-button { display: inline-block; margin-top: 20px; }
+.free-report-save { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center; margin-top: 18px; padding: 30px; background: var(--report-navy); color: #fff; }
+.free-report-save h2 { margin-bottom: 6px; color: #fff; }
+.free-report-save p { margin: 0; color: #d4deea; }
+.free-report-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.report-link-button { display: inline-flex; align-items: center; justify-content: center; padding: 11px 18px; border: 1px solid rgba(255,255,255,.55); color: #fff; }
 .finding-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .finding-card { padding: 18px; border-left: 3px solid var(--report-gold); background: #f7f9fb; }
 .locked-preview { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
@@ -265,7 +308,8 @@ a { color: inherit; }
   .cover-brand { margin: 0 -22px 38px -36px; padding: 19px 22px 19px 36px; }
   .cover-brand span { display: none; }
   .cover-meta, .metric-grid, .summary-layout, .risk-grid, .bank-product-grid,
-  .document-groups, .action-timeline, .free-metrics, .finding-grid { grid-template-columns: 1fr; }
+  .document-groups, .action-timeline, .free-metrics, .finding-grid, .free-dimension-grid,
+  .free-three-columns, .path-summary, .free-report-save { grid-template-columns: 1fr; }
   .cover-main h1 { font-size: 36px; }
   .toc-item { grid-template-columns: 44px 1fr; }
   .toc-item span:last-child { grid-column: 2; }
@@ -282,6 +326,10 @@ a { color: inherit; }
   .free-brand, .free-panel, .free-unlock { margin-left: 14px; margin-right: 14px; }
   .free-hero { grid-template-columns: 1fr; padding: 32px 20px; }
   .free-unlock { grid-template-columns: 1fr; }
+  .free-section-head { display: block; }
+  .free-section-head > p { margin-top: 8px; text-align: left; }
+  .free-report-actions { display: grid; }
+  .free-report-actions a { width: 100%; }
 }
 
 @page { size: A4; margin: 16mm 14mm 18mm; }

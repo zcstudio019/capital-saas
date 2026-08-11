@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}找回我的报告｜沪上银{% endblock %}
+{% block content %}
+<section class="report-access-page container">
+  <div class="card report-access-card">
+    <div class="eyebrow">客户报告中心</div>
+    <h1>找回我的报告</h1>
+    {% if submitted %}
+      <div class="access-success"><strong>访问链接申请已受理</strong><p>若该手机号已有报告，系统会发送7天有效的专属访问链接。为保护客户隐私，本页面不会显示账号是否存在。</p></div>
+      <a class="btn btn-primary" href="/">返回首页</a>
+    {% else %}
+      <p>请输入测评时预留的手机号。验证后可查看免费摘要、已购报告和全部历史版本。</p>
+      <form method="post" action="/my-reports/access" class="report-access-form">
+        <input type="hidden" name="next_url" value="{{ next_url }}">
+        <label for="report-access-phone">预留手机号</label>
+        <input id="report-access-phone" name="phone" inputmode="tel" autocomplete="tel" placeholder="请输入测评时预留的手机号" required>
+        <button class="btn btn-primary" type="submit">获取专属访问链接</button>
+      </form>
+      <p class="safe-note">专属链接与客户身份绑定，请勿转发给他人。链接失效后可重新验证找回。</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

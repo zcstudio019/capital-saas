@@ -1,0 +1,10 @@
+{% extends 'client_base.html' %}
+{% block title %}报告历史版本｜{{ report_item.assessment.company_name }}{% endblock %}
+{% block content %}
+<div class="client-report-center-head"><div><span>版本留痕</span><h1>报告历史版本</h1><p>{{ report_item.assessment.company_name }} · 仅展示客户可见的已审核交付版本。</p></div><a class="btn" href="/client/reports">返回我的报告</a></div>
+<section class="client-card">
+  {% for row in versions %}
+  <div class="client-row"><div><b>版本 {{ row.version.version_no }}{% if row.is_current %} · 当前版本{% endif %}</b><p>{{ row.version.created_at.strftime('%Y-%m-%d %H:%M') }} · {{ '顾问修订' if row.version.created_by != 'system' else '系统生成' }} · {{ row.meta.get('change_summary','报告快照') }}</p></div><span>{{ '已审核交付' if row.version.access_level != 'free' else '免费摘要' }}</span></div>
+  {% else %}<p class="empty">暂无可查看的历史版本</p>{% endfor %}
+</section>
+{% endblock %}

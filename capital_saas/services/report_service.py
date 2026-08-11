@@ -445,6 +445,7 @@ def _save_version(
         assessment_id=report.assessment_id,
         version_no=(latest.version_no + 1) if latest else 1,
         product_code=product_code,
+        access_level=(content.get("report_meta") or {}).get("access_level", "free"),
         generator_mode=(content.get("generated_by") or {}).get("provider", "mock"),
         quality_score=quality_score,
         report_json=json.dumps(content, ensure_ascii=False),

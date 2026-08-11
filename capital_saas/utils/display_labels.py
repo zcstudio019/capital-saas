@@ -71,7 +71,14 @@ PRODUCT_LABELS = {
     "manual_consulting": "人工顾问服务", "structure_plan": "融资结构方案",
 }
 ORDER_STATUS_LABELS = {"pending": "待支付", "paid": "已支付", "refunded": "已退款", "cancelled": "已取消", "failed": "支付失败", "closed": "已关闭"}
-REPORT_GENERATION_STATUS_LABELS = {"generated": "已生成", "pending": "待生成", "failed": "生成失败"}
+REPORT_GENERATION_STATUS_LABELS = {
+    "draft": "正文尚未生成",
+    "generating": "正在生成",
+    "generated": "已生成",
+    "generation_failed": "生成失败",
+    "pending": "正文尚未生成",
+    "failed": "生成失败",
+}
 REPORT_REVIEW_STATUS_LABELS = {"draft": "草稿", "pending_review": "待审核", "reviewing": "审核中", "approved": "已通过", "rejected": "已驳回"}
 PAYMENT_CHANNEL_LABELS = {
     "mock": "模拟支付", "manual_transfer": "人工转账", "wechat": "微信支付", "wechat_pay": "微信支付",

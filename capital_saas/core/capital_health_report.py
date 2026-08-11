@@ -247,6 +247,17 @@ def _build_dimensions(assessment: Assessment) -> list[dict[str, Any]]:
             for item in items
             if item["score"] is not None and item["score"] < 3
         ]
+        if abnormal:
+            free_explanation = (
+                f"{abnormal[0]['check_item']}当前结果为{abnormal[0]['description']}，"
+                "可能影响融资准备度。"
+            )
+        else:
+            strongest = max(scored_items, key=lambda item: item["score"], default=None)
+            free_explanation = (
+                f"{strongest['check_item']}表现相对稳定，仍需结合完整资料核验。"
+                if strongest else f"{purpose}，当前资料仍需进一步核验。"
+            )
         dimensions.append(
             {
                 "dimension_name": name,
@@ -266,6 +277,7 @@ def _build_dimensions(assessment: Assessment) -> list[dict[str, Any]]:
                     "资产状况": "可抵押、增信及盘活资产基础",
                     "融资能力": "当前申请条件与新增融资准备度",
                 }[name],
+                "free_explanation": free_explanation,
                 "summary": f"{name}当前得分{raw_score:.1f}分，已识别信息显示为{_status(raw_score)}状态；未采集项目将在资料核验后更新。",
                 "abnormal_items": abnormal,
                 "missing_count": len(items) - len(scored_items),
@@ -282,6 +294,106 @@ def _build_dimensions(assessment: Assessment) -> list[dict[str, Any]]:
             }
         )
     return dimensions
+
+
+def _free_value_summary(
+    assessment: Assessment,
+    dimensions: list[dict[str, Any]],
+    warnings: list[dict[str, str]],
+    total: int,
+) -> dict[str, Any]:
+    """Build customer-safe value from submitted facts without exposing paid detail rows."""
+    advantages: list[str] = []
+    years = float(assessment.years or 0)
+    revenue = max(float(assessment.annual_revenue or 0), 0)
+    debt = max(float(assessment.debt_total or 0), 0)
+    need = max(float(assessment.funding_need or 0), 0)
+    if years >= 3:
+        advantages.append(f"企业已连续经营{years:g}年，达到多数经营类融资的基础年限要求。")
+    if assessment.credit_status and assessment.enterprise_credit_status not in {"current_overdue"}:
+        advantages.append("当前填报未显示企业贷款处于逾期状态，信用基础具备进一步核验价值。")
+    if assessment.tax_status and assessment.tax_arrears_status not in {"current"}:
+        advantages.append("当前填报纳税状态正常，可作为后续核验经营连续性的正向依据。")
+    if assessment.has_collateral:
+        advantages.append("企业已填报可用于融资的资产，可进一步评估抵押或增信路径。")
+    if revenue > 0:
+        advantages.append(f"已提供近12个月营业收入{_money(revenue)}，融资需求具备量化评估基础。")
+    for dimension in sorted(dimensions, key=lambda item: item["raw_score"], reverse=True):
+        if len(advantages) >= 3:
+            break
+        advantages.append(
+            f"{dimension['dimension_name']}得分{dimension['raw_score']:.1f}/5，"
+            f"当前处于{dimension['status_light']}状态。"
+        )
+
+    active_warnings = [item for item in warnings if item["warning_level"] != "绿灯"]
+    risks = [
+        f"{item['warning_item']}：{item['description']}。"
+        for item in active_warnings[:3]
+    ]
+    for dimension in sorted(dimensions, key=lambda item: item["raw_score"]):
+        if len(risks) >= 3:
+            break
+        text = (
+            f"{dimension['dimension_name']}仍有{dimension['missing_count']}项资料待核验，"
+            "正式申请前需补齐证据。"
+            if dimension["missing_count"]
+            else f"{dimension['dimension_name']}是当前相对薄弱环节，建议持续监测。"
+        )
+        if text not in risks:
+            risks.append(text)
+
+    action_map = {
+        "企业基本面": "统一营业执照、合同、开票和财务数据中的企业经营口径。",
+        "征信状况": "减少非必要贷款审批查询，并调取企业及法人征信进行核验。",
+        "流水质量": "提高经营回款进入对公账户的比例，减少无业务背景的公私往来。",
+        "负债情况": "建立未来12个月到期债务台账，优先处理期限集中和高成本负债。",
+        "司法风险": "核验企业及法人最新诉讼、执行和限制消费信息。",
+        "税务合规": "核对纳税、开票与营业收入口径，补齐完税和申报资料。",
+        "资产状况": "整理可抵押、可增信资产的权属和价值证明。",
+        "融资能力": "先完成资料核验和风险修复，再进入银行产品筛选。",
+    }
+    suggestions: list[str] = []
+    for dimension in sorted(dimensions, key=lambda item: item["raw_score"]):
+        suggestion = action_map[dimension["dimension_name"]]
+        if suggestion not in suggestions:
+            suggestions.append(suggestion)
+        if len(suggestions) >= 3:
+            break
+
+    if total >= 80:
+        path = "可直接进入融资准备"
+    elif total >= 60:
+        path = "建议优化后融资"
+    elif total >= 40:
+        path = "建议暂缓融资申请"
+    else:
+        path = "建议先处理重大风险"
+    reasons = [item["warning_item"] for item in active_warnings[:2]]
+    if not reasons:
+        reasons = [item["dimension_name"] for item in sorted(dimensions, key=lambda item: item["raw_score"])[:2]]
+
+    financing_range = None
+    financing_space = max(revenue * 0.35 - debt, 0)
+    if revenue > 0 and need > 0 and financing_space >= 10_000:
+        upper = min(need, financing_space)
+        lower = min(upper, max(10_000, upper * 0.5))
+        financing_range = {
+            "display": f"约{lower / 10_000:,.0f}万—{upper / 10_000:,.0f}万元",
+            "disclaimer": "该区间仅基于当前测评信息进行初步估算，需结合征信、流水、财务及真实银行产品规则进一步核验。",
+        }
+
+    return {
+        "advantages": advantages[:3],
+        "risks": risks[:3],
+        "suggestions": suggestions[:3],
+        "financing_path": {
+            "path": path,
+            "reasons": reasons,
+            "next_focus": suggestions[0],
+        },
+        "financing_range": financing_range,
+    }
 
 
 def _build_warnings(dimensions: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -484,6 +596,7 @@ def _legacy_build_capital_health_report(
     dimensions = _build_dimensions(assessment)
     total = int(round(sum(item["weighted_score"] for item in dimensions)))
     warnings = _build_warnings(dimensions)
+    free_value = _free_value_summary(assessment, dimensions, warnings, total)
     entitlements = report_entitlements(db, assessment.id, admin_override)
     generated_at = assessment.report.created_at if assessment.report else assessment.created_at
     validity_days = int(get_setting(db, "capital_health_report_validity_days", "90"))
@@ -650,6 +763,7 @@ def build_capital_health_report(
     dimensions = _build_dimensions(assessment)
     total = int(round(sum(item["weighted_score"] for item in dimensions)))
     warnings = _build_warnings(dimensions)
+    free_value = _free_value_summary(assessment, dimensions, warnings, total)
     entitlements = report_entitlements(db, assessment.id, admin_override)
     generated_at = assessment.report.created_at if assessment.report else assessment.created_at
     validity_days = int(get_setting(db, "capital_health_report_validity_days", "90"))
@@ -697,6 +811,7 @@ def build_capital_health_report(
         "grade": _grade(total),
         "risk_level": _risk_level(total),
         "financing_advice": financing_advice,
+        "free_value": free_value,
         "conclusions": [
             f"资本健康度为{total}分，综合评级为{_grade(total)}，当前处于{_risk_level(total)}状态。",
             f"优先关注{first_risk['warning_item']}，建议在{first_risk['deadline']}完成核验或改善。",
@@ -773,6 +888,7 @@ def ensure_capital_health_snapshot(
     if (
         not refresh
         and isinstance(snapshot, dict)
+        and isinstance(snapshot.get("free_value"), dict)
         and rank.get(snapshot.get("access_level", "free"), 0)
         >= rank.get(entitlements["access_level"], 0)
     ):
@@ -804,5 +920,21 @@ def ensure_capital_health_snapshot(
                 version_content = {}
             version_content["capital_health_snapshot"] = snapshot
             version.report_json = json.dumps(version_content, ensure_ascii=False)
+        elif not db.query(ReportVersion).filter(ReportVersion.report_id == report.id).first():
+            version = ReportVersion(
+                report_id=report.id,
+                assessment_id=assessment.id,
+                version_no=1,
+                product_code="free_assessment",
+                access_level="free",
+                generator_mode="legacy_migration",
+                quality_score=100,
+                report_json=json.dumps({"capital_health_snapshot": snapshot}, ensure_ascii=False),
+                html_content="",
+                created_by="legacy-migration",
+            )
+            db.add(version)
+            db.flush()
+            report.current_version_id = version.id
         db.commit()
     return snapshot

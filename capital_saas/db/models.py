@@ -100,6 +100,9 @@ class Report(Base):
     assessment_id: Mapped[int] = mapped_column(
         ForeignKey("assessments.id"), unique=True, index=True
     )
+    customer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("customer_accounts.id"), nullable=True, index=True
+    )
     free_summary_json: Mapped[str] = mapped_column(Text)
     full_report_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     html_content: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -423,6 +426,7 @@ class ReportVersion(Base):
     assessment_id: Mapped[int] = mapped_column(ForeignKey("assessments.id"), index=True)
     version_no: Mapped[int] = mapped_column(Integer)
     product_code: Mapped[str] = mapped_column(String(50), default="299_report")
+    access_level: Mapped[str] = mapped_column(String(40), default="free", index=True)
     generator_mode: Mapped[str] = mapped_column(String(30), default="mock")
     quality_score: Mapped[int] = mapped_column(Integer, default=0)
     report_json: Mapped[str] = mapped_column(Text)

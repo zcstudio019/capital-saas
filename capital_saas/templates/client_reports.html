@@ -1,1 +1,35 @@
-{% extends 'client_base.html' %}{% block content %}<h1>我的报告</h1><section class="client-card">{% for r in reports %}<div class="client-row"><div><b>企业融资顾问诊断报告 #{{ r.id }}</b><p>{{ '审核通过' if r.review_status=='approved' else '正在生成/审核中' }}</p></div>{% if unlocked and r.review_status=='approved' %}<a class="btn" href="/client/reports/{{ r.id }}">查看报告</a>{% elif not unlocked %}<span>尚未解锁</span>{% else %}<span>请稍后查看</span>{% endif %}</div>{% else %}<p class="empty">暂无报告</p>{% endfor %}</section>{% endblock %}
+{% extends 'client_base.html' %}
+{% block title %}我的报告｜企业融资服务中心{% endblock %}
+{% block content %}
+<section class="client-report-center-head">
+  <div><span>长期可回看</span><h1>我的报告</h1><p>每次测评都会形成独立记录，历史报告不会被新结果覆盖。</p></div>
+  <a class="btn btn-primary" href="/assessment">重新测评</a>
+</section>
+<section class="client-report-list" aria-label="历史报告列表">
+  {% for row in report_rows %}
+  <article class="client-report-item">
+    <div class="client-report-date"><strong>{{ row.report.created_at.strftime('%Y-%m-%d') }}</strong><span>第 {{ loop.revindex }} 次测评</span></div>
+    <div class="client-report-summary">
+      <span class="report-level-badge">{{ row.level_label }}</span>
+      <h2>{{ row.assessment.company_name }}</h2>
+      <p>{{ row.report_name }}</p>
+      <div class="client-report-meta">
+        <span>综合评分 <b>{{ row.assessment.score|round|int }}分</b></span>
+        <span>综合评级 <b>{{ row.display_grade }}</b></span>
+        <span>当前状态 <b>{{ row.review_label }}</b></span>
+        <span><a href="/client/reports/{{ row.report.id }}/versions">历史版本 <b>{{ row.version_count }}</b></a></span>
+      </div>
+      {% if row.expired %}<p class="report-expired-note">报告已超过建议参考有效期，仍可查看；建议重新测评以获得最新判断。</p>{% endif %}
+    </div>
+    <div class="client-report-action">
+      <a class="btn" href="/client/reports/{{ row.report.id }}">{{ '查看完整报告' if row.highest_product != 'free_assessment' else '查看报告' }}</a>
+    </div>
+  </article>
+  {% else %}
+  <div class="client-card client-empty-state"><h2>暂无历史报告</h2><p>完成一次免费测评后，报告会永久保存在这里。</p><a class="btn btn-primary" href="/assessment">开始免费测评</a></div>
+  {% endfor %}
+</section>
+{% if report_rows|length > 1 %}
+<section class="client-card report-trend-note"><h2>资本健康变化</h2><p>历史评分：{% for row in report_rows|reverse %}<b>{{ row.assessment.score|round|int }}</b>{{ ' → ' if not loop.last else '' }}{% endfor %}</p></section>
+{% endif %}
+{% endblock %}
