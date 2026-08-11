@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -100,6 +101,15 @@ def run() -> None:
     js = (ROOT / "static/js/main.js").read_text(encoding="utf-8")
     public_header = (ROOT / "templates/components/public_header.html").read_text(encoding="utf-8")
     client_header = (ROOT / "templates/components/client_header.html").read_text(encoding="utf-8")
+    mobile_public_match = re.search(
+        r'<nav id="public-mobile-navigation".*?</nav>', public_header, re.S
+    )
+    desktop_public_match = re.search(
+        r'<nav class="public-desktop-nav".*?</nav>', public_header, re.S
+    )
+    assert mobile_public_match and desktop_public_match
+    mobile_public = mobile_public_match.group(0)
+    desktop_public = desktop_public_match.group(0)
 
     assert "@media(max-width:768px)" in css
     assert "@media(min-width:769px)" in css
@@ -107,6 +117,9 @@ def run() -> None:
     assert ".public-mobile-toggle" in css and "display:inline-flex!important" in css
     assert ".public-mobile-nav.is-open" in css
     assert all(label in public_header for label in ["免费测评", "产品服务", "客户登录", "管理后台"])
+    assert all(label in mobile_public for label in ["免费测评", "产品服务", "客户登录"])
+    assert all(label not in mobile_public for label in ["员工入口", "管理后台", "后台登录", "内部系统", "员工中心", "管理入口"])
+    assert "管理后台" in desktop_public
     assert all(label in client_header for label in ["首页", "我的报告", "我的订单", "我的资料", "顾问预约", "通知", "账号设置", "退出登录"])
     assert all(label not in client_header for label in ["融资项目", "管理后台", "员工入口"])
     assert 'class="public-desktop-nav"' in public_header
@@ -114,6 +127,7 @@ def run() -> None:
     assert "nav-open" in js and "header.contains(event.target)" in js
     assert 'event.key === "Escape"' in js and "window.innerWidth > 768" in js
     print("NAVIGATION_IDENTITY_OK")
+    print("MOBILE_PUBLIC_NAV_CLEAN_OK")
 
 
 if __name__ == "__main__":

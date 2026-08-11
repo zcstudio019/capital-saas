@@ -1090,8 +1090,7 @@ details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold)
     display:flex;
     flex-direction:column;
   }
-  .public-mobile-nav-inner>a,
-  .public-mobile-employee>a{
+  .public-mobile-nav-inner>a{
     display:block;
     min-height:46px;
     padding:11px 4px;
@@ -1099,18 +1098,6 @@ details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold)
     color:#e5ebf2;
     line-height:24px;
   }
-  .public-mobile-employee{
-    margin-top:9px;
-    padding-top:9px;
-    border-top:1px solid rgba(201,155,67,.4);
-  }
-  .public-mobile-employee>span{
-    display:block;
-    padding:4px;
-    color:#9eacbc;
-    font-size:12px;
-  }
-  .public-mobile-employee>a{border-bottom:0;color:#c5cfdb}
 }
 
 @media(min-width:769px){

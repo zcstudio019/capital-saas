@@ -49,7 +49,8 @@ def run() -> None:
         )
         assert mobile_match
         mobile = mobile_match.group(1)
-        assert "客户登录" in mobile and "管理后台" in mobile and "员工入口" in mobile
+        assert all(label in mobile for label in ("免费测评", "产品服务", "客户登录"))
+        assert "管理后台" not in mobile and "员工入口" not in mobile
 
     css = (ROOT / "static/css/style.css").read_text(encoding="utf-8")
     base = (ROOT / "templates/base.html").read_text(encoding="utf-8")

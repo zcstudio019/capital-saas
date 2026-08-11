@@ -31,22 +31,19 @@
        data-nav-menu aria-label="手机网站导航">
     <div class="public-mobile-nav-inner">
       {% if customer_logged_in %}
+        <a href="/client/dashboard">首页</a>
         <a href="/client/reports">我的报告</a>
-        <a href="/client/dashboard">客户中心</a>
         <a href="/client/orders">我的订单</a>
         <a href="/client/documents">我的资料</a>
         <a href="/client/advisor-bookings">顾问预约</a>
         <a href="/client/messages">通知</a>
+        <a href="/client/account">账号设置</a>
         <a href="/client/logout">退出登录</a>
       {% else %}
         <a href="/assessment">免费测评</a>
         <a href="/products">产品服务</a>
         <a href="/client/login">客户登录</a>
       {% endif %}
-      <div class="public-mobile-employee">
-        <span>员工入口</span>
-        <a href="{{ admin_entry_url }}">管理后台</a>
-      </div>
     </div>
   </nav>
 </header>
