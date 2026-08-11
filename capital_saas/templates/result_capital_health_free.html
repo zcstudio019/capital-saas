@@ -92,8 +92,8 @@
         <div><h2>本次报告已保存到您的账号</h2><p>该手机号已有客户账号，请登录后查看本次报告和全部历史记录。</p></div>
         <div class="free-report-actions"><a class="report-button" href="/client/login?next=/client/reports">登录并查看我的报告</a></div>
       {% else %}
-        <div><h2>保存这份报告</h2><p>免费创建客户账号，今后可随时查看历史报告、订单、资料和融资进度。</p></div>
-        <div class="free-report-actions"><a class="report-button" href="/client/setup-account">激活我的账号</a></div>
+        <div><h2>保存这份报告</h2><p>创建客户账号后，可长期查看本次报告和后续融资服务记录。</p></div>
+        <div class="free-report-actions"><a class="report-button" href="/client/register?phone={{ assessment.phone }}&next=/client/reports">创建我的账号</a></div>
       {% endif %}
     </section>
 

@@ -173,9 +173,15 @@ SQLITE_COLUMNS = {
         "password_hash":"VARCHAR(300) NOT NULL DEFAULT ''",
         "status":"VARCHAR(20) NOT NULL DEFAULT 'active'",
         "client_login_method":"VARCHAR(20) NOT NULL DEFAULT 'password'",
+        "registration_method":"VARCHAR(20) NOT NULL DEFAULT 'password'",
+        "registration_source":"VARCHAR(40) NOT NULL DEFAULT 'historical_data'",
+        "city":"VARCHAR(100) NOT NULL DEFAULT ''",
         "failed_login_count":"INTEGER NOT NULL DEFAULT 0",
         "locked_until":"DATETIME",
         "password_changed_at":"DATETIME",
+        "activated_at":"DATETIME",
+        "terms_accepted_at":"DATETIME",
+        "privacy_accepted_at":"DATETIME",
         "deleted_at":"DATETIME","deleted_by":"INTEGER","delete_reason":"TEXT NOT NULL DEFAULT ''"
     },
     "internal_notifications": {
@@ -204,6 +210,91 @@ SQLITE_COLUMNS = {
         "source_batch_id": "VARCHAR(80) NOT NULL DEFAULT ''", "imported_at": "DATETIME",
     },
 }
+
+
+def _make_customer_account_anchors_nullable(changed: list[str]) -> None:
+    """Allow a customer to register before creating the first assessment.
+
+    SQLite cannot alter a column's NULL constraint in place, so legacy
+    customer_accounts tables are rebuilt once while preserving rows, foreign
+    keys and useful indexes. New databases already use the nullable model.
+    """
+    inspector = inspect(engine)
+    if "customer_accounts" not in inspector.get_table_names():
+        return
+    columns = inspector.get_columns("customer_accounts")
+    anchors = {item["name"]: item for item in columns if item["name"] in {"lead_id", "assessment_id"}}
+    if not any(item.get("nullable") is False for item in anchors.values()):
+        return
+
+    with engine.begin() as connection:
+        raw_columns = connection.exec_driver_sql("PRAGMA table_info('customer_accounts')").mappings().all()
+        foreign_keys = connection.exec_driver_sql("PRAGMA foreign_key_list('customer_accounts')").mappings().all()
+        index_rows = connection.exec_driver_sql("PRAGMA index_list('customer_accounts')").mappings().all()
+        index_specs: list[tuple[bool, list[str]]] = []
+        for index in index_rows:
+            names = [
+                row["name"] for row in connection.exec_driver_sql(
+                    f'PRAGMA index_info("{index["name"]}")'
+                ).mappings().all()
+            ]
+            if names:
+                index_specs.append((bool(index["unique"]), names))
+
+        definitions: list[str] = []
+        for column in raw_columns:
+            part = f'"{column["name"]}" {column["type"] or ""}'.rstrip()
+            if column["pk"]:
+                part += " PRIMARY KEY"
+            elif column["name"] not in {"lead_id", "assessment_id"} and column["notnull"]:
+                part += " NOT NULL"
+            if column["dflt_value"] is not None:
+                part += f' DEFAULT {column["dflt_value"]}'
+            definitions.append(part)
+        for fk in foreign_keys:
+            clause = (
+                f'FOREIGN KEY ("{fk["from"]}") REFERENCES "{fk["table"]}" ("{fk["to"]}")'
+            )
+            if fk["on_update"] and fk["on_update"] != "NO ACTION":
+                clause += f' ON UPDATE {fk["on_update"]}'
+            if fk["on_delete"] and fk["on_delete"] != "NO ACTION":
+                clause += f' ON DELETE {fk["on_delete"]}'
+            definitions.append(clause)
+
+        connection.exec_driver_sql("DROP TABLE IF EXISTS customer_accounts_registration_tmp")
+        connection.exec_driver_sql(
+            "CREATE TABLE customer_accounts_registration_tmp (" + ", ".join(definitions) + ")"
+        )
+        names = ", ".join(f'"{item["name"]}"' for item in raw_columns)
+        connection.exec_driver_sql(
+            f"INSERT INTO customer_accounts_registration_tmp ({names}) "
+            f"SELECT {names} FROM customer_accounts"
+        )
+        connection.exec_driver_sql("DROP TABLE customer_accounts")
+        connection.exec_driver_sql(
+            "ALTER TABLE customer_accounts_registration_tmp RENAME TO customer_accounts"
+        )
+
+        created: set[tuple[str, ...]] = set()
+        for unique, index_columns in index_specs:
+            key = tuple(index_columns)
+            if key in created:
+                continue
+            created.add(key)
+            suffix = "_".join(index_columns)
+            unique_sql = "UNIQUE " if unique else ""
+            where = " WHERE login_phone <> ''" if unique and index_columns == ["login_phone"] else ""
+            quoted = ", ".join(f'"{name}"' for name in index_columns)
+            connection.exec_driver_sql(
+                f'CREATE {unique_sql}INDEX "ix_customer_accounts_rebuilt_{suffix}" '
+                f'ON customer_accounts ({quoted}){where}'
+            )
+        if ("registration_source",) not in created:
+            connection.exec_driver_sql(
+                "CREATE INDEX ix_customer_accounts_registration_source "
+                "ON customer_accounts (registration_source)"
+            )
+    changed.extend(["customer_accounts.lead_id_nullable", "customer_accounts.assessment_id_nullable"])
 
 
 def migrate_database() -> list[str]:
@@ -265,4 +356,5 @@ def migrate_database() -> list[str]:
             if result.rowcount:
                 changed.append("users.admin_role_repaired")
                 logger.warning("DEFAULT_ADMIN_ROLE_REPAIR migration repaired rows=%s", result.rowcount)
+    _make_customer_account_anchors_nullable(changed)
     return changed

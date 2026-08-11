@@ -1,21 +1,22 @@
 {% extends "base.html" %}
-{% block title %}激活客户账号｜沪上银{% endblock %}
+{% block title %}历史账号找回｜沪上银{% endblock %}
 {% block content %}
 <section class="client-auth-shell">
   <div class="client-auth-card">
-    <p class="client-auth-brand">沪上银</p><h1>首次登录 / 激活账号</h1>
+    <p class="client-auth-brand">沪上银</p><h1>历史账号找回</h1>
     {% if submitted %}
-      <div class="access-success"><strong>激活申请已受理</strong><p>如果该手机号存在尚未激活的客户账号，我们将发送安全激活方式。为保护您的信息，本页面不会显示账号是否存在。</p></div>
-      {% if development_link %}<a class="btn btn-primary client-auth-submit" href="{{ development_link }}">开发环境：打开安全激活链接</a>{% endif %}
+      <div class="access-success"><strong>找回申请已受理</strong><p>如果该手机号存在尚未设置密码的历史账号，我们将发送安全设置方式。为保护您的信息，本页面不会显示账号是否存在。</p></div>
+      {% if development_link %}<a class="btn btn-primary client-auth-submit" href="{{ development_link }}">开发环境：打开安全设置链接</a>{% endif %}
       <a class="client-auth-home" href="/client/login">返回客户登录</a>
     {% else %}
-      <p>请输入测评时预留的手机号。验证后即可设置登录密码，长期查看历史报告和服务进度。</p>
+      <p>适用于以前提交过企业测评、已有历史报告，但尚未设置登录密码的客户。</p>
       <form method="post" action="/client/activate" data-loading-form>
-        <label for="client-activate-phone">手机号</label>
-        <input id="client-activate-phone" name="phone" value="{{ phone }}" inputmode="tel" autocomplete="tel" required placeholder="请输入手机号">
-        <button class="btn btn-primary client-auth-submit" type="submit">获取账号激活方式</button>
+        <label for="client-activate-phone">测评预留手机号</label>
+        <input id="client-activate-phone" name="phone" value="{{ phone }}" inputmode="tel"
+               autocomplete="tel" required placeholder="请输入手机号">
+        <button class="btn btn-primary client-auth-submit" type="submit">找回并设置密码</button>
       </form>
-      <div class="client-auth-links"><a href="/client/login">已有密码，直接登录</a><a href="/">返回首页</a></div>
+      <div class="client-auth-links"><a href="/client/login">已有密码，直接登录</a><a href="/client/register">注册新账号</a></div>
     {% endif %}
   </div>
 </section>

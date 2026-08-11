@@ -38,8 +38,8 @@ def run() -> None:
     with TestClient(app) as client:
         public_login = client.get("/client/login")
         assert public_login.status_code == 200
-        for text in ["客户登录", "请输入手机号", "请输入登录密码", "记住我", "登录客户中心",
-                     "忘记密码", "创建/激活账号", "返回首页"]:
+        for text in ["客户登录", "请输入手机号", "请输入密码", "记住我", "登录客户中心",
+                     "忘记密码", "立即注册", "找回原账号", "返回首页"]:
             assert text in public_login.text
         assert 'name="viewport"' in public_login.text
         assert 'data-nav-toggle' in public_login.text and 'href="/client/login"' in public_login.text
@@ -65,9 +65,9 @@ def run() -> None:
         assert wrong.status_code == 400 and "手机号或密码不正确" in wrong.text
 
         activate_page = client.get(f"/client/activate?phone={phone}")
-        assert activate_page.status_code == 200 and "首次登录 / 激活账号" in activate_page.text
+        assert activate_page.status_code == 200 and "历史账号找回" in activate_page.text
         requested = client.post("/client/activate", data={"phone": phone})
-        assert requested.status_code == 200 and "激活申请已受理" in requested.text
+        assert requested.status_code == 200 and "找回申请已受理" in requested.text
         with SessionLocal() as db:
             token = db.query(CustomerAccessToken).filter_by(
                 customer_id=account_id, token_type="account_activation", is_active=True,

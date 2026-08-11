@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}注册客户账号｜沪上银{% endblock %}
+{% block content %}
+<section class="client-auth-shell">
+  <div class="client-auth-card client-register-card">
+    <p class="client-auth-brand">沪上银</p>
+    <h1>注册客户账号</h1>
+    <p>创建账号后，可长期保存和查看您的企业报告、订单、资料、顾问预约和融资项目。</p>
+
+    {% if historical_account %}
+      <div class="access-success historical-account-notice">
+        <strong>检测到该手机号已有历史报告</strong>
+        <p>请通过安全找回流程设置登录密码。完成后，原有报告将自动保留在您的账号中。</p>
+      </div>
+      <a class="btn btn-primary client-auth-submit" href="/client/activate?phone={{ phone }}">找回并设置密码</a>
+      <div class="client-auth-links"><a href="/client/login?phone={{ phone }}">返回登录</a><a href="/client/forgot-password">忘记密码</a></div>
+    {% elif existing_account %}
+      <div class="form-error is-visible">{{ error }}</div>
+      <div class="client-auth-links"><a href="/client/login?phone={{ phone }}">去登录</a><a href="/client/forgot-password">忘记密码</a></div>
+    {% else %}
+      {% if error %}<div class="form-error is-visible">{{ error }}</div>{% endif %}
+      <form method="post" action="/client/register" data-loading-form>
+        <input type="hidden" name="next_url" value="{{ next_url }}">
+        <input type="hidden" name="registration_method" value="password">
+        <div class="client-register-grid">
+          <label for="client-register-phone">手机号 <span class="required-mark">*</span>
+            <input id="client-register-phone" name="phone" value="{{ phone or '' }}" inputmode="tel"
+                   autocomplete="tel" required placeholder="请输入11位手机号">
+          </label>
+          <label for="client-register-name">联系人姓名 <span class="required-mark">*</span>
+            <input id="client-register-name" name="contact_name" value="{{ values.get('contact_name', '') }}"
+                   autocomplete="name" required placeholder="请输入联系人姓名">
+          </label>
+          <label for="client-register-password">登录密码 <span class="required-mark">*</span>
+            <input id="client-register-password" type="password" name="password"
+                   autocomplete="new-password" minlength="8" required placeholder="至少8位">
+          </label>
+          <label for="client-register-confirm">确认密码 <span class="required-mark">*</span>
+            <input id="client-register-confirm" type="password" name="confirm_password"
+                   autocomplete="new-password" minlength="8" required placeholder="再次输入密码">
+          </label>
+          <label for="client-register-company">企业名称
+            <input id="client-register-company" name="company_name" value="{{ values.get('company_name', '') }}"
+                   autocomplete="organization" placeholder="选填，可稍后在测评中填写">
+          </label>
+          <label for="client-register-wechat">微信号
+            <input id="client-register-wechat" name="wechat_id" value="{{ values.get('wechat_id', '') }}"
+                   autocomplete="off" placeholder="选填">
+          </label>
+          <label for="client-register-city">所在城市
+            <input id="client-register-city" name="city" value="{{ values.get('city', '') }}"
+                   autocomplete="address-level2" placeholder="选填，例如：上海">
+          </label>
+        </div>
+        <label class="legal-consent" for="client-register-legal">
+          <input id="client-register-legal" type="checkbox" name="agree_legal" value="1" required>
+          <span>我已阅读并同意<a href="/legal/terms" target="_blank">《用户协议》</a>和<a href="/legal/privacy" target="_blank">《隐私政策》</a></span>
+        </label>
+        <button class="btn btn-primary client-auth-submit" type="submit">注册并进入客户中心</button>
+      </form>
+      <div class="client-auth-links"><span>已有账号？</span><a href="/client/login">返回登录</a></div>
+    {% endif %}
+    <a class="client-auth-home" href="/">返回首页</a>
+  </div>
+</section>
+{% endblock %}

@@ -57,6 +57,21 @@ connection.executescript(
         uploaded_by INTEGER,
         created_at DATETIME
     );
+    CREATE TABLE customer_accounts (
+        id INTEGER PRIMARY KEY,
+        lead_id INTEGER NOT NULL UNIQUE,
+        assessment_id INTEGER NOT NULL,
+        company_name VARCHAR(200) NOT NULL,
+        contact_name VARCHAR(100) NOT NULL DEFAULT '',
+        phone VARCHAR(50) NOT NULL DEFAULT '',
+        wechat_id VARCHAR(100) NOT NULL DEFAULT '',
+        email VARCHAR(150) NOT NULL DEFAULT '',
+        login_phone VARCHAR(50) NOT NULL DEFAULT '' UNIQUE,
+        is_active BOOLEAN NOT NULL DEFAULT 1,
+        last_login_at DATETIME,
+        created_at DATETIME,
+        updated_at DATETIME
+    );
     """
 )
 connection.close()
@@ -80,6 +95,10 @@ user_columns = {row[1] for row in connection.execute("PRAGMA table_info(users)")
 case_columns = {row[1] for row in connection.execute("PRAGMA table_info(consulting_cases)")}
 project_columns = {row[1] for row in connection.execute("PRAGMA table_info(financing_projects)")}
 application_columns = {row[1] for row in connection.execute("PRAGMA table_info(funding_applications)")}
+customer_account_info = {
+    row[1]: {"notnull": bool(row[3]), "type": row[2]}
+    for row in connection.execute("PRAGMA table_info(customer_accounts)")
+}
 connection.close()
 
 assert {"contact_name", "phone", "wechat_id", "city"} <= assessment_columns
@@ -132,6 +151,10 @@ assert {"parse_status", "verify_status", "parsed_json", "parse_error", "file_siz
         "note", "verified_by", "verified_at", "customer_id", "uploaded_source"} <= uploaded_columns
 assert {"customer_id"} <= order_columns
 assert {"show_consultant_contact"} <= case_columns
+assert not customer_account_info["lead_id"]["notnull"]
+assert not customer_account_info["assessment_id"]["notnull"]
+assert {"registration_method","registration_source","city","activated_at",
+        "terms_accepted_at","privacy_accepted_at"} <= set(customer_account_info)
 assert {"deleted_at","deleted_by","delete_reason"} <= lead_columns
 print({"migration_fields_added": changed})
 print("LEGACY_MIGRATION_OK")

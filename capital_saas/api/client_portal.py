@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from core.access_scope import get_access_scope
@@ -37,6 +38,8 @@ from services.customer_auth_service import (
     CUSTOMER_REMEMBER_COOKIE, authenticate_customer, create_customer_session,
     normalize_login_phone, revoke_customer_session, set_customer_password,
 )
+from services.audit_service import write_audit_log
+from utils.rate_limiter import allow_rate_action
 
 router=APIRouter();templates=Jinja2Templates(directory=str(BASE_DIR/"templates"))
 UPLOAD_DIR=BASE_DIR/"data"/"uploads"
@@ -72,13 +75,18 @@ def _capital_grade(score):
     value=float(score or 0)
     return 'A' if value>=80 else 'B+' if value>=70 else 'B' if value>=60 else 'C' if value>=50 else 'D'
 def _client_context(db,customer):
-    lead=_lead(db,customer.lead_id);orders=db.query(Order).filter(Order.customer_id==customer.id).order_by(Order.created_at.desc()).all()
+    lead=db.get(Lead,customer.lead_id) if customer.lead_id else None
+    orders=db.query(Order).filter(Order.customer_id==customer.id).order_by(Order.created_at.desc()).all()
     project=db.query(FinancingProject).filter(FinancingProject.customer_id==customer.id).order_by(FinancingProject.id.desc()).first()
     report=db.query(Report).filter(Report.customer_id==customer.id).order_by(Report.created_at.desc()).first()
     completeness=portal_completeness(db,customer)
-    return {"customer":customer,"lead":lead,"assessment":lead.assessment,"orders":orders,
+    advisor=advisor_context(db,lead.id) if lead else {
+        "name":"尚未分配顾问","organization":"沪上银 · 企业资本健康管理中心",
+        "phone":"","wechat":"","show_contact":False,
+    }
+    return {"customer":customer,"lead":lead,"assessment":lead.assessment if lead else None,"orders":orders,
         "product":_latest_product(orders),"project":project,"report_item":report,"completeness":completeness,
-        "advisor":advisor_context(db,lead.id),"project_status":CLIENT_PROJECT_STATUS,
+        "advisor":advisor,"project_status":CLIENT_PROJECT_STATUS,
         "report_count":db.query(Report).filter(Report.customer_id==customer.id).count(),
         "order_count":db.query(Order).filter(Order.customer_id==customer.id).count(),
         "booking_count":db.query(AdvisorBooking).filter(AdvisorBooking.customer_id==customer.id).count(),
@@ -106,11 +114,12 @@ def _customer_login_response(request: Request, db: Session, customer: CustomerAc
 
 @router.get("/client/login", response_class=HTMLResponse)
 def customer_login_page(request: Request, next: str = "/client/dashboard", password_reset: int = 0,
+                        phone: str = "",
                         db: Session = Depends(get_db)):
     if customer_from_session(request, db):
         return RedirectResponse("/client/dashboard", 303)
     return templates.TemplateResponse(request=request, name="client_login.html", context={
-        "error": "", "phone": "", "password_reset": bool(password_reset),
+        "error": "", "phone": normalize_login_phone(phone) if phone else "", "password_reset": bool(password_reset),
         "next_url": next if next.startswith("/client/") else "/client/dashboard",
     })
 
@@ -124,6 +133,15 @@ def customer_login_submit(
     next_url: str = Form("/client/dashboard"),
     db: Session = Depends(get_db),
 ):
+    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (
+        request.client.host if request.client else "unknown"
+    )
+    if not allow_rate_action(f"customer-login:{ip}:{normalize_login_phone(phone)}", 10, 300):
+        return templates.TemplateResponse(request=request, name="client_login.html", context={
+            "error": "登录尝试过于频繁，请稍后再试", "phone": normalize_login_phone(phone),
+            "password_reset": False,
+            "next_url": next_url if next_url.startswith("/client/") else "/client/dashboard",
+        }, status_code=429)
     customer = authenticate_customer(db, phone, password)
     if not customer:
         return templates.TemplateResponse(request=request, name="client_login.html", context={
@@ -135,6 +153,152 @@ def customer_login_submit(
     track_event(db, "customer_password_login", customer.assessment_id, customer.lead_id,
                 {"customer_id": customer.id, "login_method": "password"})
     return _customer_login_response(request, db, customer, next_url, bool(remember_me))
+
+
+def _registration_phone(value: str) -> str:
+    normalized = normalize_login_phone(value)
+    if normalized.startswith("+86"):
+        normalized = normalized[3:]
+    return normalized
+
+
+def _registration_context(*, phone: str = "", next_url: str = "/client/dashboard",
+                          error: str = "", values: dict | None = None,
+                          existing_account: bool = False, historical_account: bool = False) -> dict:
+    return {
+        "phone": phone,
+        "next_url": next_url if next_url.startswith("/client/") else "/client/dashboard",
+        "error": error,
+        "values": values or {},
+        "existing_account": existing_account,
+        "historical_account": historical_account,
+    }
+
+
+@router.get("/client/register", response_class=HTMLResponse)
+def customer_register_page(request: Request, phone: str = "", next: str = "/client/dashboard",
+                           db: Session = Depends(get_db)):
+    if customer_from_session(request, db):
+        return RedirectResponse("/client/dashboard", 303)
+    normalized = _registration_phone(phone)
+    return templates.TemplateResponse(request=request, name="client_register.html", context=_registration_context(
+        phone=normalized, next_url=next,
+    ))
+
+
+@router.post("/client/register", response_class=HTMLResponse)
+def customer_register_submit(
+    request: Request,
+    phone: str = Form(...),
+    contact_name: str = Form(...),
+    password: str = Form(...),
+    confirm_password: str = Form(...),
+    company_name: str = Form(""),
+    wechat_id: str = Form(""),
+    city: str = Form(""),
+    agree_legal: str = Form(""),
+    registration_method: str = Form("password"),
+    next_url: str = Form("/client/dashboard"),
+    db: Session = Depends(get_db),
+):
+    normalized = _registration_phone(phone)
+    values = {
+        "contact_name": contact_name.strip(), "company_name": company_name.strip(),
+        "wechat_id": wechat_id.strip(), "city": city.strip(),
+    }
+    error = ""
+    if not normalized:
+        error = "请输入手机号"
+    elif len(normalized) != 11 or not normalized.isdigit() or not normalized.startswith("1"):
+        error = "请输入正确的11位手机号"
+    elif not contact_name.strip():
+        error = "请输入联系人姓名"
+    elif len(password) < 8:
+        error = "登录密码至少需要8位"
+    elif password != confirm_password:
+        error = "两次输入的密码不一致"
+    elif agree_legal != "1":
+        error = "请先阅读并同意用户协议和隐私政策"
+    elif registration_method != "password":
+        error = "当前仅支持手机号和密码注册"
+    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (
+        request.client.host if request.client else "unknown"
+    )
+    if not error and not allow_rate_action(f"customer-register:{ip}:{normalized}", 5, 300):
+        error = "注册操作过于频繁，请5分钟后再试"
+    if error:
+        return templates.TemplateResponse(request=request, name="client_register.html", context=_registration_context(
+            phone=normalized, next_url=next_url, error=error, values=values,
+        ), status_code=429 if "频繁" in error else 400)
+
+    existing = db.query(CustomerAccount).filter(CustomerAccount.login_phone == normalized).first()
+    if not existing:
+        # 兼容历史数据中带 +86、空格或短横线的手机号，避免重复创建客户身份。
+        for candidate in db.query(CustomerAccount).filter(CustomerAccount.deleted_at.is_(None)).all():
+            if _registration_phone(candidate.login_phone or candidate.phone) == normalized:
+                existing = candidate
+                break
+    if existing and (not existing.is_active or existing.status == "disabled"):
+        return templates.TemplateResponse(request=request, name="client_register.html", context=_registration_context(
+            phone=normalized, next_url=next_url, values=values,
+            error="该账号已停用，请联系服务人员处理。",
+        ), status_code=403)
+    if existing and existing.password_hash:
+        return templates.TemplateResponse(request=request, name="client_register.html", context=_registration_context(
+            phone=normalized, next_url=next_url, values=values, existing_account=True,
+            error="该手机号已注册，请直接登录。",
+        ), status_code=409)
+    if existing and not existing.password_hash:
+        pending_id = request.session.get("pending_customer_id")
+        if not pending_id or int(pending_id) != existing.id:
+            return templates.TemplateResponse(request=request, name="client_register.html", context=_registration_context(
+                phone=normalized, next_url=next_url, values=values, historical_account=True,
+            ), status_code=409)
+        customer = existing
+        customer.name = contact_name.strip() or customer.name
+        customer.contact_name = customer.name
+        customer.wechat_id = wechat_id.strip() or customer.wechat_id
+        customer.city = city.strip() or customer.city
+        customer.company_name = company_name.strip() or customer.company_name
+    else:
+        customer = CustomerAccount(
+            lead_id=None, assessment_id=None, company_name=company_name.strip(),
+            name=contact_name.strip(), contact_name=contact_name.strip(),
+            phone=normalized, login_phone=normalized, wechat_id=wechat_id.strip(), city=city.strip(),
+            status="active", is_active=True, client_login_method="password",
+            registration_method=registration_method, registration_source="self_registration",
+        )
+        db.add(customer)
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            return templates.TemplateResponse(request=request, name="client_register.html",
+                context=_registration_context(
+                    phone=normalized, next_url=next_url, values=values, existing_account=True,
+                    error="该手机号已注册，请直接登录。",
+                ), status_code=409)
+
+    now = datetime.now()
+    set_customer_password(db, customer, password)
+    customer.status = "active"
+    customer.is_active = True
+    customer.last_login_at = now
+    customer.activated_at = customer.activated_at or now
+    customer.terms_accepted_at = now
+    customer.privacy_accepted_at = now
+    track_event(db, "customer_registered", customer.assessment_id, customer.lead_id, {
+        "customer_id": customer.id,
+        "registration_source": customer.registration_source,
+        "registration_method": customer.registration_method,
+    }, commit=False)
+    write_audit_log(
+        db, "customer_registered", "customer_account", customer.id,
+        customer_id=customer.id, actor_type="customer", request=request,
+        after={"registration_source": customer.registration_source, "legal_accepted": True},
+    )
+    db.commit()
+    return _customer_login_response(request, db, customer, next_url, True)
 
 
 @router.get("/client/setup-account", response_class=HTMLResponse)
@@ -382,7 +546,7 @@ def client_logout(request:Request,db:Session=Depends(get_db)):
 @router.get('/client/dashboard',response_class=HTMLResponse)
 def client_dashboard(request:Request,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
     from services.legal_service import missing_acceptances
-    legal_pending=missing_acceptances(db,customer,['user_agreement','privacy_policy','data_authorization'])
+    legal_pending=missing_acceptances(db,customer,['user_agreement','privacy_policy'])
     if settings.app_env=='production' and legal_pending:return RedirectResponse('/client/legal',303)
     ensure_document_tasks(db,customer);ctx=_client_context(db,customer)
     ctx.update({"legal_pending":legal_pending,"tasks":db.query(CustomerTask).filter(CustomerTask.customer_id==customer.id,CustomerTask.status=='pending').order_by(CustomerTask.due_time).limit(8).all(),
@@ -491,6 +655,8 @@ def client_documents(request:Request,db:Session=Depends(get_db),customer:Custome
 @router.post('/client/documents/upload')
 async def client_document_upload(request:Request,document_category:str=Form('其他资料'),note:str=Form(''),files:list[UploadFile]=File(...),
     db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
+    if not customer.lead_id or not customer.assessment_id:
+        raise HTTPException(400,'请先完成企业资本健康测评，再上传企业资料')
     from services.legal_service import missing_acceptances
     if settings.app_env=='production' and missing_acceptances(db,customer,['document_submission_authorization']):raise HTTPException(403,'上传资料前请先确认资料提交授权')
     from utils.file_security import enforce_lead_total,validate_upload_metadata

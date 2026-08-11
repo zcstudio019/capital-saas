@@ -9,25 +9,25 @@
   <div class="assessment-grid">
     <div class="form-field">
       <label class="form-label" for="contact-name">联系人姓名<span class="required-mark" aria-hidden="true">*</span></label>
-      <input class="form-control" id="contact-name" name="contact_name" required maxlength="100" placeholder="请输入联系人姓名" autocomplete="name" data-error-required="请输入联系人姓名">
+      <input class="form-control" id="contact-name" name="contact_name" value="{{ form_values.get('contact_name', '') if form_values is defined else '' }}" required maxlength="100" placeholder="请输入联系人姓名" autocomplete="name" data-error-required="请输入联系人姓名">
       <p class="form-help" aria-hidden="true">&nbsp;</p>
       <p class="form-error" aria-live="polite"></p>
     </div>
     <div class="form-field">
       <label class="form-label" for="contact-phone">手机号<span class="required-mark" aria-hidden="true">*</span></label>
-      <input class="form-control" id="contact-phone" name="phone" type="tel" required maxlength="30" pattern="^[0-9+\-\s]{6,30}$" placeholder="请输入手机号" inputmode="tel" autocomplete="tel" data-error-required="请输入手机号" data-error-pattern="请输入正确的手机号">
-      <p class="form-help">用于接收测评结果及必要的服务通知。</p>
+      <input class="form-control" id="contact-phone" name="phone" type="tel" value="{{ form_values.get('phone', '') if form_values is defined else '' }}" required maxlength="30" pattern="^[0-9+\-\s]{6,30}$" placeholder="请输入手机号" inputmode="tel" autocomplete="tel" data-error-required="请输入手机号" data-error-pattern="请输入正确的手机号" {% if request.session.get('customer_authenticated') %}readonly aria-readonly="true"{% endif %}>
+      <p class="form-help">{{ '当前手机号已绑定客户账号，如需修改请前往账号设置。' if request.session.get('customer_authenticated') else '用于接收测评结果及必要的服务通知。' }}</p>
       <p class="form-error" aria-live="polite"></p>
     </div>
     <div class="form-field">
       <label class="form-label" for="contact-wechat">微信号</label>
-      <input class="form-control" id="contact-wechat" name="wechat_id" maxlength="100" placeholder="选填" autocomplete="off">
+      <input class="form-control" id="contact-wechat" name="wechat_id" value="{{ form_values.get('wechat_id', '') if form_values is defined else '' }}" maxlength="100" placeholder="选填" autocomplete="off">
       <p class="form-help" aria-hidden="true">&nbsp;</p>
       <p class="form-error" aria-live="polite"></p>
     </div>
     <div class="form-field">
       <label class="form-label" for="contact-city">所在城市</label>
-      <input class="form-control" id="contact-city" name="city" maxlength="100" placeholder="选填，例如：上海" autocomplete="address-level2">
+      <input class="form-control" id="contact-city" name="city" value="{{ form_values.get('city', '') if form_values is defined else '' }}" maxlength="100" placeholder="选填，例如：上海" autocomplete="address-level2">
       <p class="form-help" aria-hidden="true">&nbsp;</p>
       <p class="form-error" aria-live="polite"></p>
     </div>

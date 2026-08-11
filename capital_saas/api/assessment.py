@@ -200,7 +200,18 @@ def assessment_form(request: Request, trial_code: str = "", db: Session = Depend
                     track_event(db, "trial_gate_blocked", data={"ip": client_ip}, attribution=attribution)
                 return templates.TemplateResponse(request=request, name="trial_gate.html", context={"error": "访问码不正确，请联系服务顾问。" if trial_code else ""})
     track_event(db, "assessment_page_viewed", data={}, attribution=attribution)
-    return templates.TemplateResponse(request=request, name="assessment_form.html")
+    customer = customer_from_session(request, db)
+    form_values = {}
+    if customer:
+        form_values = {
+            "contact_name": customer.name or customer.contact_name,
+            "phone": customer.login_phone or customer.phone,
+            "wechat_id": customer.wechat_id,
+            "city": customer.city,
+        }
+    return templates.TemplateResponse(request=request, name="assessment_form.html", context={
+        "form_values": form_values, "customer": customer,
+    })
 
 
 @router.post("/assessment/submit")
@@ -460,6 +471,10 @@ async def submit_assessment(request: Request, db: Session = Depends(get_db)):
         "qr_sales_id": str(request.session.get("qr_sales_id", ""))[:20],
         **attribution_from_session(request),
     }
+    authenticated_customer = customer_from_session(request, db)
+    if authenticated_customer:
+        data["customer_id"] = authenticated_customer.id
+        data["phone"] = authenticated_customer.login_phone or authenticated_customer.phone
     assessment = create_assessment(db, data)
     if assessment.report and assessment.report.customer_id:
         account = assessment.report.customer_id

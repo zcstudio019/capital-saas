@@ -7,15 +7,23 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from core.config import BASE_DIR,settings
 
-PROTECTED=("/assessment/submit","/login","/client/login-token/","/payment/mock-pay/",
+PROTECTED=("/assessment/submit","/login","/client/login","/client/register","/client/activate",
+           "/client/forgot-password","/client/login-token/","/payment/mock-pay/",
            "/client/documents/upload","/public/report/")
+
+def allow_rate_action(key:str,limit:int,window_seconds:int)->bool:
+    bucket=RateLimitMiddleware.buckets[("action",key)];now=time()
+    while bucket and bucket[0]<now-window_seconds:bucket.popleft()
+    if len(bucket)>=limit:return False
+    bucket.append(now);return True
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     buckets=defaultdict(deque);templates=Jinja2Templates(directory=str(BASE_DIR/"templates"))
     async def dispatch(self,request:Request,call_next):
         if not settings.rate_limit_enabled or not any(request.url.path.startswith(x) for x in PROTECTED):return await call_next(request)
         ip=(request.headers.get("x-forwarded-for","").split(",")[0].strip() or (request.client.host if request.client else "unknown"))
-        limit=settings.login_rate_limit_per_minute if request.url.path=="/login" else settings.rate_limit_per_minute
+        login_paths={"/login","/admin/login","/client/login","/client/register","/client/activate","/client/forgot-password"}
+        limit=settings.login_rate_limit_per_minute if request.url.path in login_paths else settings.rate_limit_per_minute
         key=(ip,request.url.path.split("?",1)[0]);bucket=self.buckets[key];now=time()
         while bucket and bucket[0]<now-60:bucket.popleft()
         if len(bucket)>=limit:

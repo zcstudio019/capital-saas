@@ -11,13 +11,22 @@
     <form method="post" action="/client/login" data-loading-form>
       <input type="hidden" name="next_url" value="{{ next_url }}">
       <label for="client-login-phone">手机号</label>
-      <input id="client-login-phone" name="phone" value="{{ phone }}" inputmode="tel" autocomplete="tel" required placeholder="请输入手机号">
+      <input id="client-login-phone" name="phone" value="{{ phone or '' }}" inputmode="tel"
+             autocomplete="tel" required placeholder="请输入手机号">
       <label for="client-login-password">登录密码</label>
-      <input id="client-login-password" type="password" name="password" autocomplete="current-password" required placeholder="请输入登录密码">
-      <label class="remember-row" for="client-login-remember"><input id="client-login-remember" type="checkbox" name="remember_me" value="1"><span>记住我</span></label>
+      <input id="client-login-password" type="password" name="password"
+             autocomplete="current-password" required placeholder="请输入密码">
+      <label class="remember-row" for="client-login-remember">
+        <input id="client-login-remember" type="checkbox" name="remember_me" value="1">
+        <span>记住我</span>
+      </label>
       <button class="btn btn-primary client-auth-submit" type="submit">登录客户中心</button>
     </form>
-    <div class="client-auth-links"><a href="/client/forgot-password">忘记密码</a><a href="/client/activate">还没有设置密码？创建/激活账号</a></div>
+    <a class="client-forgot-link" href="/client/forgot-password">忘记密码</a>
+    <div class="client-auth-secondary">
+      <p>还没有账号？ <a href="/client/register">立即注册</a></p>
+      <p>已有历史报告但未设置密码？ <a href="/client/activate">找回原账号</a></p>
+    </div>
     <a class="client-auth-home" href="/">返回首页</a>
   </div>
 </section>

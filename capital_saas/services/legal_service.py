@@ -17,4 +17,8 @@ def ensure_default_legal_documents(db:Session):
 def missing_acceptances(db,customer,keys):
     docs=db.query(LegalDocument).filter(LegalDocument.is_active.is_(True),LegalDocument.document_key.in_(keys)).all()
     accepted={(x.document_key,x.document_version) for x in db.query(LegalAcceptance).filter_by(customer_id=customer.id).all()}
+    if customer.terms_accepted_at:
+        accepted.update((item.document_key,item.version) for item in docs if item.document_key=="user_agreement")
+    if customer.privacy_accepted_at:
+        accepted.update((item.document_key,item.version) for item in docs if item.document_key=="privacy_policy")
     return [x for x in docs if (x.document_key,x.version) not in accepted]

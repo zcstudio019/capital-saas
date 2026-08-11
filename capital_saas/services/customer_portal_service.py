@@ -33,11 +33,18 @@ def ensure_customer_account(db: Session, lead: Lead, commit: bool = True) -> Cus
         customer = CustomerAccount(lead_id=lead.id, assessment_id=lead.assessment_id,
             company_name=lead.company_name, name=lead.contact_name, contact_name=lead.contact_name, phone=lead.phone,
             wechat_id=lead.wechat_id, login_phone=normalized_phone or lead.phone,
-            status="pending_activation", is_active=True)
+            status="pending_activation", is_active=True,
+            registration_method="password", registration_source="free_assessment_auto")
         db.add(customer); db.flush()
         track_event(db, "customer_portal_created", lead.assessment_id, lead.id,
                     {"customer_id": customer.id}, commit=False)
     else:
+        if customer.lead_id is None:
+            customer.lead_id = lead.id
+        if customer.assessment_id is None:
+            customer.assessment_id = lead.assessment_id
+        if not customer.company_name:
+            customer.company_name = lead.company_name
         if not customer.login_phone and normalized_phone:
             customer.login_phone = normalized_phone
         if not customer.password_hash and customer.status == "active":
@@ -133,18 +140,32 @@ def backfill_customer_account_links(db: Session, customer: CustomerAccount | Non
                 continue
             account = primary_by_phone.get(normalized)
             if account is None:
+                # 旧库可能已有以 lead/assessment 为锚点、但手机号格式不同或
+                # 已停用的账号。锚点账号仍拥有历史数据，不能再次插入同一
+                # lead_id/assessment_id，否则会触发唯一约束并中断启动迁移。
+                account = next(
+                    (
+                        item for item in customers
+                        if item.lead_id == lead.id or item.assessment_id == assessment.id
+                    ),
+                    None,
+                )
+            if account is None:
                 account = CustomerAccount(
                     lead_id=lead.id, assessment_id=assessment.id,
                     company_name=lead.company_name, name=lead.contact_name,
                     contact_name=lead.contact_name, phone=lead.phone,
                     wechat_id=lead.wechat_id, login_phone=normalized,
                     status="pending_activation", is_active=True,
+                    registration_method="password", registration_source="historical_data",
                 )
                 db.add(account)
                 db.flush()
                 customers.append(account)
                 primary_by_phone[normalized] = account
                 changed += 1
+            elif account.is_active and account.status != "disabled":
+                primary_by_phone.setdefault(normalized, account)
             bind_customer_records(db, account, lead)
     for account in customers:
         if not account.is_active or account.status == "disabled":
@@ -253,12 +274,22 @@ def require_customer(request: Request, db: Session = Depends(get_db)) -> Custome
 
 
 def portal_completeness(db: Session, customer: CustomerAccount) -> dict:
-    lead = db.get(Lead, customer.lead_id)
+    lead = db.get(Lead, customer.lead_id) if customer.lead_id else None
+    if not lead:
+        return {
+            "completeness_score": 0,
+            "level": "pending",
+            "missing_required_documents": [],
+            "missing_optional_documents": [],
+            "available_documents": [],
+        }
     docs = db.query(UploadedDocument).filter(UploadedDocument.lead_id == lead.id).all()
     return check_document_completeness(lead, lead.assessment, docs, lead.recommended_product, {})
 
 
 def ensure_document_tasks(db: Session, customer: CustomerAccount) -> list[CustomerTask]:
+    if not customer.lead_id or not customer.assessment_id:
+        return []
     result = portal_completeness(db, customer); created=[]
     for missing in result["missing_required_documents"]:
         title=f"补充资料：{missing}"
