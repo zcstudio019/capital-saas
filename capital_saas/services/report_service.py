@@ -28,7 +28,7 @@ from utils.logger import logger
 
 def _assessment_data(item: Assessment) -> dict:
     fields = [
-        "company_name", "industry", "years", "employee_count", "annual_revenue",
+        "company_name", "industry", "registered_capital", "years", "employee_count", "annual_revenue",
         "net_profit", "net_profit_margin", "monthly_cashflow", "debt_total", "short_debt",
         "receivable_days", "funding_need", "funding_purpose", "has_collateral",
         "tax_status", "credit_status", "knows_cashflow", "has_budget",
@@ -350,6 +350,7 @@ def _build_professional_report(db: Session, assessment: Assessment) -> dict:
         "company_snapshot": {
             "company_name": assessment.company_name,
             "industry": assessment.industry,
+            "registered_capital": assessment.registered_capital,
             "annual_revenue": assessment.annual_revenue,
             "net_profit": assessment.net_profit,
             "net_profit_margin": assessment.net_profit_margin,

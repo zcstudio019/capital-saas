@@ -42,6 +42,7 @@ BASE_PAYLOAD = {
 }
 
 OPTIONAL_NUMERIC_FIELDS = (
+    "registered_capital",
     "employee_count",
     "monthly_cashflow",
     "receivable_days",

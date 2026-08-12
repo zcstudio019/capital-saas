@@ -55,6 +55,12 @@ def _money(value: float | int | None) -> str:
     return f"{number:,.0f}元"
 
 
+def _registered_capital(value: float | int) -> str:
+    amount_in_ten_thousands = float(value) / 10_000
+    formatted = f"{amount_in_ten_thousands:,.2f}".rstrip("0").rstrip(".")
+    return f"{formatted}万元"
+
+
 def _percent(value: float) -> str:
     return f"{value * 100:.1f}%"
 
@@ -114,6 +120,23 @@ def _missing_item(name: str) -> dict[str, Any]:
     )
 
 
+def _informational_item(
+    name: str,
+    result: str,
+    basis: str,
+    *,
+    needs_verification: bool = False,
+) -> dict[str, Any]:
+    """Create a non-scoring fact item for contextual information such as registered capital."""
+    return {
+        "check_item": name,
+        "check_result": result,
+        "scoring_basis": basis,
+        "score": None,
+        "needs_verification": needs_verification,
+    }
+
+
 def _build_items(assessment: Assessment) -> dict[str, list[dict[str, Any]]]:
     revenue = max(float(assessment.annual_revenue or 0), 0)
     profit = float(assessment.net_profit or 0)
@@ -122,6 +145,7 @@ def _build_items(assessment: Assessment) -> dict[str, list[dict[str, Any]]]:
     short_debt = max(float(assessment.short_debt or 0), 0)
     years = max(float(assessment.years or 0), 0)
     employees = max(int(assessment.employee_count or 0), 0)
+    registered_capital = assessment.registered_capital
     debt_ratio = debt / revenue if revenue else 1
     short_ratio = short_debt / debt if debt else 0
     profit_margin = net_profit_margin_fraction(
@@ -150,7 +174,12 @@ def _build_items(assessment: Assessment) -> dict[str, list[dict[str, Any]]]:
             _item("企业名称", assessment.company_name, "企业主体信息完整", 5),
             _item("成立时间", f"持续经营{years}年", "经营3年以上较稳定", 5 if years >= 5 else 4 if years >= 3 else 2.5),
             _item("行业类型", assessment.industry or "待补充", "行业信息用于判断准入政策", 4 if assessment.industry else 2),
-            _missing_item("注册资本"),
+            _informational_item(
+                "注册资本",
+                _registered_capital(registered_capital) if registered_capital is not None else "待补充资料核验",
+                "注册资本仅作为企业主体信息和辅助判断依据，不直接参与融资评分",
+                needs_verification=registered_capital is None,
+            ),
             _item("员工人数", f"{employees}人", "人员规模用于佐证经营稳定性", 4 if employees >= 20 else 3 if employees >= 5 else 2.5),
             _item("近12个月营业收入", _money(revenue), "营收规模越稳定，授信基础越好", 5 if revenue >= 10_000_000 else 4 if revenue >= 3_000_000 else 3),
             _item("近12个月净利润率", _percent(profit_margin), "持续盈利有利于证明偿债来源", 5 if profit_margin >= .12 else 4 if profit_margin > 0 else 2),

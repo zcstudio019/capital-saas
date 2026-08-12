@@ -165,7 +165,7 @@ def compliance_export(request:Request,lead_id:int,db:Session=Depends(get_db),use
     assessment=db.get(Assessment,lead.assessment_id);memory=io.BytesIO()
     with zipfile.ZipFile(memory,'w',zipfile.ZIP_DEFLATED) as z:
         z.writestr('lead.csv',_csv_bytes(['id','company_name','contact_name','phone','wechat_id','lead_grade'],[[lead.id,lead.company_name,lead.contact_name,lead.phone,lead.wechat_id,lead.lead_grade]]))
-        z.writestr('assessment.csv',_csv_bytes(['id','company_name','industry','annual_revenue','debt_total','funding_need','score'],[[assessment.id,assessment.company_name,assessment.industry,assessment.annual_revenue,assessment.debt_total,assessment.funding_need,assessment.score]]))
+        z.writestr('assessment.csv',_csv_bytes(['id','company_name','industry','registered_capital','annual_revenue','debt_total','funding_need','score'],[[assessment.id,assessment.company_name,assessment.industry,assessment.registered_capital,assessment.annual_revenue,assessment.debt_total,assessment.funding_need,assessment.score]]))
         z.writestr('reports.csv',_csv_bytes(['id','review_status','is_unlocked','created_at'],[[x.id,x.review_status,x.is_unlocked,x.created_at] for x in db.query(Report).filter_by(assessment_id=assessment.id).all()]))
         z.writestr('orders.csv',_csv_bytes(['id','product','amount','status','paid_at'],[[x.id,x.product_code,x.amount,x.status,x.paid_at] for x in db.query(Order).filter_by(assessment_id=assessment.id).all()]))
         z.writestr('documents_manifest.csv',_csv_bytes(['id','file_name','category','size','hash','status'],[[x.id,x.file_name,x.document_category,x.file_size,x.file_hash,x.verify_status] for x in db.query(UploadedDocument).filter_by(lead_id=lead.id).all()]))

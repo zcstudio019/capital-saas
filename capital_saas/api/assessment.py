@@ -70,6 +70,7 @@ def _profit_values(
 
 
 NUMERIC_FIELD_LABELS = {
+    "registered_capital": "注册资本",
     "years": "经营年限",
     "employee_count": "当前员工人数",
     "annual_revenue": "近12个月营业收入",
@@ -102,6 +103,7 @@ NUMERIC_FIELD_LABELS = {
 }
 
 OPTIONAL_FLOAT_FIELDS = (
+    "registered_capital",
     "net_profit",
     "monthly_cashflow",
     "public_inflow_monthly",
@@ -288,7 +290,7 @@ async def submit_assessment(request: Request, db: Session = Depends(get_db)):
 
     for name in (
         "years", "annual_revenue", "debt_total", "short_debt",
-        "employee_count", "monthly_cashflow", "receivable_days",
+        "registered_capital", "employee_count", "monthly_cashflow", "receivable_days",
         "credit_query_count_6m", "lender_count", "public_inflow_monthly",
         "public_outflow_monthly", "tax_paid_12m", "invoiced_revenue_12m",
         "property_value", "factory_value", "land_value", "vehicle_value",
@@ -332,6 +334,7 @@ async def submit_assessment(request: Request, db: Session = Depends(get_db)):
         return _validation_response(request, errors, submitted_values)
 
     years = float(parsed_numbers["years"])
+    registered_capital = parsed_numbers["registered_capital"]
     employee_count = parsed_numbers["employee_count"]
     annual_revenue = float(parsed_numbers["annual_revenue"])
     net_profit_margin = parsed_numbers["net_profit_margin"]
@@ -421,7 +424,7 @@ async def submit_assessment(request: Request, db: Session = Depends(get_db)):
     data = {
         "company_name": company_name.strip(), "contact_name": contact_name.strip(),
         "phone": phone.strip(), "wechat_id": wechat_id.strip(), "city": city.strip(),
-        "industry": industry.strip(), "years": years,
+        "industry": industry.strip(), "registered_capital": registered_capital, "years": years,
         "employee_count": _legacy_numeric_default(employee_count),
         "annual_revenue": annual_revenue_value,
         "net_profit": profit_amount, "net_profit_margin": profit_margin,
@@ -544,7 +547,7 @@ def assessment_api(assessment_id: int, db: Session = Depends(get_db)):
     return {
         "id": item.id, "company_name": item.company_name, "contact_name": item.contact_name,
         "phone": item.phone, "wechat_id": item.wechat_id, "city": item.city,
-        "industry": item.industry, "score": item.score,
+        "industry": item.industry, "registered_capital": item.registered_capital, "score": item.score,
         "company_grade_display": display_value("company_grade", item.grade),
         "risk_level_display": display_value("risk_level", item.risk_level),
         "finance_feasibility_display": display_value(

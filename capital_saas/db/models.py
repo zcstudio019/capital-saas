@@ -17,6 +17,7 @@ class Assessment(Base):
     wechat_id: Mapped[str] = mapped_column(String(100), default="")
     city: Mapped[str] = mapped_column(String(100), default="")
     industry: Mapped[str] = mapped_column(String(100))
+    registered_capital: Mapped[float | None] = mapped_column(Float, nullable=True)
     years: Mapped[float] = mapped_column(Float)
     employee_count: Mapped[int] = mapped_column(Integer)
     annual_revenue: Mapped[float] = mapped_column(Float)

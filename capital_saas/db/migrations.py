@@ -11,6 +11,7 @@ SQLITE_COLUMNS = {
         "phone": "VARCHAR(30) NOT NULL DEFAULT ''",
         "wechat_id": "VARCHAR(100) NOT NULL DEFAULT ''",
         "city": "VARCHAR(100) NOT NULL DEFAULT ''",
+        "registered_capital": "FLOAT",
         "net_profit_margin": "FLOAT",
         "collateral_types": "TEXT NOT NULL DEFAULT ''",
         "enterprise_credit_status": "VARCHAR(30) NOT NULL DEFAULT 'unknown'",
