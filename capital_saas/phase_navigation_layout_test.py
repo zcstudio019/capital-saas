@@ -57,7 +57,7 @@ def run() -> None:
     assessment = (ROOT / "templates/assessment_form.html").read_text(encoding="utf-8")
 
     assert base.count('include "components/public_header.html"') == 1
-    assert "public-nav-layout" in base
+    assert "20260812-dashboard-header" in base
     assert "public_header.html" not in assessment
     assert "@media(max-width:768px)" in css
     assert "@media(min-width:769px)" in css

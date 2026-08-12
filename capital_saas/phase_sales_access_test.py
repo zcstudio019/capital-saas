@@ -68,6 +68,24 @@ def run():
         admin_dashboard = client.get("/admin", follow_redirects=False)
         assert admin_dashboard.status_code == 200
         assert "/admin/users" in admin_dashboard.text
+        assert 'class="dashboard-header"' in admin_dashboard.text
+        assert 'class="dashboard-user-badge"' in admin_dashboard.text
+        assert 'class="dashboard-tabs-card admin-links"' in admin_dashboard.text
+        assert admin_dashboard.text.index('class="dashboard-header"') < admin_dashboard.text.index('class="dashboard-tabs-card admin-links"')
+        assert admin_dashboard.text.index('class="dashboard-tabs-card admin-links"') < admin_dashboard.text.index('class="dashboard-grid sales-dashboard"')
+        assert '<div class="admin-top">' not in admin_dashboard.text
+        assert "20260812-dashboard-header" in admin_dashboard.text
+        dashboard_css = (Path(__file__).resolve().parent / "static/css/style.css").read_text(encoding="utf-8")
+        for selector in (
+            ".dashboard-header__title",
+            ".dashboard-user-badge",
+            ".dashboard-tabs-card",
+            "@media (max-width: 900px)",
+            "@media (max-width: 640px)",
+        ):
+            assert selector in dashboard_css
+        assert "flex-wrap: nowrap" in dashboard_css
+        assert "overflow-x: auto" in dashboard_css
 
         users_page = client.get("/admin/users")
         assert users_page.status_code == 200
