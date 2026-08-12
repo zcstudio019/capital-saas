@@ -65,6 +65,25 @@ def assert_delivery_safe(html: str) -> None:
         assert not re.search(pattern, text, re.I), pattern
 
 
+def assert_dimension_score_layout(html: str) -> None:
+    cards = re.findall(
+        r'<article class="score-dimension-card">(.*?)</article>', html, re.S
+    )
+    assert len(cards) == 8
+    required = (
+        "score-dimension-header",
+        "score-dimension-weight",
+        "score-dimension-score-row",
+        "score-dimension-status",
+        "score-dimension-progress",
+        "score-dimension-summary",
+    )
+    for card in cards:
+        assert all(fragment in card for fragment in required)
+        assert card.index("score-dimension-weight") < card.index("score-dimension-progress")
+        assert card.index("score-dimension-score-row") < card.index("score-dimension-progress")
+
+
 def run() -> None:
     with TestClient(app) as client:
         submitted = client.post("/assessment/submit", data=PAYLOAD, follow_redirects=False)
@@ -108,6 +127,7 @@ def run() -> None:
         assert "诊断已经明确，下一步需要把问题转化为执行方案" in report_980.text
         assert "真实银行产品匹配</h3>" not in report_980.text
         assert "capital_health_report.css" in report_980.text
+        assert_dimension_score_layout(report_980.text)
         assert_delivery_safe(report_980.text)
 
         assert client.post(
@@ -133,6 +153,9 @@ def run() -> None:
             assert_delivery_safe(page.text)
         css = (ROOT / "static/css/capital_health_report.css").read_text(encoding="utf-8")
         assert "@media print" in css and "@page" in css
+        assert ".score-dimension-card { break-inside: avoid; }" in css
+        assert "margin-top: -9px" not in css
+        assert not re.search(r"\.score-dimension-(?:weight|progress)[^{]*\{[^}]*position\s*:\s*absolute", css, re.S)
     print("REPORT_VISUAL_DELIVERY_OK")
 
 

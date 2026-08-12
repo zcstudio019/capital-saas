@@ -16,6 +16,11 @@ def require(path: str, fragments: tuple[str, ...]) -> None:
 def run() -> None:
     require("static/css/capital_health_report.css", (
         "--report-navy", ".report-document", "@media print", "@page", "break-inside: avoid",
+        ".score-dimension-header", ".score-dimension-score-row", ".score-dimension-progress",
+    ))
+    require("templates/components/report_executive_summary.html", (
+        "score-dimension-header", "score-dimension-weight", "score-dimension-score-row",
+        "score-dimension-progress", "score-dimension-summary",
     ))
     require("templates/components/report_cover.html", ("企业资本健康体检报告", "报告编号", "免责声明"))
     require("templates/components/report_toc.html", ("体检总评", "后续服务建议"))

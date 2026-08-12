@@ -33,10 +33,18 @@
       <div class="free-dimension-grid">
         {% for dimension in health_report.dimensions %}
         <article class="free-dimension-card">
-          <div class="free-dimension-title"><h3>{{ dimension.dimension_name }}</h3><strong>{{ "%.1f"|format(dimension.raw_score) }} / 5</strong></div>
-          <div class="dimension-track" aria-hidden="true"><i style="width:{{ (dimension.raw_score * 20)|round|int }}%"></i></div>
-          <div class="dimension-meta"><span>权重 {{ dimension.weight }}%</span><span class="light-tag light-{{ 'green' if dimension.status_light == '绿灯' else 'yellow' if dimension.status_light == '黄灯' else 'orange' if dimension.status_light == '橙灯' else 'red' }}">{{ dimension.status_light }}</span></div>
-          <p>{{ dimension.free_explanation or dimension.status_description }}</p>
+          <div class="score-dimension-header">
+            <h3 class="score-dimension-name">{{ dimension.dimension_name }}</h3>
+            <span class="score-dimension-weight">权重 {{ dimension.weight }}%</span>
+          </div>
+          <div class="score-dimension-score-row">
+            <span class="score-dimension-score">{{ "%.1f"|format(dimension.raw_score) }} / 5</span>
+            <span class="score-dimension-status light-{{ 'green' if dimension.status_light == '绿灯' else 'yellow' if dimension.status_light == '黄灯' else 'orange' if dimension.status_light == '橙灯' else 'red' }}">● {{ dimension.status_light }}</span>
+          </div>
+          <div class="score-dimension-progress" role="img" aria-label="{{ dimension.dimension_name }}得分进度 {{ (dimension.raw_score * 20)|round|int }}%">
+            <i class="score-dimension-progress-fill" style="width:{{ (dimension.raw_score * 20)|round|int }}%"></i>
+          </div>
+          <p class="score-dimension-summary">{{ dimension.free_explanation or dimension.status_description }}</p>
         </article>
         {% endfor %}
       </div>
