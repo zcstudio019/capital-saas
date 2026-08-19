@@ -3,18 +3,19 @@ from datetime import datetime, timedelta
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 
 from core.document_completeness_engine import check_document_completeness
 from db.database import get_db
 from db.models import (AdvisorBooking, Assessment, ConsultingCase, CustomerAccessToken, CustomerAccount,
     CustomerMessage, CustomerTask, FinancingProject, Lead, Order, Report, UploadedDocument)
 from services.event_service import track_event
+from services.customer_phone_service import normalize_phone
+from utils.logger import logger
 
 
 def normalize_customer_phone(value: str | None) -> str:
     """Return a stable phone identity without changing the submitted lead value."""
-    return "".join(ch for ch in str(value or "").strip() if ch.isdigit() or ch == "+")
+    return normalize_phone(value) or ""
 
 
 def ensure_customer_account(db: Session, lead: Lead, commit: bool = True) -> CustomerAccount:
@@ -78,123 +79,85 @@ def bind_customer_records(db: Session, customer: CustomerAccount, lead: Lead) ->
     ).update({"customer_id": customer.id}, synchronize_session=False)
 
 
-def backfill_customer_account_links(db: Session, customer: CustomerAccount | None = None) -> int:
-    """Adopt historical data by canonical phone without deleting old records."""
+def backfill_customer_account_links(db: Session, customer: CustomerAccount | None = None) -> dict[str, int]:
+    """Idempotently attach historical records to an existing account identity.
+
+    This function never deletes or revives accounts.  In particular, a soft
+    deleted account is deliberately skipped so a startup migration cannot
+    undo an administrator's decision.
+    """
+    stats = {"created": 0, "reused": 0, "updated": 0, "skipped": 0, "errors": 0}
     customers = [customer] if customer else db.query(CustomerAccount).order_by(CustomerAccount.id).all()
-    if customer is None:
-        primary_by_phone: dict[str, CustomerAccount] = {}
-        for account in customers:
-            if account.deleted_at:
-                continue
-            if not account.is_active or account.status == "disabled":
-                if not str(account.login_phone or "").startswith("merged-account-"):
-                    account.login_phone = f"merged-account-{account.id}"
-                continue
-            normalized = normalize_customer_phone(account.login_phone or account.phone)
-            if not normalized:
-                continue
-            primary = primary_by_phone.get(normalized)
-            if primary is None:
-                primary_by_phone[normalized] = account
-                continue
-            for table in (Report, Order, UploadedDocument, AdvisorBooking, FinancingProject,
-                          CustomerTask, CustomerMessage):
-                db.query(table).filter(table.customer_id == account.id).update(
-                    {"customer_id": primary.id}, synchronize_session=False)
-            db.query(Lead).filter(Lead.customer_id == account.id).update(
-                {"customer_id": primary.id}, synchronize_session=False)
-            db.query(Assessment).filter(Assessment.customer_id == account.id).update(
-                {"customer_id": primary.id}, synchronize_session=False)
-            account.login_phone = f"merged-account-{account.id}"
-            account.status = "disabled"
-            account.is_active = False
-    changed = 0
-    assessments = db.query(Assessment).all()
-    if customer is None:
-        for assessment in assessments:
-            report = db.query(Report).filter(Report.assessment_id == assessment.id).first()
-            order = db.query(Order).filter(
-                Order.assessment_id == assessment.id, Order.customer_id.isnot(None)
-            ).order_by(Order.id.desc()).first()
-            lead = assessment.lead
-            candidate_id = (
-                (report.customer_id if report else None)
-                or (order.customer_id if order else None)
-                or (lead.customer_id if lead else None)
-                or assessment.customer_id
-            )
-            account = db.get(CustomerAccount, candidate_id) if candidate_id else None
-            if account and lead:
-                bind_customer_records(db, account, lead)
-        # Historical assessments may predate customer_accounts entirely.  Build
-        # a password-less account per canonical phone so that a later password
-        # setup/login immediately recovers every report for that identity.
-        primary_by_phone = {
-            normalize_customer_phone(item.login_phone or item.phone): item
-            for item in customers
-            if item.is_active and item.status != "disabled"
-            and item.deleted_at is None
-            and normalize_customer_phone(item.login_phone or item.phone)
-        }
-        for assessment in assessments:
-            lead = assessment.lead
-            normalized = normalize_customer_phone(assessment.phone)
-            if not lead or not normalized:
-                continue
-            account = primary_by_phone.get(normalized)
-            if account is None:
-                # 旧库可能已有以 lead/assessment 为锚点、但手机号格式不同或
-                # 已停用的账号。锚点账号仍拥有历史数据，不能再次插入同一
-                # lead_id/assessment_id，否则会触发唯一约束并中断启动迁移。
-                account = next(
-                    (
-                        item for item in customers
-                        if item.lead_id == lead.id or item.assessment_id == assessment.id
-                    ),
-                    None,
-                )
-            if account is None:
-                account = CustomerAccount(
-                    lead_id=lead.id, assessment_id=assessment.id,
-                    company_name=lead.company_name, name=lead.contact_name,
-                    contact_name=lead.contact_name, phone=lead.phone,
-                    wechat_id=lead.wechat_id, login_phone=normalized,
-                    status="pending_activation", is_active=True,
-                    registration_method="password", registration_source="historical_data",
-                )
-                db.add(account)
-                db.flush()
-                customers.append(account)
-                primary_by_phone[normalized] = account
-                changed += 1
-            elif account.is_active and account.status != "disabled":
-                primary_by_phone.setdefault(normalized, account)
-            bind_customer_records(db, account, lead)
-    for account in customers:
-        if account.deleted_at or not account.is_active or account.status == "disabled":
-            continue
-        if not account.password_hash and account.status == "active":
-            account.status = "pending_activation"
+    assessments = db.query(Assessment).all() if customer is None else [
+        item for item in db.query(Assessment).all()
+        if normalize_customer_phone(item.phone) == normalize_customer_phone(customer.login_phone or customer.phone)
+    ]
+
+    def fill_blank(account: CustomerAccount, lead: Lead, assessment: Assessment) -> bool:
+        changed = False
+        for field, value in {
+            "lead_id": lead.id, "assessment_id": assessment.id, "company_name": lead.company_name,
+            "name": lead.contact_name, "contact_name": lead.contact_name, "phone": lead.phone,
+            "wechat_id": lead.wechat_id, "city": lead.city,
+        }.items():
+            if getattr(account, field) in (None, "") and value not in (None, ""):
+                setattr(account, field, value); changed = True
         normalized = normalize_customer_phone(account.login_phone or account.phone)
-        if not normalized:
+        if not account.login_phone and normalized:
+            account.login_phone = normalized; changed = True
+        return changed
+
+    # Canonical map is only a lookup cache. A database query is still made
+    # immediately before INSERT; this protects concurrent startup workers.
+    by_phone = {
+        normalize_customer_phone(item.login_phone or item.phone): item for item in customers
+        if not item.deleted_at and normalize_customer_phone(item.login_phone or item.phone)
+    }
+    for assessment in assessments:
+        lead = assessment.lead
+        normalized = normalize_customer_phone(assessment.phone)
+        if not lead or not normalized:
+            stats["skipped"] += 1
             continue
-        account.login_phone = normalized
-        if not account.name:
-            account.name = account.contact_name
-        for assessment in assessments:
-            if normalize_customer_phone(assessment.phone) != normalized or not assessment.lead:
-                continue
-            if assessment.customer_id != account.id or assessment.lead.customer_id != account.id:
-                changed += 1
-            bind_customer_records(db, account, assessment.lead)
-    db.commit()
-    if customer is None and db.bind and db.bind.dialect.name == "sqlite":
-        db.execute(text(
-            "CREATE UNIQUE INDEX IF NOT EXISTS ux_customer_accounts_login_phone_nonblank "
-            "ON customer_accounts(login_phone) WHERE login_phone <> ''"
-        ))
+        try:
+            with db.begin_nested():
+                exact = db.query(CustomerAccount).filter(CustomerAccount.login_phone == normalized).first()
+                account = exact or by_phone.get(normalized)
+                if account is None:
+                    # A historical format (for example +86 or dashes) can be
+                    # unique in SQL yet represent the same customer identity.
+                    account = next((item for item in db.query(CustomerAccount).order_by(CustomerAccount.id).all()
+                                    if normalize_customer_phone(item.login_phone or item.phone) == normalized), None)
+                if account is None:
+                    account = next((item for item in customers if item.lead_id == lead.id or item.assessment_id == assessment.id), None)
+                if account and account.deleted_at:
+                    stats["skipped"] += 1
+                    continue
+                if account is None:
+                    account = CustomerAccount(lead_id=lead.id, assessment_id=assessment.id,
+                        company_name=lead.company_name or "", name=lead.contact_name or "",
+                        contact_name=lead.contact_name or "", phone=lead.phone or "",
+                        wechat_id=lead.wechat_id or "", login_phone=normalized,
+                        status="pending_activation", is_active=True,
+                        registration_method="password", registration_source="historical_data")
+                    db.add(account); db.flush()
+                    customers.append(account); by_phone[normalized] = account; stats["created"] += 1
+                else:
+                    stats["reused"] += 1
+                    if fill_blank(account, lead, assessment): stats["updated"] += 1
+                bind_customer_records(db, account, lead)
+                db.flush()
+        except Exception:
+            # Savepoint rollback isolates malformed historical records while
+            # leaving earlier successful attachments available for commit.
+            stats["errors"] += 1
+            logger.exception("客户历史账号回填单条失败 assessment_id=%s phone=%s", assessment.id, normalized)
+    try:
         db.commit()
-    return changed
+    except Exception:
+        db.rollback()
+        raise
+    return stats
 
 
 def bind_report_to_customer(db: Session, report: Report, customer: CustomerAccount) -> Report:

@@ -9,13 +9,14 @@ from sqlalchemy.orm import Session
 
 from db.models import CustomerAccount, CustomerSession
 from services.auth_service import hash_password, verify_password
+from services.customer_phone_service import normalize_phone
 
 
 CUSTOMER_REMEMBER_COOKIE = "capital_customer_remember"
 
 
 def normalize_login_phone(value: str | None) -> str:
-    return "".join(ch for ch in str(value or "").strip() if ch.isdigit() or ch == "+")
+    return normalize_phone(value) or ""
 
 
 def customer_can_login(customer: CustomerAccount | None) -> bool:
@@ -49,6 +50,9 @@ def set_customer_password(db: Session, customer: CustomerAccount, password: str)
 def authenticate_customer(db: Session, phone: str, password: str) -> CustomerAccount | None:
     normalized = normalize_login_phone(phone)
     customer = db.query(CustomerAccount).filter(CustomerAccount.login_phone == normalized).first()
+    if not customer and normalized:
+        customer = next((item for item in db.query(CustomerAccount).all()
+                         if normalize_phone(item.login_phone or item.phone) == normalized), None)
     if not customer or customer.deleted_at or not customer.password_hash:
         return None
     if customer.status == "disabled" or not customer.is_active:

@@ -49,7 +49,14 @@ async def lifespan(_: FastAPI):
         ensure_default_organization(db, admin_user)
         ensure_default_notification_templates(db)
         ensure_default_legal_documents(db)
-        backfill_customer_account_links(db)
+        try:
+            backfill_stats = backfill_customer_account_links(db)
+            logger.info("客户历史账号回填完成 stats=%s", backfill_stats)
+        except Exception:
+            # 历史兼容任务不能成为生产服务不可用的单点故障。回滚当前
+            # Session 后继续启动，同时保留完整异常堆栈供运维排查。
+            db.rollback()
+            logger.exception("客户历史账号回填失败，已回滚并继续启动")
         admin_username = admin_user.username
     if settings.secret_key == "change-me-in-production":
         logger.warning("SECRET_KEY仍为默认值，生产上线前必须修改。")
