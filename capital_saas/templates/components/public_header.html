@@ -10,9 +10,11 @@
 
     <nav class="public-desktop-nav" aria-label="网站主导航">
       <a href="/assessment">免费测评</a>
+      <a href="/cashflow-assessment">现金流诊断</a>
       <a href="/products">产品服务</a>
       {% if customer_logged_in %}
         <a href="/client/reports">我的报告</a>
+        <a href="/client/cashflow-reports">现金流报告</a>
         <a href="/client/dashboard">客户中心</a>
       {% else %}
         <a href="/client/login">客户登录</a>
@@ -41,6 +43,7 @@
         <a href="/client/logout">退出登录</a>
       {% else %}
         <a href="/assessment">免费测评</a>
+        <a href="/cashflow-assessment">现金流诊断</a>
         <a href="/products">产品服务</a>
         <a href="/client/login">客户登录</a>
       {% endif %}

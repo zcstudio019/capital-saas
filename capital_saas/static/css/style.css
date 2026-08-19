@@ -1058,6 +1058,10 @@ details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold)
   .client-header .desktop-nav{display:flex!important}
 }
 
+/* 企业现金流诊断：延续深蓝/金色卡片体系，并在窄屏下单列显示。 */
+.cashflow-page,.cashflow-report{max-width:1120px;margin:0 auto;padding:28px 18px}.cashflow-form,.report-section{margin:18px 0}.cashflow-form .form-card,.report-section,.report-cover{background:#fff;border:1px solid #e3e9f0;border-radius:12px;padding:24px;margin-bottom:18px;box-shadow:0 4px 16px rgba(15,37,63,.06)}
+.cashflow-page .assessment-hero,.report-cover{background:#10243d;color:#fff;border-radius:14px;padding:32px}.cashflow-page h1,.report-cover h1{color:#fff}.module-nav{position:sticky;top:0;z-index:2;background:#f8fafc;padding:12px;border-radius:8px;color:#8a6a1f;font-weight:700}.form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.form-grid label,.checkbox-grid label{display:flex;flex-direction:column;gap:6px;color:#334155}.form-grid input,.forecast-grid input{min-width:0;padding:10px;border:1px solid #cbd5e1;border-radius:6px}.forecast-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:center}.checkbox-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.metric-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.metric-cards article{padding:16px;background:#f7f9fc;border-radius:8px;display:flex;flex-direction:column}.metric-cards b{font-size:22px;color:#10243d}.report-section table,.content-page table{width:100%;border-collapse:collapse}.report-section th,.report-section td,.content-page th,.content-page td{padding:10px;border-bottom:1px solid #e2e8f0;text-align:left}.risk-red{color:#b91c1c}.risk-orange{color:#c2410c}.risk-yellow{color:#a16207}.risk-green{color:#15803d}@media(max-width:720px){.form-grid,.metric-cards{grid-template-columns:1fr}.checkbox-grid{grid-template-columns:1fr}.forecast-grid{font-size:13px}.cashflow-page,.cashflow-report{padding:16px}.module-nav{position:static}}
+
 /* Public header uses its own namespace to avoid client/admin navigation collisions. */
 .public-header{
   position:sticky;

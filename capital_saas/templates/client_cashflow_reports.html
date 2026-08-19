@@ -1,0 +1,1 @@
+{% extends "base.html" %}{% block content %}<main class="content-page"><h1>我的现金流诊断报告</h1>{% for report in reports %}<article class="form-card"><h2>{{report.report_type}}</h2><p>生成时间：{{report.created_at.strftime('%Y-%m-%d %H:%M')}}</p><a class="primary-btn" href="/client/cashflow-reports/{{report.id}}">查看报告</a></article>{% else %}<p>暂无现金流诊断报告。</p>{% endfor %}</main>{% endblock %}

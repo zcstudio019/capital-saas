@@ -13,7 +13,7 @@ from utils.rate_limiter import RateLimitMiddleware
 from core.template_filters import patch_jinja_templates
 
 patch_jinja_templates()
-from api import admin, advisor, assessment, auth, client_portal, delivery, diligence, events, growth, notifications, organization, payment, pilot, promotion, release, report, sales, security
+from api import admin, advisor, assessment, auth, cashflow, client_portal, delivery, diligence, events, growth, notifications, organization, payment, pilot, promotion, release, report, sales, security
 from core.config import BASE_DIR, settings
 from db import models  # noqa: F401
 from db.database import Base, SessionLocal, engine
@@ -129,6 +129,7 @@ async def runtime_settings_middleware(request: Request, call_next):
 
 app.include_router(auth.router)
 app.include_router(assessment.router)
+app.include_router(cashflow.router)
 app.include_router(payment.router)
 app.include_router(report.router)
 app.include_router(admin.router)

@@ -1242,3 +1242,130 @@ class OperationWeeklyReport(Base):
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+# 现金流诊断采用独立记录和快照，避免覆盖既有资本健康测评/报告。
+class CashflowAssessment(Base):
+    __tablename__ = "cashflow_assessments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customer_accounts.id"), nullable=True, index=True)
+    lead_id: Mapped[int | None] = mapped_column(ForeignKey("leads.id"), nullable=True, index=True)
+    organization_id: Mapped[int | None] = mapped_column(ForeignKey("organizations.id"), nullable=True, index=True)
+    company_name: Mapped[str] = mapped_column(String(200), default="")
+    phone: Mapped[str] = mapped_column(String(30), default="", index=True)
+    industry: Mapped[str] = mapped_column(String(100), default="")
+    business_scope: Mapped[str] = mapped_column(Text, default="")
+    years: Mapped[float | None] = mapped_column(Float, nullable=True)
+    company_type: Mapped[str] = mapped_column(String(100), default="")
+    controller: Mapped[str] = mapped_column(String(100), default="")
+    employee_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    finance_contact: Mapped[str] = mapped_column(String(100), default="")
+    credit_code: Mapped[str] = mapped_column(String(50), default="")
+    input_json: Mapped[str] = mapped_column(Text, default="{}")
+    health_score: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    risk_level: Mapped[str] = mapped_column(String(20), default="待补充资料核验", index=True)
+    cash_gap_week: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cash_gap_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cash_runway_months: Mapped[float | None] = mapped_column(Float, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="completed", index=True)
+    advisor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class CashflowMetricResult(Base):
+    __tablename__ = "cashflow_metric_results"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("cashflow_assessments.id"), index=True)
+    metric_key: Mapped[str] = mapped_column(String(80), index=True)
+    metric_name: Mapped[str] = mapped_column(String(100))
+    value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    unit: Mapped[str] = mapped_column(String(20), default="")
+    status: Mapped[str] = mapped_column(String(30), default="待补充资料核验")
+    note: Mapped[str] = mapped_column(Text, default="")
+
+
+class CashflowWorkingCapital(Base):
+    __tablename__ = "cashflow_working_capital"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("cashflow_assessments.id"), unique=True, index=True)
+    receivables_balance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dso: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dso_yoy: Mapped[float | None] = mapped_column(Float, nullable=True)
+    inventory_balance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dio_yoy: Mapped[float | None] = mapped_column(Float, nullable=True)
+    payables_balance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dpo: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dpo_yoy: Mapped[float | None] = mapped_column(Float, nullable=True)
+    details_json: Mapped[str] = mapped_column(Text, default="{}")
+
+
+class CashflowDebtAnalysis(Base):
+    __tablename__ = "cashflow_debt_analysis"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("cashflow_assessments.id"), unique=True, index=True)
+    details_json: Mapped[str] = mapped_column(Text, default="{}")
+
+
+class CashflowExpenseAnalysis(Base):
+    __tablename__ = "cashflow_expense_analysis"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("cashflow_assessments.id"), unique=True, index=True)
+    details_json: Mapped[str] = mapped_column(Text, default="{}")
+
+
+class CashflowForecast(Base):
+    __tablename__ = "cashflow_forecasts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("cashflow_assessments.id"), index=True)
+    period_no: Mapped[int] = mapped_column(Integer)
+    period_label: Mapped[str] = mapped_column(String(30))
+    cash_in: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cash_out: Mapped[float | None] = mapped_column(Float, nullable=True)
+    net_cashflow: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ending_cash: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class CashflowRiskSignal(Base):
+    __tablename__ = "cashflow_risk_signals"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("cashflow_assessments.id"), index=True)
+    level: Mapped[str] = mapped_column(String(20), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    detail: Mapped[str] = mapped_column(Text, default="")
+
+
+class CashflowActionItem(Base):
+    __tablename__ = "cashflow_action_items"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("cashflow_assessments.id"), index=True)
+    priority: Mapped[str] = mapped_column(String(10), index=True)
+    timeframe: Mapped[str] = mapped_column(String(30))
+    task: Mapped[str] = mapped_column(Text)
+    owner: Mapped[str] = mapped_column(String(100), default="财务负责人")
+    due_text: Mapped[str] = mapped_column(String(50), default="")
+    goal: Mapped[str] = mapped_column(Text, default="")
+    expected_cash: Mapped[float | None] = mapped_column(Float, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="待执行")
+
+
+class CashflowReport(Base):
+    __tablename__ = "cashflow_reports"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("cashflow_assessments.id"), unique=True, index=True)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customer_accounts.id"), nullable=True, index=True)
+    report_type: Mapped[str] = mapped_column(String(80), default="企业现金流健康诊断报告", index=True)
+    content_json: Mapped[str] = mapped_column(Text, default="{}")
+    status: Mapped[str] = mapped_column(String(30), default="已生成", index=True)
+    current_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+
+
+class CashflowReportVersion(Base):
+    __tablename__ = "cashflow_report_versions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    report_id: Mapped[int] = mapped_column(ForeignKey("cashflow_reports.id"), index=True)
+    version_no: Mapped[int] = mapped_column(Integer, default=1)
+    content_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
