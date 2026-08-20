@@ -16,7 +16,9 @@ db = Session()
 customer = CustomerAccount(company_name="测试企业", login_phone="13800138000", name="张三")
 db.add(customer); db.commit()
 data = {
-    "company_name":"测试企业", "phone":"13800138000", "current_assets":100, "current_liabilities":200,
+    "company_name":"测试企业", "phone":"13800138000", "industry":"制造业",
+    "business_scope":"泵阀设备生产制造", "company_type":"民营企业",
+    "current_assets":100, "current_liabilities":200,
     "inventory":20, "cash":20, "monthly_operating_expense":50, "revenue":1000, "net_profit":100,
     "operating_cashflow":-30, "cash_received_sales":800, "capex":10, "total_assets":500,
     "total_debt":350, "interest_bearing_debt":250, "short_interest_debt":100, "interest_expense":20,
@@ -34,6 +36,8 @@ assert db.query(CashflowForecast).filter_by(assessment_id=assessment.id).count()
 assert assessment.cash_gap_week == 1 and assessment.cash_gap_amount == 20
 assert db.get(CashflowReport, report.id).customer_id == customer.id
 assert report_content(report)["title"] == "企业现金流健康诊断报告"
+assert report_content(report)["company_profile"] == {
+    "industry":"制造业", "business_scope":"泵阀设备生产制造", "company_type":"民营企业"}
 assert "None" not in report.content_json and "{'" not in report.content_json
 partial, partial_report, partial_content = create_diagnosis(db, {"company_name":"资料不全企业"})
 assert partial.health_score is None and partial.risk_level == "待补充资料核验"

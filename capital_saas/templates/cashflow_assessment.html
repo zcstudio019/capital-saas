@@ -1,5 +1,18 @@
 {% extends "base.html" %}
 {% block title %}企业现金流诊断表｜沪上银{% endblock %}
+{% macro select_with_other(field, label, prompt, options, other_placeholder) -%}
+  {% set current = form_values.get(field, '') %}
+  {% set selected = current if current in options else ('其他' if current else '') %}
+  {% set other_value = form_values.get(field ~ '_other', '') or (current if current and current not in options else '') %}
+  <div class="form-field select-other-field" data-select-other-field>
+    <label for="cashflow-{{field}}">{{label}}</label>
+    <div class="select-control"><select id="cashflow-{{field}}" name="{{field}}" data-other-select>
+      <option value="">{{prompt}}</option>
+      {% for option in options %}<option value="{{option}}"{% if selected == option %} selected{% endif %}>{{option}}</option>{% endfor %}
+    </select></div>
+    <input class="other-detail-input{% if selected != '其他' %} is-hidden{% endif %}" type="text" name="{{field}}_other" value="{{other_value}}" placeholder="{{other_placeholder}}" data-other-input{% if selected != '其他' %} disabled{% endif %}>
+  </div>
+{%- endmacro %}
 {% block content %}
 <main class="assessment-page cashflow-page">
   <section class="assessment-hero cashflow-hero">
@@ -13,8 +26,14 @@
     <section class="form-card">
       <div class="form-section-heading"><h2>01 基础信息采集</h2><p>标有 <span class="required-mark">*</span> 的项目为必填项</p></div>
       <div class="form-grid-3">
-        {% for key,label,required in [('company_name','企业名称',true),('phone','手机号',false),('credit_code','统一社会信用代码',false),('industry','行业',false),('business_scope','主营业务',false),('years','成立年限',false),('company_type','企业性质',false),('controller','实际控制人',false),('employee_count','员工人数',false),('finance_contact','财务负责人',false)] %}
+        {% for key,label,required in [('company_name','企业名称',true),('phone','手机号',false),('credit_code','统一社会信用代码',false)] %}
         <div class="form-field"><label for="cashflow-{{key}}">{{label}}{% if required %}<span class="required-mark">*</span>{% endif %}</label><input id="cashflow-{{key}}" name="{{key}}" value="{{form_values.get(key,'')}}" placeholder="可填写或暂不清楚"{% if required %} required{% endif %}></div>
+        {% endfor %}
+        {{ select_with_other('industry', '行业', '请选择行业', ['制造业','批发和零售业','建筑业','房地产业','信息传输、软件和信息技术服务业','租赁和商务服务业','交通运输、仓储和邮政业','住宿和餐饮业','科学研究和技术服务业','居民服务业','教育','医疗健康','文化、体育和娱乐业','农林牧渔业','金融服务业','其他'], '请填写具体行业') }}
+        {{ select_with_other('business_scope', '主营业务', '请选择主营业务', ['产品生产制造','商品批发','商品零售','工程施工','建筑材料','软件开发','信息技术服务','企业咨询服务','物流运输','仓储服务','餐饮服务','酒店住宿','房地产开发','房地产租赁','设备租赁','商务服务','科研技术服务','医疗服务','教育培训','电商业务','进出口贸易','供应链服务','其他'], '请填写具体主营业务') }}
+        {{ select_with_other('company_type', '企业性质', '请选择企业性质', ['民营企业','国有企业','国有控股企业','集体企业','外商独资企业','中外合资企业','中外合作企业','股份有限公司','有限责任公司','个人独资企业','合伙企业','个体工商户','其他'], '请填写企业性质') }}
+        {% for key,label in [('years','成立年限'),('controller','实际控制人'),('employee_count','员工人数'),('finance_contact','财务负责人')] %}
+        <div class="form-field"><label for="cashflow-{{key}}">{{label}}</label><input id="cashflow-{{key}}" name="{{key}}" value="{{form_values.get(key,'')}}" placeholder="可填写或暂不清楚"></div>
         {% endfor %}
       </div>
     </section>
@@ -78,3 +97,4 @@
   </form>
 </main>
 {% endblock %}
+{% block extra_scripts %}<script src="{{ url_for('static', path='/js/cashflow-assessment.js') }}?v=20260820-selects"></script>{% endblock %}

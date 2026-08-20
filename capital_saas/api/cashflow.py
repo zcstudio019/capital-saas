@@ -17,6 +17,7 @@ router = APIRouter(); templates = Jinja2Templates(directory=str(Path(__file__).r
 NUMBERS = {"years","employee_count","current_assets","current_liabilities","inventory","cash","monthly_operating_expense","revenue","net_profit","operating_cashflow","cash_received_sales","capex","total_assets","total_debt","interest_bearing_debt","short_interest_debt","interest_expense","ebit","receivables_balance","dso","dso_yoy","dio","dio_yoy","payables_balance","dpo","dpo_yoy","credit_limit","credit_used","negative_operating_cf_months","compressible_expense","idle_assets_cash","inventory_stagnant_ratio"}
 NUMBERS.update({f"forecast_{part}_{n}" for part in ("in", "out") for n in range(1, 7)})
 BOOLS = {"gross_margin_declining","loan_overdue","credit_withdrawal","major_lawsuit","tax_arrears","financing_cost_rising","bridge_funding_high","supplier_customer_risk","payroll_social_security_delayed","capex_deferrable"}
+OTHER_FIELDS = {"industry":"industry_other", "business_scope":"business_scope_other", "company_type":"company_type_other"}
 
 def _number(value):
     if value is None or str(value).strip() in {"", "暂不清楚"}: return None
@@ -25,6 +26,9 @@ def _number(value):
 
 def _data(form):
     data = {key: form.get(key, "").strip() if isinstance(form.get(key, ""), str) else form.get(key) for key in form.keys()}
+    for field, other_field in OTHER_FIELDS.items():
+        if data.get(field) == "其他":
+            data[field] = data.get(other_field) or "其他"
     for key in NUMBERS: data[key] = _number(data.get(key))
     for key in BOOLS: data[key] = str(data.get(key, "")).lower() in {"1", "true", "on", "yes"}
     return data
