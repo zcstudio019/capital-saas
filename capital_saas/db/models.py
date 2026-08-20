@@ -99,13 +99,25 @@ class Report(Base):
     __tablename__ = "reports"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    assessment_id: Mapped[int] = mapped_column(
-        ForeignKey("assessments.id"), unique=True, index=True
+    assessment_id: Mapped[int | None] = mapped_column(
+        ForeignKey("assessments.id"), nullable=True, unique=True, index=True
     )
+    cashflow_assessment_id: Mapped[int | None] = mapped_column(ForeignKey("cashflow_assessments.id"), nullable=True, unique=True, index=True)
+    cashflow_report_id: Mapped[int | None] = mapped_column(ForeignKey("cashflow_reports.id"), nullable=True, unique=True, index=True)
+    report_type: Mapped[str] = mapped_column(String(80), default="capital_health_summary", index=True)
+    source_type: Mapped[str] = mapped_column(String(80), default="capital_assessment", index=True)
+    source_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    lead_id: Mapped[int | None] = mapped_column(ForeignKey("leads.id"), nullable=True, index=True)
+    organization_id: Mapped[int | None] = mapped_column(ForeignKey("organizations.id"), nullable=True, index=True)
+    assigned_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    company_name: Mapped[str] = mapped_column(String(200), default="")
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    grade: Mapped[str] = mapped_column(String(30), default="")
+    generation_status: Mapped[str] = mapped_column(String(30), default="generated", index=True)
     customer_id: Mapped[int | None] = mapped_column(
         ForeignKey("customer_accounts.id"), nullable=True, index=True
     )
-    free_summary_json: Mapped[str] = mapped_column(Text)
+    free_summary_json: Mapped[str] = mapped_column(Text, default="{}")
     full_report_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     html_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_unlocked: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -121,7 +133,7 @@ class Report(Base):
     deleted_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
     delete_reason: Mapped[str] = mapped_column(Text, default="")
 
-    assessment: Mapped[Assessment] = relationship(back_populates="report")
+    assessment: Mapped[Assessment | None] = relationship(back_populates="report")
 
 
 class PromotionQRCode(Base):
@@ -427,7 +439,7 @@ class ReportVersion(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     report_id: Mapped[int] = mapped_column(ForeignKey("reports.id"), index=True)
-    assessment_id: Mapped[int] = mapped_column(ForeignKey("assessments.id"), index=True)
+    assessment_id: Mapped[int | None] = mapped_column(ForeignKey("assessments.id"), nullable=True, index=True)
     version_no: Mapped[int] = mapped_column(Integer)
     product_code: Mapped[str] = mapped_column(String(50), default="299_report")
     access_level: Mapped[str] = mapped_column(String(40), default="free", index=True)

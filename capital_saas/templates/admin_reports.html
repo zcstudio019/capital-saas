@@ -9,6 +9,7 @@
 
   <form class="card filter-bar" method="get">
     <label>企业名称<input name="company_keyword" value="{{ filters.company_keyword }}" placeholder="搜索企业名称"></label>
+    <label>报告类型<select name="report_type"><option value="">全部</option>{% for value,label in [("capital_health_summary","免费资本健康摘要"),("capital_health_report","企业资本健康体检报告"),("structure_plan","融资结构优化方案"),("cashflow_health_report","企业现金流健康诊断报告")] %}<option value="{{value}}" {{"selected" if filters.report_type == value else ""}}>{{label}}</option>{% endfor %}</select></label>
     <label>生成状态<select name="generation_status"><option value="">全部</option>{% for item in ["generated", "draft", "generation_failed"] %}<option value="{{ item }}" {{ "selected" if filters.generation_status == item else "" }}>{{ item|report_generation_status_label }}</option>{% endfor %}</select></label>
     <label>审核状态<select name="review_status">
       <option value="">全部</option>
@@ -22,13 +23,15 @@
   </form>
 
   <div class="card table-card"><table>
-    <thead><tr><th>ID</th><th>企业</th><th>产品层级</th><th>评分</th><th>生成状态</th><th>审核状态</th><th>创建时间</th><th>操作</th></tr></thead>
+    <thead><tr><th>ID</th><th>企业</th><th>报告类型</th><th>评分</th><th>生成状态</th><th>审核状态</th><th>创建时间</th><th>操作</th></tr></thead>
     <tbody>
     {% for item in reports %}
       {% set generation_code = generation_statuses.get(item.id, "draft") %}
       {% set can_review = item.id in reviewable_report_ids %}
       <tr data-report-id="{{ item.id }}">
-        <td>#{{ item.id }}</td><td>{{ item.assessment.company_name|display_company_name }}</td><td>{{ report_products.get(item.assessment_id, "free_assessment")|product_label }}</td><td>{{ item.assessment.score }} / {{ item.assessment.grade }}级</td>
+        <td>#{{ item.id }}</td><td>{{ (item.company_name if item.report_type == 'cashflow_health_report' else item.assessment.company_name)|display_company_name }}</td>
+        <td>{% if item.report_type == 'cashflow_health_report' %}企业现金流健康诊断报告{% else %}{{ report_products.get(item.assessment_id, "free_assessment")|product_label }}{% endif %}</td>
+        <td>{% if item.report_type == 'cashflow_health_report' %}{{item.score if item.score is not none else '待补充'}} / {{item.grade or '待核验'}}{% else %}{{ item.assessment.score }} / {{ item.assessment.grade }}级{% endif %}</td>
         <td><span class="badge {{ "paid" if generation_code == "generated" else "" }}">{{ generation_code|report_generation_status_label }}</span></td>
         <td><span class="badge {{ "paid" if item.review_status == "approved" else "pending" if item.review_status in ["pending_review", "reviewing"] else "" }}">{{ item.review_status|report_review_status_label }}</span></td>
         <td>{{ item.created_at.strftime("%Y-%m-%d %H:%M") }}</td>

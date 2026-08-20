@@ -10,6 +10,7 @@ from db.database import get_db
 from db.models import CashflowActionItem, CashflowAssessment, CashflowReport, CustomerAccount, Lead
 from services.cashflow_service import create_diagnosis, report_content
 from services.customer_portal_service import customer_from_session, require_customer
+from services.customer_phone_service import normalize_phone
 from services.auth_service import require_roles
 from db.models import User
 
@@ -33,7 +34,7 @@ def _data(form):
     for key in BOOLS: data[key] = str(data.get(key, "")).lower() in {"1", "true", "on", "yes"}
     return data
 
-@router.get("/cashflow-assessment", response_class=HTMLResponse)
+@router.get("/cashflow-assessment", response_class=HTMLResponse, name="cashflow_assessment_form")
 def form(request: Request, db: Session = Depends(get_db)):
     customer = customer_from_session(request, db); values = {}
     if customer: values = {"company_name": customer.company_name, "phone": customer.login_phone or customer.phone, "finance_contact": customer.name}
@@ -46,7 +47,9 @@ async def submit(request: Request, db: Session = Depends(get_db)):
         return templates.TemplateResponse(request=request, name="cashflow_assessment.html", context={"form_values":data,"submit_error":"请至少填写企业名称。"}, status_code=422)
     customer = customer_from_session(request, db)
     if not customer and data.get("phone"):
-        customer = db.query(CustomerAccount).filter(CustomerAccount.login_phone == data["phone"]).first()
+        normalized_phone = normalize_phone(data["phone"])
+        data["phone"] = normalized_phone or data["phone"]
+        customer = db.query(CustomerAccount).filter(CustomerAccount.login_phone == normalized_phone).first() if normalized_phone else None
     lead = db.get(Lead, customer.lead_id) if customer and customer.lead_id else None
     assessment, report, _ = create_diagnosis(db, data, customer, lead)
     return RedirectResponse(f"/cashflow-result/{assessment.id}", status_code=303)

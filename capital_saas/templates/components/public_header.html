@@ -1,5 +1,7 @@
 {% set customer_logged_in = request.session.get('customer_authenticated') and request.session.get('customer_id') %}
 {% set admin_entry_url = '/admin' if request.session.get('user_id') else '/admin/login' %}
+{% set capital_assessment_url = url_for('assessment_form') %}
+{% set cashflow_assessment_url = url_for('cashflow_assessment_form') %}
 <header class="public-header" data-responsive-header>
   <div class="public-header-inner">
     <div class="public-brand-area">
@@ -9,17 +11,16 @@
     </div>
 
     <nav class="public-desktop-nav" aria-label="网站主导航">
-      <a href="/assessment">免费测评</a>
-      <a href="/cashflow-assessment">现金流诊断</a>
+      <a href="{{ capital_assessment_url }}" aria-label="免费测评：企业资本健康测评">企业资本健康测评</a>
+      <a href="{{ cashflow_assessment_url }}">企业现金流诊断</a>
       <a href="/products">产品服务</a>
       {% if customer_logged_in %}
         <a href="/client/reports">我的报告</a>
-        <a href="/client/cashflow-reports">现金流报告</a>
         <a href="/client/dashboard">客户中心</a>
       {% else %}
         <a href="/client/login">客户登录</a>
       {% endif %}
-      <a class="public-admin-entry" href="{{ admin_entry_url }}">管理后台</a>
+      {% if request.session.get('user_id') or not customer_logged_in %}<a class="public-admin-entry" href="{{ admin_entry_url }}">管理后台</a>{% endif %}
     </nav>
 
     <button class="public-mobile-toggle" type="button" aria-expanded="false"
@@ -33,17 +34,15 @@
        data-nav-menu aria-label="手机网站导航">
     <div class="public-mobile-nav-inner">
       {% if customer_logged_in %}
-        <a href="/client/dashboard">首页</a>
+        <a href="{{ capital_assessment_url }}" aria-label="免费测评：企业资本健康测评">企业资本健康测评</a>
+        <a href="{{ cashflow_assessment_url }}">企业现金流诊断</a>
+        <a href="/products">产品服务</a>
         <a href="/client/reports">我的报告</a>
-        <a href="/client/orders">我的订单</a>
-        <a href="/client/documents">我的资料</a>
-        <a href="/client/advisor-bookings">顾问预约</a>
-        <a href="/client/messages">通知</a>
-        <a href="/client/account">账号设置</a>
+        <a href="/client/dashboard">客户中心</a>
         <a href="/client/logout">退出登录</a>
       {% else %}
-        <a href="/assessment">免费测评</a>
-        <a href="/cashflow-assessment">现金流诊断</a>
+        <a href="{{ capital_assessment_url }}" aria-label="免费测评：企业资本健康测评">企业资本健康测评</a>
+        <a href="{{ cashflow_assessment_url }}">企业现金流诊断</a>
         <a href="/products">产品服务</a>
         <a href="/client/login">客户登录</a>
       {% endif %}

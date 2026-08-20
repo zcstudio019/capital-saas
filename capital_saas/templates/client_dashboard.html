@@ -13,7 +13,7 @@
   <div><span>未读通知</span><strong>{{ unread_count }}</strong></div>
 </section>
 <div class="client-grid">
-  <section class="client-card"><h2>最近一份报告</h2>{% if report_item %}<h3>{{ report_item.assessment.company_name }}</h3><p>{{ report_item.assessment.score }}分 / {{ report_item.assessment.grade }}级</p><a class="btn" href="/client/reports/{{ report_item.id }}">查看报告</a>{% else %}<p class="empty">暂无报告</p><a class="btn" href="/assessment">开始免费测评</a>{% endif %}</section>
+  <section class="client-card"><h2>最近一份报告</h2>{% if report_item %}<h3>{{ report_item.company_name if report_item.report_type == 'cashflow_health_report' else report_item.assessment.company_name }}</h3><p>{% if report_item.report_type == 'cashflow_health_report' %}企业现金流健康诊断报告 · {{ report_item.score if report_item.score is not none else '待补充资料核验' }}{% else %}{{ report_item.assessment.score }}分 / {{ report_item.assessment.grade }}级{% endif %}</p><a class="btn" href="/client/reports/{{ report_item.id }}">查看报告</a>{% else %}<p class="empty">暂无报告</p><a class="btn" href="/assessment">开始免费测评</a>{% endif %}</section>
   <section class="client-card"><h2>当前订单</h2>{% for order in orders[:3] %}<a class="client-row" href="/client/orders"><b>{{ order.product_name }}</b><span>{{ order.status|order_status_label }}</span></a>{% else %}<p class="empty">暂无订单</p>{% endfor %}</section>
   <section class="client-card"><h2>待完成资料</h2>{% for task in tasks %}<a class="client-row" href="/client/documents"><b>{{ task.task_title }}</b><span>{{ task.priority|task_priority_label }}</span></a>{% else %}<p class="empty">暂无待办资料</p>{% endfor %}</section>
   <section class="client-card"><h2>顾问服务</h2><h3>{{ advisor.name }}</h3><p>{{ advisor.organization }}</p><a href="/client/advisor-bookings">查看顾问预约</a></section>

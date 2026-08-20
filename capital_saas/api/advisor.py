@@ -19,7 +19,7 @@ from core.document_completeness_engine import check_document_completeness
 from core.document_request_script_engine import generate_document_request_script
 from db.database import get_db
 from db.models import (
-    AdvisorBooking, AIGenerationLog, Assessment, BankProduct, ConsultingCase, CustomerTask,
+    AdvisorBooking, AIGenerationLog, Assessment, BankProduct, CashflowAssessment, ConsultingCase, CustomerTask,
     DocumentParseTask, FollowTask, Lead, LeadFollowLog, Order, Report, ReportVersion, UploadedDocument, User,
 )
 from services.auth_service import require_roles
@@ -35,6 +35,7 @@ from services.notification_service import (
     safe_create_notification,
 )
 from services.report_service import generate_full_report
+from services.cashflow_service import CASHFLOW_REPORT_TYPE, regenerate_unified_cashflow_report
 from services.admin_report_preview_service import (
     assert_admin_report_preview_access,
     build_admin_report_preview_context,
@@ -750,6 +751,17 @@ def report_version_detail(
     ).first()
     if not version:
         raise HTTPException(status_code=404, detail="报告版本不存在")
+    if report.report_type == CASHFLOW_REPORT_TYPE:
+        try:
+            payload = json.loads(version.report_json or "{}")
+        except (TypeError, ValueError):
+            payload = {}
+        assessment = db.get(CashflowAssessment, report.cashflow_assessment_id)
+        return templates.TemplateResponse(
+            request=request, name="cashflow_report.html",
+            context={"assessment": assessment, "report": payload, "print_mode": False,
+                     "admin_preview": True, "current_user": user},
+        )
     context = build_admin_report_preview_context(db, report, user, version.id)
     context.update({"request": request, "current_user": user})
     template_name = "result_free.html" if context["access_level"] == "free" else "report_full.html"
@@ -773,10 +785,14 @@ def set_current_version(
     report.full_report_json = version.report_json
     report.html_content = version.html_content
     report.current_version_id = version.id
-    report.review_status = "pending_review"
-    report.reviewed_by = None
-    report.reviewed_at = None
-    report.review_note = "切换历史版本后需重新审核。"
+    if report.report_type == CASHFLOW_REPORT_TYPE:
+        report.review_status = "approved"
+        report.review_note = "现金流报告自动通过，已恢复历史版本。"
+    else:
+        report.review_status = "pending_review"
+        report.reviewed_by = None
+        report.reviewed_at = None
+        report.review_note = "切换历史版本后需重新审核。"
     db.commit()
     logger.info("切换报告版本 report_id=%s version_id=%s operator=%s", report.id, version.id, user.username)
     return RedirectResponse(url=f"/admin/reports/{report.id}", status_code=303)
@@ -789,6 +805,11 @@ def regenerate_report(
     user: User = Depends(require_roles(*REPORT_REVIEW_ROLES)),
 ):
     report = _report_or_404(db, report_id)
+    if report.report_type == CASHFLOW_REPORT_TYPE:
+        assert_admin_report_preview_access(db, report, user)
+        regenerate_unified_cashflow_report(db, report, created_by=user.username)
+        logger.info("重新生成现金流报告 report_id=%s operator=%s", report.id, user.username)
+        return RedirectResponse(url=f"/admin/reports/{report.id}", status_code=303)
     _assert_report_review_access(db, report, user)
     generate_full_report(db, report.assessment, force=True, created_by=user.username)
     logger.info("重新生成报告 report_id=%s operator=%s", report.id, user.username)

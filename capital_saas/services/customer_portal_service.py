@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 
 from core.document_completeness_engine import check_document_completeness
 from db.database import get_db
-from db.models import (AdvisorBooking, Assessment, ConsultingCase, CustomerAccessToken, CustomerAccount,
-    CustomerMessage, CustomerTask, FinancingProject, Lead, Order, Report, UploadedDocument)
+from db.models import (AdvisorBooking, Assessment, CashflowAssessment, CashflowReport, ConsultingCase,
+    CustomerAccessToken, CustomerAccount, CustomerMessage, CustomerTask, FinancingProject, Lead,
+    Order, Report, UploadedDocument)
 from services.event_service import track_event
 from services.customer_phone_service import normalize_phone
 from utils.logger import logger
@@ -152,6 +153,33 @@ def backfill_customer_account_links(db: Session, customer: CustomerAccount | Non
             # leaving earlier successful attachments available for commit.
             stats["errors"] += 1
             logger.exception("客户历史账号回填单条失败 assessment_id=%s phone=%s", assessment.id, normalized)
+
+    # Cashflow diagnoses may have been submitted before the customer registered.
+    # Adopt them by the same normalized identity without creating another account.
+    for cashflow in db.query(CashflowAssessment).order_by(CashflowAssessment.id).all():
+        normalized = normalize_customer_phone(cashflow.phone)
+        if not normalized:
+            continue
+        account = by_phone.get(normalized) or next(
+            (item for item in customers
+             if normalize_customer_phone(item.login_phone or item.phone) == normalized), None
+        )
+        if not account or account.deleted_at:
+            stats["skipped"] += 1
+            continue
+        changed = False
+        if cashflow.customer_id != account.id:
+            cashflow.customer_id = account.id; changed = True
+        changed += db.query(CashflowReport).filter(
+            CashflowReport.assessment_id == cashflow.id,
+            CashflowReport.customer_id.is_(None),
+        ).update({"customer_id": account.id}, synchronize_session=False) > 0
+        changed += db.query(Report).filter(
+            Report.cashflow_assessment_id == cashflow.id,
+            Report.customer_id.is_(None),
+        ).update({"customer_id": account.id}, synchronize_session=False) > 0
+        if changed:
+            stats["updated"] += 1
     try:
         db.commit()
     except Exception:
@@ -170,6 +198,25 @@ def customer_owns_report(db: Session, customer: CustomerAccount, report: Report)
     """Authorize by direct ownership, with one-time legacy adoption by verified identity."""
     if report.customer_id == customer.id:
         return True
+    if report.report_type == "cashflow_health_report":
+        assessment = db.get(CashflowAssessment, report.cashflow_assessment_id)
+        if not assessment:
+            return False
+        same_phone = bool(
+            normalize_customer_phone(customer.login_phone or customer.phone)
+            and normalize_customer_phone(customer.login_phone or customer.phone)
+            == normalize_customer_phone(assessment.phone)
+        )
+        if same_phone:
+            assessment.customer_id = customer.id
+            report.customer_id = customer.id
+            if report.cashflow_report_id:
+                source = db.get(CashflowReport, report.cashflow_report_id)
+                if source:
+                    source.customer_id = customer.id
+            db.flush()
+            return True
+        return False
     assessment = report.assessment or db.get(Assessment, report.assessment_id)
     if not assessment:
         return False
@@ -198,6 +245,16 @@ def reports_for_customer(db: Session, customer: CustomerAccount) -> list[Report]
         phone_match = bool(identity_phone and identity_phone == normalize_customer_phone(assessment.phone))
         wechat_match = bool(customer.wechat_id and assessment.wechat_id == customer.wechat_id)
         if phone_match or wechat_match:
+            report.customer_id = customer.id
+            reports[report.id] = report
+            changed = True
+    cashflow_legacy = db.query(Report).join(
+        CashflowAssessment, Report.cashflow_assessment_id == CashflowAssessment.id
+    ).filter(Report.customer_id.is_(None)).all()
+    for report in cashflow_legacy:
+        assessment = db.get(CashflowAssessment, report.cashflow_assessment_id)
+        if identity_phone and assessment and identity_phone == normalize_customer_phone(assessment.phone):
+            assessment.customer_id = customer.id
             report.customer_id = customer.id
             reports[report.id] = report
             changed = True

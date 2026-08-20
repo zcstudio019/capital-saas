@@ -107,6 +107,18 @@ SQLITE_COLUMNS = {
         "customer_id": "INTEGER",
     },
     "reports": {
+        "cashflow_assessment_id": "INTEGER",
+        "cashflow_report_id": "INTEGER",
+        "report_type": "VARCHAR(80) NOT NULL DEFAULT 'capital_health_summary'",
+        "source_type": "VARCHAR(80) NOT NULL DEFAULT 'capital_assessment'",
+        "source_id": "INTEGER",
+        "lead_id": "INTEGER",
+        "organization_id": "INTEGER",
+        "assigned_user_id": "INTEGER",
+        "company_name": "VARCHAR(200) NOT NULL DEFAULT ''",
+        "score": "INTEGER",
+        "grade": "VARCHAR(30) NOT NULL DEFAULT ''",
+        "generation_status": "VARCHAR(30) NOT NULL DEFAULT 'generated'",
         "customer_id": "INTEGER",
         "public_token": "VARCHAR(100)",
         "token_expired_at": "DATETIME",
@@ -298,6 +310,62 @@ def _make_customer_account_anchors_nullable(changed: list[str]) -> None:
     changed.extend(["customer_accounts.lead_id_nullable", "customer_accounts.assessment_id_nullable"])
 
 
+def _make_report_assessment_columns_nullable(changed: list[str]) -> None:
+    """Allow unified reports and versions to originate outside capital assessments."""
+    if engine.dialect.name != "sqlite":
+        return
+    for table, nullable_names in (("reports", {"assessment_id"}), ("report_versions", {"assessment_id"})):
+        inspector = inspect(engine)
+        if table not in inspector.get_table_names():
+            continue
+        columns = inspector.get_columns(table)
+        if not any(item["name"] in nullable_names and item.get("nullable") is False for item in columns):
+            continue
+        with engine.begin() as connection:
+            raw = connection.exec_driver_sql(f'PRAGMA table_info("{table}")').mappings().all()
+            foreign_keys = connection.exec_driver_sql(f'PRAGMA foreign_key_list("{table}")').mappings().all()
+            indexes = connection.exec_driver_sql(f'PRAGMA index_list("{table}")').mappings().all()
+            index_specs = []
+            for index in indexes:
+                names = [row["name"] for row in connection.exec_driver_sql(
+                    f'PRAGMA index_info("{index["name"]}")').mappings().all()]
+                if names:
+                    index_specs.append((bool(index["unique"]), names))
+            definitions = []
+            for column in raw:
+                part = f'"{column["name"]}" {column["type"] or ""}'.rstrip()
+                if column["pk"]:
+                    part += " PRIMARY KEY"
+                elif column["name"] not in nullable_names and column["notnull"]:
+                    part += " NOT NULL"
+                if column["dflt_value"] is not None:
+                    part += f' DEFAULT {column["dflt_value"]}'
+                definitions.append(part)
+            for fk in foreign_keys:
+                clause = f'FOREIGN KEY ("{fk["from"]}") REFERENCES "{fk["table"]}" ("{fk["to"]}")'
+                if fk["on_update"] and fk["on_update"] != "NO ACTION": clause += f' ON UPDATE {fk["on_update"]}'
+                if fk["on_delete"] and fk["on_delete"] != "NO ACTION": clause += f' ON DELETE {fk["on_delete"]}'
+                definitions.append(clause)
+            temp = f"{table}_source_nullable_tmp"
+            connection.exec_driver_sql(f'DROP TABLE IF EXISTS "{temp}"')
+            connection.exec_driver_sql(f'CREATE TABLE "{temp}" ({", ".join(definitions)})')
+            names = ", ".join(f'"{item["name"]}"' for item in raw)
+            connection.exec_driver_sql(f'INSERT INTO "{temp}" ({names}) SELECT {names} FROM "{table}"')
+            connection.exec_driver_sql(f'DROP TABLE "{table}"')
+            connection.exec_driver_sql(f'ALTER TABLE "{temp}" RENAME TO "{table}"')
+            created = set()
+            for unique, index_columns in index_specs:
+                key = tuple(index_columns)
+                if key in created:
+                    continue
+                created.add(key)
+                unique_sql = "UNIQUE " if unique else ""
+                suffix = "_".join(index_columns)
+                quoted = ", ".join(f'"{name}"' for name in index_columns)
+                connection.exec_driver_sql(f'CREATE {unique_sql}INDEX "ix_{table}_rebuilt_{suffix}" ON "{table}" ({quoted})')
+        changed.append(f"{table}.assessment_id_nullable")
+
+
 def migrate_database() -> list[str]:
     """为旧 SQLite 数据库补列；新库由 SQLAlchemy 正常建表。"""
     if engine.dialect.name != "sqlite":
@@ -358,4 +426,15 @@ def migrate_database() -> list[str]:
                 changed.append("users.admin_role_repaired")
                 logger.warning("DEFAULT_ADMIN_ROLE_REPAIR migration repaired rows=%s", result.rowcount)
     _make_customer_account_anchors_nullable(changed)
+    _make_report_assessment_columns_nullable(changed)
+    if engine.dialect.name == "sqlite":
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_reports_cashflow_report_id "
+                "ON reports(cashflow_report_id) WHERE cashflow_report_id IS NOT NULL"
+            )
+            connection.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_reports_source "
+                "ON reports(source_type, source_id) WHERE source_id IS NOT NULL"
+            )
     return changed

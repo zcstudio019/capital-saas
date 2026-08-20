@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from core.funnel_analytics import build_funnel_analytics
@@ -24,7 +24,7 @@ from core.pricing_engine import (
 from core.config import settings
 from db.database import get_db
 from db.models import (
-    AdvisorBooking, AIGenerationLog, Assessment, ConsultingCase, CustomerAccount, CustomerTask, Event, FinancingProject,
+    AdvisorBooking, AIGenerationLog, Assessment, CashflowAssessment, ConsultingCase, CustomerAccount, CustomerTask, Event, FinancingProject,
     FollowTask, Lead, LeadFollowLog, Order, Organization, PilotBatch, ProjectTask, Report, ReportVersion,
     Tag, UploadedDocument, User
 )
@@ -45,6 +45,7 @@ from services.report_service import generate_full_report, parse_report
 from services.settings_service import SETTING_DEFINITIONS, save_settings, settings_dict
 from services.consulting_service import ensure_consulting_case
 from services.customer_portal_service import reports_for_customer
+from services.cashflow_service import CASHFLOW_REPORT_NAME, CASHFLOW_REPORT_TYPE
 from services.admin_report_preview_service import (
     assert_admin_report_preview_access,
     build_admin_report_preview_context,
@@ -398,7 +399,10 @@ def lead_detail(
     except json.JSONDecodeError:
         sales_script = {}
     orders = db.query(Order).filter(Order.assessment_id == lead.assessment_id).order_by(Order.created_at.desc()).all()
-    reports = db.query(Report).filter(Report.assessment_id == lead.assessment_id).order_by(Report.created_at.desc()).all()
+    reports = db.query(Report).filter(or_(
+        Report.assessment_id == lead.assessment_id,
+        Report.lead_id == lead.id,
+    )).order_by(Report.created_at.desc()).all()
     customer_account = db.get(CustomerAccount, reports[0].customer_id) if reports and reports[0].customer_id else db.query(CustomerAccount).filter(CustomerAccount.lead_id==lead.id).first()
     report_history = reports_for_customer(db, customer_account) if customer_account else reports
     advisor_bookings = db.query(AdvisorBooking).filter(
@@ -782,6 +786,7 @@ def reports(
     generation_status: str = "",
     review_status: str = "",
     grade: str = "",
+    report_type: str = "",
     page: int = 1,
     page_size: int = 10,
     db: Session = Depends(get_db),
@@ -789,7 +794,8 @@ def reports(
 ):
     page = max(page, 1)
     page_size = page_size if page_size in {10, 20, 50} else 10
-    query = db.query(Report).join(Assessment).join(Lead)
+    query = db.query(Report).outerjoin(Assessment, Report.assessment_id == Assessment.id).outerjoin(
+        Lead, or_(Lead.assessment_id == Assessment.id, Lead.id == Report.lead_id))
     scope = get_access_scope(db, user)
     if not scope.can_view_all:
         if scope.role == "partner":
@@ -808,24 +814,39 @@ def reports(
     pending_query = query
     pending_review_count = pending_query.filter(Report.review_status == "pending_review").count()
     if company_keyword:
-        query = query.filter(Assessment.company_name.ilike(f"%{company_keyword.strip()}%"))
+        keyword=f"%{company_keyword.strip()}%"
+        query = query.filter(or_(Assessment.company_name.ilike(keyword), Report.company_name.ilike(keyword)))
     if generation_status == "generated":
-        query = query.filter(or_(Report.full_report_json.isnot(None), Report.free_summary_json.isnot(None), Report.html_content.isnot(None)))
+        query = query.filter(or_(Report.generation_status == "generated", Report.full_report_json.isnot(None), Report.html_content.isnot(None)))
     elif generation_status == "draft":
-        query = query.filter(Report.full_report_json.is_(None), Report.free_summary_json.is_(None), Report.html_content.is_(None))
+        query = query.filter(or_(Report.generation_status == "draft", and_(Report.full_report_json.is_(None), Report.html_content.is_(None))))
     elif generation_status == "generation_failed":
-        query = query.filter(Report.review_status == "quality_failed")
+        query = query.filter(or_(Report.generation_status == "generation_failed", Report.review_status == "quality_failed"))
     if review_status:
         query = query.filter(Report.review_status == review_status)
+    if report_type == CASHFLOW_REPORT_TYPE:
+        query = query.filter(Report.report_type == CASHFLOW_REPORT_TYPE)
+    elif report_type == "structure_plan":
+        structure_ids = db.query(Order.assessment_id).filter(
+            Order.status == "paid", Order.product_code == "1999_structure_plan"
+        )
+        query = query.filter(Report.assessment_id.in_(structure_ids))
+    elif report_type == "capital_health_report":
+        health_ids = db.query(Order.assessment_id).filter(
+            Order.status == "paid", Order.product_code == "980_capital_health_report"
+        )
+        query = query.filter(Report.assessment_id.in_(health_ids))
+    elif report_type == "capital_health_summary":
+        query = query.filter(Report.assessment_id.isnot(None))
     if grade:
-        query = query.filter(Assessment.grade == grade)
+        query = query.filter(or_(Assessment.grade == grade, Report.grade == grade))
 
     total_count = query.count()
     total_pages = max((total_count + page_size - 1) // page_size, 1)
     page = min(page, total_pages)
     report_items = query.order_by(Report.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     generation_statuses = {item.id: report_generation_status(item) for item in report_items}
-    assessment_ids = [item.assessment_id for item in report_items]
+    assessment_ids = [item.assessment_id for item in report_items if item.assessment_id]
     paid_orders = db.query(Order).filter(
         Order.assessment_id.in_(assessment_ids or [-1]),
         Order.status == "paid",
@@ -860,6 +881,7 @@ def reports(
         "generation_status": generation_status,
         "review_status": review_status,
         "grade": grade,
+        "report_type": report_type,
     }.items():
         if value:
             pagination_params[key] = value
@@ -884,6 +906,7 @@ def reports(
                 "generation_status": generation_status,
                 "review_status": review_status,
                 "grade": grade,
+                "report_type": report_type,
                 "page_size": page_size,
             },
             "pagination": {
@@ -911,6 +934,19 @@ def report_detail(
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="报告不存在")
+    if report.report_type == CASHFLOW_REPORT_TYPE:
+        assert_admin_report_preview_access(db, report, user)
+        assessment=db.get(CashflowAssessment, report.cashflow_assessment_id)
+        current_version=db.get(ReportVersion, report.current_version_id) if report.current_version_id else None
+        versions=db.query(ReportVersion).filter(ReportVersion.report_id == report.id).order_by(ReportVersion.version_no.desc()).all()
+        payload={}
+        if current_version:
+            try: payload=json.loads(current_version.report_json or "{}")
+            except (TypeError, ValueError): payload={}
+        return templates.TemplateResponse(request=request, name="admin_cashflow_report_detail.html", context={
+            "report_item":report,"assessment":assessment,"report":payload,"current_version":current_version,
+            "versions":versions,"current_user":user,"report_type_name":CASHFLOW_REPORT_NAME,
+        })
     if report.assessment and report.assessment.lead:
         _assert_lead_access(db,user,report.assessment.lead)
     paid_orders = db.query(Order).filter(
@@ -986,6 +1022,14 @@ def admin_report_preview(
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="报告不存在")
+    if report.report_type == CASHFLOW_REPORT_TYPE:
+        assert_admin_report_preview_access(db, report, user)
+        version=db.get(ReportVersion, version_id) if version_id else db.get(ReportVersion, report.current_version_id)
+        if not version or version.report_id != report.id: raise HTTPException(404,"报告版本不存在")
+        try: payload=json.loads(version.report_json or "{}")
+        except (TypeError,ValueError): payload={}
+        assessment=db.get(CashflowAssessment,report.cashflow_assessment_id)
+        return templates.TemplateResponse(request=request,name="cashflow_report.html",context={"assessment":assessment,"report":payload,"customer":None,"admin_view":True,"save_prompt":False,"print_mode":False})
     context = build_admin_report_preview_context(db, report, user, version_id or None)
     context.update({"request": request, "current_user": user})
     template_name = "result_free.html" if context["access_level"] == "free" else "report_full.html"
@@ -1003,6 +1047,14 @@ def admin_report_print(
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="报告不存在")
+    if report.report_type == CASHFLOW_REPORT_TYPE:
+        assert_admin_report_preview_access(db, report, user)
+        version=db.get(ReportVersion, version_id) if version_id else db.get(ReportVersion, report.current_version_id)
+        if not version or version.report_id != report.id: raise HTTPException(404,"报告版本不存在")
+        try: payload=json.loads(version.report_json or "{}")
+        except (TypeError,ValueError): payload={}
+        assessment=db.get(CashflowAssessment,report.cashflow_assessment_id)
+        return templates.TemplateResponse(request=request,name="cashflow_report.html",context={"assessment":assessment,"report":payload,"customer":None,"admin_view":True,"save_prompt":False,"print_mode":True})
     context = build_admin_report_preview_context(db, report, user, version_id or None)
     context.update({"request": request, "current_user": user, "print_mode": True})
     template_name = "admin_report_free_print.html" if context["access_level"] == "free" else "report_print.html"

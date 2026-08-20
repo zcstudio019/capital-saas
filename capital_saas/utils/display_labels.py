@@ -270,6 +270,9 @@ def get_notification_template_label(code): return NOTIFICATION_TEMPLATE_LABELS.g
 def get_internal_notification_type_label(code): return INTERNAL_NOTIFICATION_TYPE_LABELS.get(str(code or "").strip().lower(), "系统通知")
 
 EVENT_LABELS = {
+    "cashflow_assessment_submitted": "现金流诊断已提交",
+    "cashflow_report_generated": "现金流报告已生成",
+    "cashflow_report_generation_failed": "现金流报告生成失败",
     "audit_log_created": "审计日志已创建", "unhandled_exception": "系统异常", "assessment_page_viewed": "测评页面被访问",
     "assessment_submitted": "已提交测评", "free_result_viewed": "已查看免费结果", "checkout_viewed": "已进入支付页",
     "payment_success": "支付成功", "report_viewed": "报告已查看", "client_report_viewed": "客户查看报告",

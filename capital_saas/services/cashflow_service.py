@@ -5,7 +5,146 @@ from core.cashflow_priority_engine import build_actions
 from core.cashflow_risk_engine import build_risk_signals
 from db.models import (CashflowActionItem, CashflowAssessment, CashflowDebtAnalysis,
     CashflowExpenseAnalysis, CashflowForecast, CashflowMetricResult, CashflowReport,
-    CashflowReportVersion, CashflowRiskSignal, CashflowWorkingCapital)
+    CashflowReportVersion, CashflowRiskSignal, CashflowWorkingCapital, Lead, NotificationTemplate, Report,
+    ReportVersion)
+from services.event_service import track_event
+from services.notification_service import (create_internal_notification, create_notifications_for_roles,
+                                            safe_create_notification)
+
+CASHFLOW_REPORT_TYPE = "cashflow_health_report"
+CASHFLOW_REPORT_NAME = "企业现金流健康诊断报告"
+
+
+def sync_unified_cashflow_report(db, assessment, cashflow_report, content, *, commit=False):
+    """Create the one-and-only unified report row and its initial V1 snapshot."""
+    unified = db.query(Report).filter(
+        (Report.cashflow_report_id == cashflow_report.id)
+        | ((Report.source_type == "cashflow_assessment") & (Report.source_id == assessment.id))
+    ).first()
+    if unified:
+        unified.cashflow_assessment_id = assessment.id
+        unified.cashflow_report_id = cashflow_report.id
+        unified.customer_id = assessment.customer_id or unified.customer_id
+        unified.lead_id = assessment.lead_id or unified.lead_id
+        unified.company_name = assessment.company_name
+        unified.score = assessment.health_score
+        unified.grade = assessment.risk_level
+        unified.generation_status = "generated"
+        unified.review_status = "approved"
+        unified.free_summary_json = cashflow_report.content_json
+        unified.full_report_json = cashflow_report.content_json
+        current = db.get(ReportVersion, unified.current_version_id) if unified.current_version_id else None
+        if not current:
+            current = db.query(ReportVersion).filter(
+                ReportVersion.report_id == unified.id
+            ).order_by(ReportVersion.version_no.desc()).first()
+        if not current:
+            current = ReportVersion(
+                report_id=unified.id, assessment_id=None, version_no=1,
+                product_code=CASHFLOW_REPORT_TYPE, access_level=CASHFLOW_REPORT_TYPE,
+                generator_mode="cashflow_rules", quality_score=assessment.health_score or 0,
+                report_json=json.dumps(content, ensure_ascii=False), created_by="system-repair",
+            )
+            db.add(current); db.flush()
+        unified.current_version_id = current.id
+        return unified, False
+    unified = Report(
+        assessment_id=None, cashflow_assessment_id=assessment.id,
+        cashflow_report_id=cashflow_report.id, report_type=CASHFLOW_REPORT_TYPE,
+        source_type="cashflow_assessment", source_id=assessment.id,
+        customer_id=assessment.customer_id, lead_id=assessment.lead_id,
+        organization_id=assessment.organization_id, assigned_user_id=assessment.advisor_id,
+        company_name=assessment.company_name, score=assessment.health_score,
+        grade=assessment.risk_level, generation_status="generated",
+        free_summary_json=cashflow_report.content_json,
+        full_report_json=cashflow_report.content_json, is_unlocked=True,
+        review_status="approved", reviewed_at=datetime.now(),
+    )
+    db.add(unified); db.flush()
+    version = ReportVersion(
+        report_id=unified.id, assessment_id=None, version_no=1,
+        product_code=CASHFLOW_REPORT_TYPE, access_level=CASHFLOW_REPORT_TYPE,
+        generator_mode="cashflow_rules", quality_score=assessment.health_score or 0,
+        report_json=json.dumps(content, ensure_ascii=False), created_by="system",
+    )
+    db.add(version); db.flush(); unified.current_version_id = version.id
+    track_event(db, "cashflow_assessment_submitted", lead_id=assessment.lead_id,
+                data={"cashflow_assessment_id": assessment.id, "company_name": assessment.company_name}, commit=False)
+    track_event(db, "cashflow_report_generated", lead_id=assessment.lead_id,
+                data={"report_id": unified.id, "cashflow_assessment_id": assessment.id}, commit=False)
+    if assessment.customer_id and db.query(NotificationTemplate).filter(
+        NotificationTemplate.template_key == "cashflow_report_ready_customer"
+    ).first():
+        safe_create_notification(
+            db, "cashflow_report_ready_customer", {"company_name": assessment.company_name},
+            recipient_customer_id=assessment.customer_id, related_type="report", related_id=unified.id,
+        )
+    create_notifications_for_roles(
+        db, ("admin", "super_admin", "sales_manager"), "新的现金流诊断报告已生成",
+        f"{assessment.company_name}的企业现金流健康诊断报告已生成。",
+        "cashflow_report_generated", related_type="report", related_id=unified.id,
+        action_url=f"/admin/reports/{unified.id}", commit=False,
+    )
+    lead = db.get(Lead, assessment.lead_id) if assessment.lead_id else None
+    responsible_ids = {item for item in (
+        getattr(lead, "assigned_sales_id", None), assessment.advisor_id
+    ) if item}
+    for user_id in responsible_ids:
+        create_internal_notification(
+            db, user_id, "新的现金流诊断报告已生成",
+            f"{assessment.company_name}的企业现金流健康诊断报告已生成。",
+            "cashflow_report_generated", related_type="report", related_id=unified.id,
+            action_url=f"/admin/reports/{unified.id}", commit=False,
+        )
+    if commit: db.commit()
+    return unified, True
+
+
+def create_failed_unified_cashflow_report(db, assessment, error_message="", *, cashflow_report=None, commit=True):
+    """Leave an operator-visible record when source report generation fails."""
+    unified = db.query(Report).filter(
+        Report.source_type == "cashflow_assessment", Report.source_id == assessment.id
+    ).first()
+    if not unified:
+        unified = Report(
+            assessment_id=None, cashflow_assessment_id=assessment.id,
+            cashflow_report_id=cashflow_report.id if cashflow_report else None,
+            report_type=CASHFLOW_REPORT_TYPE, source_type="cashflow_assessment", source_id=assessment.id,
+            customer_id=assessment.customer_id, lead_id=assessment.lead_id,
+            organization_id=assessment.organization_id, assigned_user_id=assessment.advisor_id,
+            company_name=assessment.company_name, score=assessment.health_score, grade=assessment.risk_level,
+            generation_status="generation_failed", free_summary_json="{}", full_report_json=None,
+            review_status="approved", review_note=(error_message or "现金流报告生成失败")[:1000],
+        )
+        db.add(unified); db.flush()
+    else:
+        unified.generation_status = "generation_failed"
+        unified.review_note = (error_message or "现金流报告生成失败")[:1000]
+    track_event(db, "cashflow_report_generation_failed", lead_id=assessment.lead_id,
+                data={"report_id": unified.id, "cashflow_assessment_id": assessment.id}, commit=False)
+    if commit: db.commit()
+    return unified
+
+
+def regenerate_unified_cashflow_report(db, unified, *, created_by="admin-regenerate"):
+    """Append a new immutable version and make it current."""
+    cashflow_report = db.get(CashflowReport, unified.cashflow_report_id)
+    if not cashflow_report:
+        unified.generation_status = "generation_failed"; db.commit()
+        raise ValueError("现金流源报告不存在")
+    content = report_content(cashflow_report)
+    latest = db.query(ReportVersion).filter(ReportVersion.report_id == unified.id).order_by(ReportVersion.version_no.desc()).first()
+    version = ReportVersion(
+        report_id=unified.id, assessment_id=None,
+        version_no=(latest.version_no + 1 if latest else 1),
+        product_code=CASHFLOW_REPORT_TYPE, access_level=CASHFLOW_REPORT_TYPE,
+        generator_mode="cashflow_rules", quality_score=unified.score or 0,
+        report_json=json.dumps(content, ensure_ascii=False), created_by=created_by,
+    )
+    db.add(version); db.flush()
+    unified.current_version_id=version.id; unified.full_report_json=version.report_json
+    unified.generation_status="generated"; unified.review_status="approved"
+    db.commit(); return version
 
 METRICS = [
     ("current_ratio", "流动比率", "倍", lambda d: ratio(d.get("current_assets"), d.get("current_liabilities")), (1.5, 1.0)),
@@ -82,8 +221,33 @@ def create_diagnosis(db, data, customer=None, lead=None):
     content = {"title":"企业现金流健康诊断报告","generated_at":datetime.now().strftime("%Y-%m-%d"),"company_profile":{"industry":data.get("industry") or "待补充资料核验","business_scope":data.get("business_scope") or "待补充资料核验","company_type":data.get("company_type") or "待补充资料核验"},"overview":{"score":score if score is not None else "待补充资料核验","risk_level":risk_level,"runway":data["cash_runway_months"],"gap_week":data["cash_gap_week"],"gap_amount":data["cash_gap_amount"]},"metrics":metrics,"working_capital":data,"forecasts":forecasts,"risks":risks,"actions":actions,"advisor_note":"建议预约顾问，结合已上传财务资料进行核验与落地辅导。"}
     report = CashflowReport(assessment_id=assessment.id, customer_id=assessment.customer_id, content_json=json.dumps(content, ensure_ascii=False))
     db.add(report); db.flush(); version = CashflowReportVersion(report_id=report.id, version_no=1, content_json=report.content_json); db.add(version); db.flush(); report.current_version_id=version.id
+    try:
+        with db.begin_nested():
+            sync_unified_cashflow_report(db, assessment, report, content)
+            db.flush()
+    except Exception as exc:
+        create_failed_unified_cashflow_report(
+            db, assessment, str(exc), cashflow_report=report, commit=False
+        )
     db.commit(); return assessment, report, content
 
 def report_content(report):
     try: return json.loads(report.content_json)
     except (TypeError, ValueError): return {}
+
+
+def backfill_unified_cashflow_reports(db):
+    stats={"created":0,"reused":0,"skipped":0,"errors":0}
+    for cashflow_report in db.query(CashflowReport).order_by(CashflowReport.id).all():
+        try:
+            with db.begin_nested():
+                assessment=db.get(CashflowAssessment, cashflow_report.assessment_id)
+                if not assessment:
+                    stats["skipped"] += 1; continue
+                _, created=sync_unified_cashflow_report(
+                    db, assessment, cashflow_report, report_content(cashflow_report))
+                db.flush()
+                stats["created" if created else "reused"] += 1
+        except Exception:
+            stats["errors"] += 1
+    db.commit(); return stats

@@ -17,7 +17,7 @@ from core.pricing_engine import PRODUCT_RANK, products
 from core.data_masking import mask_phone
 from core.capital_health_report import ensure_capital_health_snapshot, report_entitlements
 from db.database import get_db
-from db.models import (AdvisorBooking, ConsultingCase, CustomerAccessToken, CustomerAccount,
+from db.models import (AdvisorBooking, CashflowAssessment, ConsultingCase, CustomerAccessToken, CustomerAccount,
     CustomerConfirmation, CustomerMessage, CustomerTask, Event, FinancingProject,
     FundingApplication, Lead, NotificationJob, Order, ProjectTimelineEvent, Report, ReportVersion, UploadedDocument, User)
 from services.auth_service import require_roles
@@ -583,6 +583,15 @@ def client_reports(request:Request,db:Session=Depends(get_db),customer:CustomerA
     report_items=reports_for_customer(db,customer)
     rows=[]
     for report in report_items:
+        if report.report_type == 'cashflow_health_report':
+            assessment=db.get(CashflowAssessment,report.cashflow_assessment_id)
+            if not assessment:continue
+            rows.append({'report':report,'assessment':assessment,'report_name':'企业现金流健康诊断报告',
+                'level_label':'现金流诊断','review_label':'已完成' if report.generation_status=='generated' else '生成失败',
+                'expired':False,'highest_product':'cashflow_health_report','display_grade':assessment.risk_level,
+                'display_score':assessment.health_score,'company_name':assessment.company_name,'cashflow':True,
+                'version_count':max(1,db.query(ReportVersion).filter(ReportVersion.report_id==report.id).count())})
+            continue
         assessment=report.assessment
         orders=db.query(Order).filter(Order.assessment_id==assessment.id,Order.status=='paid').all()
         highest=max((item.product_code for item in orders),key=lambda code:PRODUCT_RANK.get(code,0),default='free_assessment')
@@ -605,9 +614,10 @@ def client_reports(request:Request,db:Session=Depends(get_db),customer:CustomerA
             'report':report,'assessment':assessment,'report_name':report_name,'level_label':level,
             'review_label':review_label,'expired':expired,'highest_product':highest,
             'display_grade':_capital_grade(assessment.score),
+            'display_score':assessment.score,'company_name':assessment.company_name,'cashflow':False,
             'version_count':max(1,db.query(ReportVersion).filter(ReportVersion.report_id==report.id).count()),
         })
-    return templates.TemplateResponse(request=request,name='client_reports.html',context={'customer':customer,'report_rows':rows})
+    return templates.TemplateResponse(request=request,name='client_reports.html',context={'customer':customer,'report_rows':rows,'capital_rows':[x for x in rows if not x['cashflow']]})
 
 def _client_report(db,customer,report_id):
     report=db.get(Report,report_id)
@@ -617,6 +627,10 @@ def _client_report(db,customer,report_id):
 @router.get('/client/reports/{report_id}/versions',response_class=HTMLResponse)
 def client_report_versions(request:Request,report_id:int,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
     report=_client_report(db,customer,report_id)
+    if report.report_type == 'cashflow_health_report':
+        versions=db.query(ReportVersion).filter(ReportVersion.report_id==report.id).order_by(ReportVersion.version_no.desc()).all()
+        rows=[{'version':x,'meta':{'review_status':'approved','change_summary':'现金流报告历史版本'},'is_current':x.id==report.current_version_id} for x in versions]
+        return templates.TemplateResponse(request=request,name='client_report_versions.html',context={'customer':customer,'report_item':report,'versions':rows})
     ensure_capital_health_snapshot(db,report.assessment)
     versions=db.query(ReportVersion).filter(ReportVersion.report_id==report.id).order_by(ReportVersion.version_no.desc()).all()
     rows=[]
@@ -631,6 +645,12 @@ def client_report_versions(request:Request,report_id:int,db:Session=Depends(get_
 @router.get('/client/reports/{report_id}',response_class=HTMLResponse)
 def client_report(request:Request,report_id:int,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
     report=_client_report(db,customer,report_id)
+    if report.report_type == 'cashflow_health_report':
+        version=db.get(ReportVersion,report.current_version_id) if report.current_version_id else None
+        try: payload=json.loads(version.report_json if version else report.full_report_json or '{}')
+        except (TypeError,ValueError):payload={}
+        assessment=db.get(CashflowAssessment,report.cashflow_assessment_id)
+        return templates.TemplateResponse(request=request,name='cashflow_report.html',context={'customer':customer,'assessment':assessment,'report':payload,'save_prompt':False,'print_mode':False})
     paid_orders=db.query(Order).filter(Order.assessment_id==report.assessment_id,Order.status=='paid').all()
     entitlements=report_entitlements(db,report.assessment_id)
     if not paid_orders:
@@ -652,6 +672,13 @@ def client_report(request:Request,report_id:int,db:Session=Depends(get_db),custo
 @router.get('/client/reports/{report_id}/print',response_class=HTMLResponse)
 def client_report_print(request:Request,report_id:int,db:Session=Depends(get_db),customer:CustomerAccount=Depends(require_customer)):
     report=_client_report(db,customer,report_id)
+    if report.report_type == 'cashflow_health_report':
+        if report.review_status!='approved':raise HTTPException(403,"报告尚不可打印")
+        version=db.get(ReportVersion,report.current_version_id) if report.current_version_id else None
+        try:payload=json.loads(version.report_json if version else report.full_report_json or '{}')
+        except (TypeError,ValueError):payload={}
+        assessment=db.get(CashflowAssessment,report.cashflow_assessment_id)
+        return templates.TemplateResponse(request=request,name='cashflow_report.html',context={'customer':customer,'assessment':assessment,'report':payload,'save_prompt':False,'print_mode':True})
     if report.review_status!='approved' or not db.query(Order).filter(Order.assessment_id==report.assessment_id,Order.status=='paid').first():raise HTTPException(403,"报告尚不可打印")
     generate_full_report(db, report.assessment)
     full=parse_customer_report(report);health_report=ensure_capital_health_snapshot(db,report.assessment);access_context=build_report_access_context(db,report.assessment,full,base_path=f'/client/reports/{report.id}')

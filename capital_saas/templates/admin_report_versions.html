@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{% block title %}报告版本｜{{ report_item.assessment.company_name }}{% endblock %}
+{% set report_company = report_item.company_name if report_item.report_type == 'cashflow_health_report' else report_item.assessment.company_name %}
+{% block title %}报告版本｜{{ report_company }}{% endblock %}
 {% block content %}
 <section class="admin-shell container">
   <div class="admin-top">
-    <div><div class="eyebrow">报告历史版本</div><h1>{{ report_item.assessment.company_name }}</h1></div>
+    <div><div class="eyebrow">报告历史版本</div><h1>{{ report_company }}</h1></div>
     <a class="btn" href="/admin/reports/{{ report_item.id }}">返回报告详情</a>
   </div>
   <div class="card table-card">
@@ -13,7 +14,7 @@
       {% for view in version_views %}{% set version = view.version %}{% set meta = view.metadata %}
       <tr>
         <td>V{{ version.version_no }}{% if report_item.current_version_id == version.id %} · 当前{% endif %}</td>
-        <td>{{ "免费摘要" if view.access_level == "free" else "企业资本健康体检报告" if view.access_level == "capital_health_report" else "融资结构优化方案" }}</td>
+        <td>{{ "企业现金流健康诊断报告" if view.access_level == "cashflow_health_report" else "免费摘要" if view.access_level == "free" else "企业资本健康体检报告" if view.access_level == "capital_health_report" else "融资结构优化方案" }}</td>
         <td>{{ version.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
         <td>{{ "历史内容兼容迁移" if version.generator_mode == "legacy_migration" else version.created_by }}</td>
         <td>{{ meta.reviewer or "—" }}</td>

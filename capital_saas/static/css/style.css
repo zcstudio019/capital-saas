@@ -86,8 +86,9 @@ button, input, select, textarea { font: inherit; }
 .hero h1 { margin-bottom: 26px; font-size: clamp(46px, 6vw, 76px); line-height: 1.14; letter-spacing: -.04em; }
 .hero h1 span { color: var(--gold-light); }
 .hero-copy { max-width: 650px; color: #d8e1ea; font-size: 23px; }
-.hero-actions { margin-top: 42px; display: flex; align-items: center; gap: 22px; }
-.trust-note { color: #9eabba; font-size: 13px; }
+.hero-actions { margin-top: 42px; display: flex; align-items: stretch; gap: 16px; }
+.hero-primary-cta{flex:0 0 auto;align-self:stretch}.hero-diagnosis-links{min-width:0;display:flex;gap:12px}.hero-diagnosis-link{min-width:0;display:flex;flex:1 1 0;flex-direction:column;justify-content:center;padding:10px 14px;border:1px solid rgba(255,255,255,.28);border-radius:8px;color:#fff;background:rgba(255,255,255,.04);text-decoration:none;transition:.2s ease}.hero-diagnosis-link strong{color:#fff;font-size:14px}.hero-diagnosis-link>span{margin-top:4px;color:#aebbc9;font-size:11px;line-height:1.35}.hero-diagnosis-link:hover{border-color:#d8b968;background:rgba(216,185,104,.1);transform:translateY(-2px)}.hero-diagnosis-link:hover strong{color:#efd28a}
+.trust-note { margin:14px 0 0;color:#9eabba;font-size:13px; }
 .btn { display: inline-flex; min-height: 46px; padding: 0 24px; border: 0; border-radius: 8px; align-items: center; justify-content: center; cursor: pointer; font-weight: 800; transition: .2s ease; }
 .btn:hover { transform: translateY(-2px); }
 .btn:disabled { opacity: .65; cursor: wait; transform: none; }
@@ -883,7 +884,8 @@ details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold)
   .hero { min-height: 580px; }
   .hero h1 { font-size: 44px; }
   .hero-copy { font-size: 19px; }
-  .hero-actions { align-items: flex-start; flex-direction: column; }
+  .hero-actions { align-items:stretch;flex-direction:column; }
+  .hero-primary-cta{width:100%}.hero-diagnosis-links{width:100%;flex-direction:column}.hero-diagnosis-link{min-height:62px}
   .section { padding: 55px 0; }
   .feature-grid, .overview-grid, .form-grid, .data-grid, .canvas-grid, .analysis-row, .swot-grid, .action-grid, .dashboard-grid, .detail-data, .score-comparison { grid-template-columns: 1fr; }
   .form-grid label.wide { grid-column: auto; }
@@ -1166,7 +1168,7 @@ details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold)
 .assessment-page-hero h1{font-size:42px}
 .assessment-page-hero p{font-size:16px}
 
-@media(max-width:768px){
+@media(max-width:1020px){
   .public-header{height:auto;min-height:64px}
   .public-header-inner{width:calc(100% - 32px);height:64px;gap:12px}
   .public-brand-divider,
@@ -1198,7 +1200,7 @@ details { margin-top:12px; } details summary { cursor:pointer; color:var(--gold)
   }
 }
 
-@media(min-width:769px){
+@media(min-width:1021px){
   .public-header{height:74px}
   .public-desktop-nav{display:flex!important}
   .public-mobile-toggle,

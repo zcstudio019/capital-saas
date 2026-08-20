@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block title %}沪上银｜企业资本战略AI诊断系统{% endblock %}
 {% block content %}
+{% set capital_assessment_url = url_for('assessment_form') %}
+{% set cashflow_assessment_url = url_for('cashflow_assessment_form') %}
 <section class="hero">
   <div class="container hero-grid">
     <div>
@@ -8,10 +10,13 @@
       <h1>企业资本战略<br><span>AI诊断系统</span></h1>
       <p class="hero-copy">3分钟看清企业能不能融资、能贷多少、钱为什么总是不够。</p>
       <div class="hero-actions">
-        <a class="btn btn-primary btn-lg" href="/assessment">开始免费测评</a>
-        <a class="btn btn-secondary btn-lg" href="/cashflow-assessment">企业现金流诊断</a>
-        <span class="trust-note">无需注册 · 规则模型即时评分</span>
+        <a class="btn btn-primary btn-lg hero-primary-cta" href="{{ capital_assessment_url }}">开始免费测评</a>
+        <div class="hero-diagnosis-links" aria-label="诊断入口">
+          <a class="hero-diagnosis-link" href="{{ capital_assessment_url }}"><strong>企业资本健康测评 <span aria-hidden="true">→</span></strong><span>看融资基础、风险、额度与资本结构</span></a>
+          <a class="hero-diagnosis-link" href="{{ cashflow_assessment_url }}"><strong>企业现金流诊断 <span aria-hidden="true">→</span></strong><span>看钱卡在哪里、何时可能缺钱及如何改善</span></a>
+        </div>
       </div>
+      <p class="trust-note">无需注册 · 规则模型即时评分</p>
     </div>
     <div class="hero-panel card">
       <div class="mini-label">诊断覆盖</div>

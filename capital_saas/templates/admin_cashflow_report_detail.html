@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}现金流报告详情｜{{ assessment.company_name }}{% endblock %}
+{% block content %}
+<section class="admin-shell container">
+  <div class="admin-top">
+    <div><div class="eyebrow">统一报告 #{{report_item.id}}</div><h1>{{assessment.company_name}}</h1><p>{{report_type_name}}</p></div>
+    <div class="admin-links"><a class="btn btn-primary" href="/admin/reports/{{report_item.id}}/preview">查看报告</a><a href="/admin/reports/{{report_item.id}}/print" target="_blank">打印报告</a><a href="/admin/reports/{{report_item.id}}/versions">历史版本</a><a class="btn" href="/admin/reports">返回列表</a></div>
+  </div>
+  <section class="card detail-card"><div class="detail-data">
+    <div><span>企业名称</span><strong>{{assessment.company_name}}</strong></div>
+    <div><span>联系人</span><strong>{{assessment.finance_contact or '待补充资料核验'}}</strong></div>
+    <div><span>现金流健康评分</span><strong>{{report_item.score if report_item.score is not none else '待补充资料核验'}}{% if report_item.score is not none %} / 100{% endif %}</strong></div>
+    <div><span>风险等级</span><strong>{{report_item.grade or '待补充资料核验'}}</strong></div>
+    <div><span>现金储备月份</span><strong>{{assessment.cash_runway_months if assessment.cash_runway_months is not none else '待补充资料核验'}}</strong></div>
+    <div><span>预计现金缺口</span><strong>{% if assessment.cash_gap_week %}第{{assessment.cash_gap_week}}期 / {{assessment.cash_gap_amount}}元{% else %}未识别{% endif %}</strong></div>
+    <div><span>报告类型</span><strong>{{report_type_name}}</strong></div>
+    <div><span>生成状态</span><strong>{{report_item.generation_status|report_generation_status_label}}</strong></div>
+    <div><span>审核方式</span><strong>自动通过</strong></div>
+    <div><span>当前版本</span><strong>{{'V' ~ current_version.version_no if current_version else '尚无版本'}}</strong></div>
+    <div><span>创建时间</span><strong>{{report_item.created_at.strftime('%Y-%m-%d %H:%M')}}</strong></div>
+  </div></section>
+  <section class="card detail-card"><div class="task-section-head"><h2>版本与生成</h2><span>共{{versions|length}}个版本</span></div><p>重新生成会新增版本，不覆盖历史内容。</p><form method="post" action="/admin/reports/{{report_item.id}}/regenerate"><button class="btn btn-primary" type="submit">重新生成报告</button></form></section>
+</section>
+{% endblock %}

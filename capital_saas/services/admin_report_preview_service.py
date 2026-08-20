@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from core.access_scope import effective_role, get_access_scope
 from core.capital_health_report import build_capital_health_report
 from core.pricing_engine import PRODUCT_RANK
-from db.models import ConsultingCase, Order, Report, ReportVersion, User
+from db.models import ConsultingCase, Lead, Order, Report, ReportVersion, User
 from services.report_access_service import build_report_access_context
 from utils.report_display_mapper import build_customer_report_display
 from utils.report_formatters import normalize_report_action_steps
@@ -21,16 +21,17 @@ ACCESS_RANK = {"free": 0, "capital_health_report": 1, "structure_plan": 2, "advi
 
 
 def _case_for_report(db: Session, report: Report) -> ConsultingCase | None:
-    return db.query(ConsultingCase).filter(
-        (ConsultingCase.report_id == report.id)
-        | (ConsultingCase.assessment_id == report.assessment_id)
-    ).order_by(ConsultingCase.created_at.desc()).first()
+    query = db.query(ConsultingCase)
+    condition = ConsultingCase.report_id == report.id
+    if report.assessment_id is not None:
+        condition = condition | (ConsultingCase.assessment_id == report.assessment_id)
+    return query.filter(condition).order_by(ConsultingCase.created_at.desc()).first()
 
 
 def assert_admin_report_preview_access(db: Session, report: Report, user: User) -> str:
     """Return internal/customer preview mode after enforcing report data scope."""
     role = effective_role(user)
-    lead = report.assessment.lead if report.assessment else None
+    lead = report.assessment.lead if report.assessment else (db.get(Lead, report.lead_id) if report.lead_id else None)
     case = _case_for_report(db, report)
     if role == "super_admin":
         return "internal"
@@ -81,6 +82,8 @@ def access_level_for_product(product_code: str) -> str:
 
 
 def infer_version_access_level(db: Session, report: Report, version: ReportVersion | None, payload: dict[str, Any]) -> str:
+    if report.report_type == "cashflow_health_report":
+        return "cashflow_health_report"
     product_code = version.product_code if version else ""
     product_level = access_level_for_product(product_code)
     meta_level = str((payload.get("report_meta") or {}).get("access_level") or "")
@@ -110,6 +113,26 @@ def ensure_report_version_compat(db: Session, report: Report) -> ReportVersion |
         return None
 
     payload = _json_dict(report.full_report_json)
+    if report.report_type == "cashflow_health_report":
+        version = ReportVersion(
+            report_id=report.id,
+            assessment_id=None,
+            version_no=1,
+            product_code="cashflow_health_report",
+            access_level="cashflow_health_report",
+            generator_mode="legacy_migration",
+            quality_score=int(report.score or 0),
+            report_json=json.dumps(payload, ensure_ascii=False),
+            html_content=report.html_content or "",
+            created_by="legacy-migration",
+            created_at=report.created_at,
+        )
+        db.add(version)
+        db.flush()
+        report.current_version_id = version.id
+        db.commit()
+        db.refresh(version)
+        return version
     product_code = _paid_product_code(db, report)
     access_level = access_level_for_product(product_code)
     if not payload.get("capital_health_snapshot"):
@@ -150,6 +173,8 @@ def ensure_report_version_compat(db: Session, report: Report) -> ReportVersion |
 
 
 def report_generation_status(report: Report) -> str:
+    if report.generation_status:
+        return report.generation_status
     if not report_has_generated_content(report):
         return "draft"
     if report.review_status == "quality_failed":

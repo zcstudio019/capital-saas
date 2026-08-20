@@ -21,6 +21,7 @@ DEFAULT_TEMPLATES=[
  ("customer_account_activation","客户账号激活","customer","sms","service","激活客户账号","请使用安全链接设置登录密码：{{activation_url}}。链接24小时内有效，请勿转发。"),
  ("customer_password_reset","客户密码重置","customer","sms","service","客户账号密码重置","请使用安全链接重置客户账号密码：{{reset_url}}。链接24小时内有效，请勿转发。"),
  ("free_report_ready_customer","免费报告已生成","customer","in_app","service","您的企业资本健康报告已生成","本次企业资本健康测评结果已经生成，可随时进入“我的报告”查看。"),
+ ("cashflow_report_ready_customer","现金流报告已生成","customer","in_app","service","您的企业现金流健康诊断报告已生成","{{company_name}}的企业现金流健康诊断报告已生成，可进入“我的报告”长期查看。"),
  ("capital_health_report_unlocked_customer","完整体检报告已解锁","customer","in_app","service","完整体检报告已解锁","{{company_name}}的企业资本健康体检报告已解锁，可进入“我的报告”长期查看。"),
  ("customer_portal_access_link","客户门户登录链接","customer","sms","service","我的报告访问链接","请使用专属链接查看历史报告：{{access_url}}。链接7天内有效，请勿转发。"),
  ("report_approved_customer","报告已审核通过","customer","in_app","service","您的融资诊断报告已可查看","{{company_name}}的融资诊断报告已完成审核，请登录客户门户查看。"),

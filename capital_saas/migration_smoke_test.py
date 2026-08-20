@@ -39,11 +39,24 @@ connection.executescript(
     );
     CREATE TABLE reports (
         id INTEGER PRIMARY KEY,
-        assessment_id INTEGER,
+        assessment_id INTEGER NOT NULL UNIQUE,
         free_summary_json TEXT,
         full_report_json TEXT,
         html_content TEXT,
         is_unlocked BOOLEAN,
+        created_at DATETIME
+    );
+    CREATE TABLE report_versions (
+        id INTEGER PRIMARY KEY,
+        report_id INTEGER NOT NULL,
+        assessment_id INTEGER NOT NULL,
+        version_no INTEGER NOT NULL,
+        product_code VARCHAR(50),
+        generator_mode VARCHAR(30),
+        quality_score INTEGER,
+        report_json TEXT NOT NULL,
+        html_content TEXT,
+        created_by VARCHAR(100),
         created_at DATETIME
     );
     CREATE TABLE uploaded_documents (
@@ -90,6 +103,8 @@ lead_columns = {row[1] for row in connection.execute("PRAGMA table_info(leads)")
 order_columns = {row[1] for row in connection.execute("PRAGMA table_info(orders)")}
 tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
 report_columns = {row[1] for row in connection.execute("PRAGMA table_info(reports)")} if "reports" in tables else set()
+report_info = {row[1]: {"notnull": bool(row[3])} for row in connection.execute("PRAGMA table_info(reports)")}
+version_info = {row[1]: {"notnull": bool(row[3])} for row in connection.execute("PRAGMA table_info(report_versions)")}
 uploaded_columns = {row[1] for row in connection.execute("PRAGMA table_info(uploaded_documents)")} if "uploaded_documents" in tables else set()
 user_columns = {row[1] for row in connection.execute("PRAGMA table_info(users)")}
 case_columns = {row[1] for row in connection.execute("PRAGMA table_info(consulting_cases)")}
@@ -134,6 +149,8 @@ assert {"public_token", "token_expired_at"} <= report_columns
 assert {
     "review_status", "reviewed_by", "reviewed_at", "review_note", "current_version_id"
 } <= report_columns
+assert not report_info["assessment_id"]["notnull"]
+assert not version_info["assessment_id"]["notnull"]
 assert {
     "follow_tasks", "events", "users", "system_settings", "ab_experiments",
     "ab_assignments", "lead_follow_logs", "sales_script_templates", "tags", "lead_tags",
