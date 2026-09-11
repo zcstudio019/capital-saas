@@ -16,6 +16,7 @@ from core.config import BASE_DIR, settings
 from core.pricing_engine import PRODUCT_RANK, products
 from core.data_masking import mask_phone
 from core.capital_health_report import ensure_capital_health_snapshot, report_entitlements
+from core.cashflow_report_summary import enrich_cashflow_report
 from db.database import get_db
 from db.models import (AdvisorBooking, CashflowAssessment, ConsultingCase, CustomerAccessToken, CustomerAccount,
     CustomerConfirmation, CustomerMessage, CustomerTask, Event, FinancingProject,
@@ -650,6 +651,7 @@ def client_report(request:Request,report_id:int,db:Session=Depends(get_db),custo
         try: payload=json.loads(version.report_json if version else report.full_report_json or '{}')
         except (TypeError,ValueError):payload={}
         assessment=db.get(CashflowAssessment,report.cashflow_assessment_id)
+        payload=enrich_cashflow_report(db,assessment,payload) if assessment else payload
         return templates.TemplateResponse(request=request,name='cashflow_report.html',context={'customer':customer,'assessment':assessment,'report':payload,'save_prompt':False,'print_mode':False})
     paid_orders=db.query(Order).filter(Order.assessment_id==report.assessment_id,Order.status=='paid').all()
     entitlements=report_entitlements(db,report.assessment_id)
@@ -678,6 +680,7 @@ def client_report_print(request:Request,report_id:int,db:Session=Depends(get_db)
         try:payload=json.loads(version.report_json if version else report.full_report_json or '{}')
         except (TypeError,ValueError):payload={}
         assessment=db.get(CashflowAssessment,report.cashflow_assessment_id)
+        payload=enrich_cashflow_report(db,assessment,payload) if assessment else payload
         return templates.TemplateResponse(request=request,name='cashflow_report.html',context={'customer':customer,'assessment':assessment,'report':payload,'save_prompt':False,'print_mode':True})
     if report.review_status!='approved' or not db.query(Order).filter(Order.assessment_id==report.assessment_id,Order.status=='paid').first():raise HTTPException(403,"报告尚不可打印")
     generate_full_report(db, report.assessment)

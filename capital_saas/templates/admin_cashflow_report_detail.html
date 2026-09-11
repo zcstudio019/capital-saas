@@ -19,6 +19,12 @@
     <div><span>当前版本</span><strong>{{'V' ~ current_version.version_no if current_version else '尚无版本'}}</strong></div>
     <div><span>创建时间</span><strong>{{report_item.created_at.strftime('%Y-%m-%d %H:%M')}}</strong></div>
   </div></section>
+  {% if report.executive_summary %}
+  <section class="card detail-card"><div class="task-section-head"><h2>管理层摘要</h2><span>新版现金流报告</span></div>
+    <div class="detail-data"><div><span>现状评分</span><strong>{{report.executive_summary.current_score}}{% if report.executive_summary.current_score is number %} / 100{% endif %} · {{report.executive_summary.health_level}}</strong></div><div><span>核心问题</span><strong>{{report.core_problems|length}}项</strong></div><div><span>可融额度</span><strong>{{report.financing_capacity.theoretical_range}}</strong></div><div><span>改进建议</span><strong>{{report.executive_summary.highest_priority_label}}</strong></div></div>
+    <div class="core-problem-list">{% for problem in report.core_problems %}<article class="core-problem-card"><div class="problem-heading"><span>问题 {{loop.index}}</span><h3>{{problem.name}}</h3><b>{{problem.risk_level}}</b></div><p>{{problem.impact}}</p></article>{% endfor %}</div>
+  </section>
+  {% endif %}
   <section class="card detail-card"><div class="task-section-head"><h2>版本与生成</h2><span>共{{versions|length}}个版本</span></div><p>重新生成会新增版本，不覆盖历史内容。</p><form method="post" action="/admin/reports/{{report_item.id}}/regenerate"><button class="btn btn-primary" type="submit">重新生成报告</button></form></section>
 </section>
 {% endblock %}

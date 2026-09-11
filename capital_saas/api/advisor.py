@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from core.bank_product_matcher import match_bank_products
+from core.cashflow_report_summary import enrich_cashflow_report
 from core.access_scope import effective_role, get_access_scope
 from core.pricing_engine import PRODUCT_RANK
 from core.config import BASE_DIR, settings
@@ -757,6 +758,7 @@ def report_version_detail(
         except (TypeError, ValueError):
             payload = {}
         assessment = db.get(CashflowAssessment, report.cashflow_assessment_id)
+        payload = enrich_cashflow_report(db, assessment, payload) if assessment else payload
         return templates.TemplateResponse(
             request=request, name="cashflow_report.html",
             context={"assessment": assessment, "report": payload, "print_mode": False,

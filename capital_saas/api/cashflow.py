@@ -61,7 +61,7 @@ def result(request: Request, assessment_id: int, db: Session = Depends(get_db)):
     customer = customer_from_session(request, db)
     if assessment.customer_id and (not customer or customer.id != assessment.customer_id): raise HTTPException(403, "无权查看该诊断")
     report = db.query(CashflowReport).filter(CashflowReport.assessment_id == assessment.id).first()
-    return templates.TemplateResponse(request=request, name="cashflow_report.html", context={"assessment":assessment,"report":report_content(report),"customer":customer,"save_prompt":not assessment.customer_id})
+    return templates.TemplateResponse(request=request, name="cashflow_report.html", context={"assessment":assessment,"report":report_content(report, db),"customer":customer,"save_prompt":not assessment.customer_id})
 
 @router.get("/client/cashflow-reports", response_class=HTMLResponse)
 def client_reports(request: Request, db: Session = Depends(get_db), customer: CustomerAccount = Depends(require_customer)):
@@ -73,7 +73,7 @@ def client_report(request: Request, report_id: int, db: Session = Depends(get_db
     report = db.get(CashflowReport, report_id)
     if not report or report.customer_id != customer.id: raise HTTPException(404, "报告不存在")
     assessment = db.get(CashflowAssessment, report.assessment_id)
-    return templates.TemplateResponse(request=request, name="cashflow_report.html", context={"assessment":assessment,"report":report_content(report),"customer":customer,"save_prompt":False})
+    return templates.TemplateResponse(request=request, name="cashflow_report.html", context={"assessment":assessment,"report":report_content(report, db),"customer":customer,"save_prompt":False})
 
 @router.get("/admin/cashflow-assessments", response_class=HTMLResponse)
 def admin_list(request: Request, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "super_admin", "consultant", "consultant_manager", "sales", "sales_manager", "city_manager", "viewer"))):
@@ -85,7 +85,7 @@ def admin_detail(request: Request, assessment_id: int, db: Session = Depends(get
     assessment = db.get(CashflowAssessment, assessment_id)
     if not assessment: raise HTTPException(404, "诊断不存在")
     report = db.query(CashflowReport).filter(CashflowReport.assessment_id == assessment_id).first()
-    return templates.TemplateResponse(request=request, name="cashflow_report.html", context={"assessment":assessment,"report":report_content(report),"customer":None,"admin_view":True,"save_prompt":False})
+    return templates.TemplateResponse(request=request, name="cashflow_report.html", context={"assessment":assessment,"report":report_content(report, db),"customer":None,"admin_view":True,"save_prompt":False})
 
 @router.post("/admin/cashflow-assessments/{assessment_id}/recalculate")
 def recalculate(assessment_id: int, db: Session = Depends(get_db), user: User = Depends(require_roles("admin", "super_admin", "consultant", "consultant_manager"))):

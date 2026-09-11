@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 
 from core.cashflow_priority_engine import build_actions
+from core.cashflow_report_summary import enrich_cashflow_report
 from core.cashflow_risk_engine import build_risk_signals
 from db.models import (CashflowActionItem, CashflowAssessment, CashflowDebtAnalysis,
     CashflowExpenseAnalysis, CashflowForecast, CashflowMetricResult, CashflowReport,
@@ -132,7 +133,17 @@ def regenerate_unified_cashflow_report(db, unified, *, created_by="admin-regener
     if not cashflow_report:
         unified.generation_status = "generation_failed"; db.commit()
         raise ValueError("现金流源报告不存在")
-    content = report_content(cashflow_report)
+    assessment = db.get(CashflowAssessment, cashflow_report.assessment_id)
+    content = report_content(cashflow_report, db)
+    cashflow_report.content_json = json.dumps(content, ensure_ascii=False)
+    source_latest = db.query(CashflowReportVersion).filter(
+        CashflowReportVersion.report_id == cashflow_report.id
+    ).order_by(CashflowReportVersion.version_no.desc()).first()
+    source_version = CashflowReportVersion(
+        report_id=cashflow_report.id, version_no=(source_latest.version_no + 1 if source_latest else 1),
+        content_json=cashflow_report.content_json,
+    )
+    db.add(source_version); db.flush(); cashflow_report.current_version_id = source_version.id
     latest = db.query(ReportVersion).filter(ReportVersion.report_id == unified.id).order_by(ReportVersion.version_no.desc()).first()
     version = ReportVersion(
         report_id=unified.id, assessment_id=None,
@@ -154,7 +165,7 @@ METRICS = [
     ("operating_cf_profit", "经营现金流利润比", "倍", lambda d: ratio(d.get("operating_cashflow"), d.get("net_profit")), (.8, .3)),
     ("cash_collection_rate", "销售收现率", "%", lambda d: pct(ratio(d.get("cash_received_sales"), d.get("revenue"))), (90, 70)),
     ("free_cashflow", "自由现金流", "元", lambda d: sub(d.get("operating_cashflow"), d.get("capex")), (0, None)),
-    ("ccc", "现金转换周期 CCC", "天", lambda d: ccc(d), (90, 150)),
+    ("ccc", "现金转换周期", "天", lambda d: ccc(d), (90, 150)),
     ("debt_ratio", "资产负债率", "%", lambda d: pct(ratio(d.get("total_debt"), d.get("total_assets"))), (60, 75)),
     ("interest_debt_ratio", "有息负债率", "%", lambda d: pct(ratio(d.get("interest_bearing_debt"), d.get("total_assets"))), (40, 60)),
     ("short_debt_ratio", "短期负债占比", "%", lambda d: pct(ratio(d.get("short_interest_debt"), d.get("interest_bearing_debt"))), (50, 70)),
@@ -219,6 +230,7 @@ def create_diagnosis(db, data, customer=None, lead=None):
     for row in risks: db.add(CashflowRiskSignal(assessment_id=assessment.id, level=row["level"], title=row["title"], detail=row["detail"]))
     for row in actions: db.add(CashflowActionItem(assessment_id=assessment.id, **row))
     content = {"title":"企业现金流健康诊断报告","generated_at":datetime.now().strftime("%Y-%m-%d"),"company_profile":{"industry":data.get("industry") or "待补充资料核验","business_scope":data.get("business_scope") or "待补充资料核验","company_type":data.get("company_type") or "待补充资料核验"},"overview":{"score":score if score is not None else "待补充资料核验","risk_level":risk_level,"runway":data["cash_runway_months"],"gap_week":data["cash_gap_week"],"gap_amount":data["cash_gap_amount"]},"metrics":metrics,"working_capital":data,"forecasts":forecasts,"risks":risks,"actions":actions,"advisor_note":"建议预约顾问，结合已上传财务资料进行核验与落地辅导。"}
+    content = enrich_cashflow_report(db, assessment, content)
     report = CashflowReport(assessment_id=assessment.id, customer_id=assessment.customer_id, content_json=json.dumps(content, ensure_ascii=False))
     db.add(report); db.flush(); version = CashflowReportVersion(report_id=report.id, version_no=1, content_json=report.content_json); db.add(version); db.flush(); report.current_version_id=version.id
     try:
@@ -231,9 +243,14 @@ def create_diagnosis(db, data, customer=None, lead=None):
         )
     db.commit(); return assessment, report, content
 
-def report_content(report):
-    try: return json.loads(report.content_json)
-    except (TypeError, ValueError): return {}
+def report_content(report, db=None):
+    try: content = json.loads(report.content_json)
+    except (TypeError, ValueError): content = {}
+    if db and report:
+        assessment = db.get(CashflowAssessment, report.assessment_id)
+        if assessment:
+            content = enrich_cashflow_report(db, assessment, content)
+    return content
 
 
 def backfill_unified_cashflow_reports(db):
@@ -245,7 +262,7 @@ def backfill_unified_cashflow_reports(db):
                 if not assessment:
                     stats["skipped"] += 1; continue
                 _, created=sync_unified_cashflow_report(
-                    db, assessment, cashflow_report, report_content(cashflow_report))
+                    db, assessment, cashflow_report, report_content(cashflow_report, db))
                 db.flush()
                 stats["created" if created else "reused"] += 1
         except Exception:

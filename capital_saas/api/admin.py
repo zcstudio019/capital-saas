@@ -13,6 +13,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from core.funnel_analytics import build_funnel_analytics
+from core.cashflow_report_summary import enrich_cashflow_report
 from core.pricing_engine import (
     PRODUCT_DEDUCTION_RULES,
     PRODUCT_RANK,
@@ -943,6 +944,7 @@ def report_detail(
         if current_version:
             try: payload=json.loads(current_version.report_json or "{}")
             except (TypeError, ValueError): payload={}
+        payload=enrich_cashflow_report(db, assessment, payload) if assessment else payload
         return templates.TemplateResponse(request=request, name="admin_cashflow_report_detail.html", context={
             "report_item":report,"assessment":assessment,"report":payload,"current_version":current_version,
             "versions":versions,"current_user":user,"report_type_name":CASHFLOW_REPORT_NAME,
@@ -1029,6 +1031,7 @@ def admin_report_preview(
         try: payload=json.loads(version.report_json or "{}")
         except (TypeError,ValueError): payload={}
         assessment=db.get(CashflowAssessment,report.cashflow_assessment_id)
+        payload=enrich_cashflow_report(db,assessment,payload) if assessment else payload
         return templates.TemplateResponse(request=request,name="cashflow_report.html",context={"assessment":assessment,"report":payload,"customer":None,"admin_view":True,"save_prompt":False,"print_mode":False})
     context = build_admin_report_preview_context(db, report, user, version_id or None)
     context.update({"request": request, "current_user": user})
@@ -1054,6 +1057,7 @@ def admin_report_print(
         try: payload=json.loads(version.report_json or "{}")
         except (TypeError,ValueError): payload={}
         assessment=db.get(CashflowAssessment,report.cashflow_assessment_id)
+        payload=enrich_cashflow_report(db,assessment,payload) if assessment else payload
         return templates.TemplateResponse(request=request,name="cashflow_report.html",context={"assessment":assessment,"report":payload,"customer":None,"admin_view":True,"save_prompt":False,"print_mode":True})
     context = build_admin_report_preview_context(db, report, user, version_id or None)
     context.update({"request": request, "current_user": user, "print_mode": True})

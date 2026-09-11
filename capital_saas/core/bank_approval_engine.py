@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass
 class BankApprovalResult:
     approval_probability: float
     estimated_credit_limit: str
+    estimated_credit_low: float
+    estimated_credit_high: float
     likely_rejection_reasons: list[str]
     bank_preference: list[str]
     application_order: list[str]
@@ -111,6 +113,8 @@ def simulate_bank_approval(data: dict, score: int) -> BankApprovalResult:
     return BankApprovalResult(
         approval_probability=probability,
         estimated_credit_limit=estimated_credit_limit,
+        estimated_credit_low=round(low, 2),
+        estimated_credit_high=round(high, 2),
         likely_rejection_reasons=rejection_reasons,
         bank_preference=list(dict.fromkeys(preference)),
         application_order=application_order,
